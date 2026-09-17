@@ -44,6 +44,8 @@ standard value, so tests don't leak customizations across each other."
          (financial-chart-svg-margin-top 40)
          (financial-chart-svg-margin-bottom 30)
          (financial-chart-svg-font-size 12)
+         (financial-chart-svg-font-family
+          "DejaVu Sans Mono, Menlo, Consolas, monospace")
          (financial-chart-svg-background nil)
          (financial-chart-svg-text-color nil)
          (financial-chart-export-directory "~/Desktop")
@@ -346,6 +348,71 @@ standard value, so tests don't leak customizations across each other."
      (should (string-match-p "<text" svg))
      (should (string-match-p "TEST" svg)))))
 
+(ert-deftest financial-chart-render-svg-uses-default-font-family-on-every-text ()
+  (financial-chart-test--with-defaults
+   (let* ((bars (financial-chart-test--bars 5))
+          (svg (financial-chart-render-svg bars "TEST")))
+     (should (string-match-p "font-family=\"DejaVu Sans Mono" svg))
+     ;; every <text> element carries a font-family, none left unstyled
+     (should
+      (cl-every
+       (lambda (chunk) (string-match-p "font-family=" chunk))
+       (cdr (split-string svg "<text")))))))
+
+(ert-deftest financial-chart-render-svg-font-family-param-overrides-defcustom ()
+  (financial-chart-test--with-defaults
+   (let* ((bars (financial-chart-test--bars 5))
+          (svg (financial-chart-render-svg bars "TEST" "Hack")))
+     (should (string-match-p "font-family=\"Hack\"" svg))
+     (should-not (string-match-p "DejaVu" svg))
+     ;; overriding via the param must not leak into the defcustom itself
+     (should (equal financial-chart-svg-font-family
+                    "DejaVu Sans Mono, Menlo, Consolas, monospace")))))
+
+(ert-deftest financial-chart-render-svg-font-family-defcustom-override ()
+  (financial-chart-test--with-defaults
+   (let* ((financial-chart-svg-font-family "Hack")
+          (bars (financial-chart-test--bars 5))
+          (svg (financial-chart-render-svg bars "TEST")))
+     (should (string-match-p "font-family=\"Hack\"" svg)))))
+
+;; -- regression: integer-division truncation in the pixel-Y mapping --
+;;
+;; `financial-chart-test--bars' (used by nearly every test above) already
+;; generates plain-integer OHLC values, yet none of those tests caught
+;; this: they all assert on SVG *structure* (rect/text counts, declared
+;; width, a font-family attribute) rather than the actual pixel geometry,
+;; so a bug that collapsed every candle but the topmost to the panel's
+;; bottom pixel produced a well-formed, plausible-looking SVG with the
+;; right element counts and passed every one of them. These two tests
+;; check real Y-coordinates specifically to close that gap.
+
+(ert-deftest financial-chart-svg-y-uses-float-division-for-integer-bounds ()
+  (financial-chart-test--with-defaults
+   (should (= (financial-chart--svg-y 97 97 130 40 400) 440.0))
+   (should (= (financial-chart--svg-y 130 97 130 40 400) 40.0))
+   ;; (/ 6 33) truncates to 0 under plain integer division, which used to
+   ;; collapse this to 440.0 (the panel bottom) instead of ~367.27
+   (let ((y (financial-chart--svg-y 103 97 130 40 400)))
+     (should (< (abs (- y 367.27)) 0.1)))))
+
+(ert-deftest financial-chart-render-svg-integer-prices-produce-distinct-wick-heights ()
+  (financial-chart-test--with-defaults
+   (let* ((financial-chart-show-volume nil)
+          (financial-chart-show-x-axis nil)
+          (bars (financial-chart-test--bars 10))
+          (svg (financial-chart-render-svg bars))
+          (y1-values
+           (delq nil
+                 (mapcar
+                  (lambda (chunk)
+                    (when (string-match "y1=\"\\([0-9.]+\\)\"" chunk)
+                      (string-to-number (match-string 1 chunk))))
+                  (split-string svg "<line ")))))
+     ;; a real price ladder produces mostly-distinct wick heights; the
+     ;; integer-division bug collapsed all but one to the same value
+     (should (> (length (delete-dups y1-values)) 5)))))
+
 (ert-deftest financial-chart-render-svg-includes-volume-and-x-axis-when-present ()
   (financial-chart-test--with-defaults
    (let* ((bars (financial-chart-test--bars 5))
@@ -400,6 +467,18 @@ standard value, so tests don't leak customizations across each other."
              (insert-file-contents file)
              (should (string-match-p "AAPL" (buffer-string)))
              (should (string-match-p "<svg" (buffer-string)))))
+       (delete-file file)))))
+
+(ert-deftest financial-chart-export-svg-font-family-param ()
+  (financial-chart-test--with-defaults
+   (let ((file (make-temp-file "financial-chart-test" nil ".svg")))
+     (unwind-protect
+         (progn
+           (financial-chart-export-svg
+            (financial-chart-test--bars 5) file "AAPL" "Hack")
+           (with-temp-buffer
+             (insert-file-contents file)
+             (should (string-match-p "font-family=\"Hack\"" (buffer-string)))))
        (delete-file file)))))
 
 ;; -- PNG export (converter mocked -- no dependency on a real rsvg-convert/

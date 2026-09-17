@@ -97,16 +97,34 @@ price scale as the candles; each non-nil value is drawn at its row.
 Empty by default (no overlays drawn unless you configure one):
 
 ```elisp
-(defun my-sma (bars &optional window)
-  (let ((window (or window 20)) (closes (mapcar (lambda (b) (plist-get b :close)) bars)))
-    (cl-loop for i from 0 below (length closes)
-             collect (if (< i (1- window)) nil
-                       (/ (apply #'+ (cl-subseq closes (- i window -1) (1+ i))) (float window))))))
-
 (setq financial-chart-indicators
-      (list (list :fn (lambda (bars) (my-sma bars 20))
-                  :face 'font-lock-keyword-face :glyph ?•)))
+      (list (list :fn (lambda (bars) (financial-chart-sma bars 20))
+                  :face 'font-lock-keyword-face)))
 ```
+
+## Built-in indicators
+
+- `financial-chart-sma`/`-ema` `(bars &optional window field)` — moving
+  average of `:close` (or `FIELD`) over `WINDOW` bars (default 20). On
+  the price scale — use directly as a `financial-chart-indicators` `:fn`.
+- `financial-chart-vwap` `(bars)` — cumulative volume-weighted average
+  price (typical price × volume). Also on the price scale, also a
+  direct `:fn`. VWAP conventionally resets daily — pass one session's
+  bars, not a multi-day history, unless you deliberately want a running
+  VWAP across the whole window.
+- `financial-chart-rsi` `(bars &optional period field)` — simple-average
+  RSI (default period 14), values in [0,100]. **Not** on the price
+  scale — do not pass it straight to `financial-chart-indicators`, it
+  will render invisible or nonsensical against the price panel's own
+  axis. Call it directly for a table/memo, or build a separate
+  oscillator sub-panel with its own 0-100 scale (analogous to the
+  volume panel) if you want it charted.
+
+None of these are native to Schwab's or Alpaca's APIs — both give raw
+OHLCV only (Alpaca's bars do include a native `vw` VWAP field per bar,
+`(alist-get 'vw bar)`, if you'd rather use the broker's own number than
+recompute it). RSI is never native to any broker API; it's always
+computed from closes, here or anywhere else.
 
 ## SVG / PNG export
 

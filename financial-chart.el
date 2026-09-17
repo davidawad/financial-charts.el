@@ -388,6 +388,118 @@ at bar INDEX, or nil when none do."
     result))
 
 ;; -----------------------------------------------------------------------
+;; Built-in indicator functions -- ready-made `:fn' values for
+;; `financial-chart-indicators'.
+;;
+;; SMA/EMA/VWAP are on the same price scale as the candles (dollars, or
+;; whatever unit :open/:high/:low/:close are in) and overlay directly:
+;;
+;;   (setq financial-chart-indicators
+;;         (list (list :fn #'financial-chart-sma :face 'font-lock-keyword-face)))
+;;
+;; RSI is a 0-100 oscillator, NOT on the price scale -- see its own
+;; docstring below before reaching for it as an overlay.
+;; -----------------------------------------------------------------------
+
+(defun financial-chart-sma (bars &optional window field)
+  "Simple moving average of BARS' FIELD (default :close) over WINDOW
+bars (default 20). Returns a list the same length as BARS: nil for the
+first WINDOW-1 entries (not enough data yet), then the trailing mean."
+  (let* ((window (or window 20))
+         (field (or field :close))
+         (values (mapcar (lambda (b) (plist-get b field)) bars))
+         (n (length values)))
+    (cl-loop for i from 0 below n
+             collect
+             (if (< i (1- window))
+                 nil
+               (/ (apply #'+ (cl-subseq values (- i window -1) (1+ i)))
+                  (float window))))))
+
+(defun financial-chart-ema (bars &optional window field)
+  "Exponential moving average of BARS' FIELD (default :close) over
+WINDOW bars (default 20), seeded with a simple average of the first
+WINDOW values. Returns a list the same length as BARS: nil for the
+first WINDOW-1 entries."
+  (let* ((window (or window 20))
+         (field (or field :close))
+         (values (mapcar (lambda (b) (plist-get b field)) bars))
+         (n (length values))
+         (alpha (/ 2.0 (1+ window)))
+         (result (make-list n nil))
+         (prev nil))
+    (cl-loop
+     for i from 0 below n
+     do
+     (cond
+      ((< i (1- window)) nil)
+      ((= i (1- window))
+       (setq prev (/ (apply #'+ (cl-subseq values 0 window)) (float window)))
+       (setf (nth i result) prev))
+      (t
+       (setq prev (+ (* alpha (nth i values)) (* (- 1 alpha) prev)))
+       (setf (nth i result) prev))))
+    result))
+
+(defun financial-chart-rsi (bars &optional period field)
+  "Simple-average RSI of BARS' FIELD (default :close) over PERIOD bars
+\(default 14). Returns a list the same length as BARS, values in
+[0,100]; nil for the first bar (no prior value to diff against) and
+for any bar before PERIOD changes have accumulated.
+
+RSI is NOT on the same scale as price (0-100, vs. actual price levels)
+-- do not pass this directly as a `financial-chart-indicators' :fn; it
+will render invisible or nonsensical overlaid on the price panel's own
+price-based Y-axis. Use it for a table/memo (see investment-memo.el's
+option snapshot for the pattern), or build a separate oscillator
+sub-panel with its own 0-100 scale, analogous to the volume panel."
+  (let* ((period (or period 14))
+         (field (or field :close))
+         (values (mapcar (lambda (b) (plist-get b field)) bars))
+         (n (length values))
+         (changes
+          (cl-loop for i from 1 below n
+                   collect (- (nth i values) (nth (1- i) values)))))
+    (cons
+     nil
+     (cl-loop
+      for i from 0 below (length changes)
+      collect
+      (if (< i (1- period))
+          nil
+        (let* ((window (cl-subseq changes (- i period -1) (1+ i)))
+               (gains (cl-loop for c in window when (> c 0) sum c))
+               (losses (cl-loop for c in window when (< c 0) sum (- c)))
+               (avg-gain (/ gains (float period)))
+               (avg-loss (/ losses (float period))))
+          (if (zerop avg-loss)
+              100.0
+            (- 100.0 (/ 100.0 (1+ (/ avg-gain avg-loss)))))))))))
+
+(defun financial-chart-vwap (bars)
+  "Cumulative volume-weighted average price over BARS, using typical
+price ((high+low+close)/3) per bar.
+
+VWAP conventionally resets every session -- pass one day's worth of
+intraday bars for a real session VWAP, not a multi-day history, unless
+you deliberately want a running VWAP across the whole window. Returns a
+list the same length as BARS; nil for any bar with no :volume."
+  (let ((cum-pv 0.0) (cum-vol 0.0))
+    (mapcar
+     (lambda (b)
+       (let ((vol (plist-get b :volume)))
+         (if (not vol)
+             nil
+           (let ((typical
+                  (/ (+ (plist-get b :high) (plist-get b :low)
+                       (plist-get b :close))
+                     3.0)))
+             (setq cum-pv (+ cum-pv (* typical vol)))
+             (setq cum-vol (+ cum-vol vol))
+             (if (zerop cum-vol) nil (/ cum-pv cum-vol))))))
+     bars)))
+
+;; -----------------------------------------------------------------------
 ;; Price panel
 ;; -----------------------------------------------------------------------
 

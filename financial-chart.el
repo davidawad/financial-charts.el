@@ -634,6 +634,20 @@ other aspect of rendering is configured."
   :type 'integer
   :group 'financial-chart)
 
+(defcustom financial-chart-svg-font-family
+  "DejaVu Sans Mono, Menlo, Consolas, monospace"
+  "CSS font-family value for all text in the SVG renderer.
+This package's own default is a sensible, widely-available open-source
+monospace stack (DejaVu Sans Mono, with common platform fallbacks and a
+generic `monospace' as the last resort) -- it doesn't assume any one
+specific font is installed on whatever machine ends up rasterizing the
+SVG. Set this to your own preferred font machine-wide (e.g. `(setq
+financial-chart-svg-font-family \"Hack\")'), or pass FONT-FAMILY to
+`financial-chart-render-svg'/`-export-svg'/`-export-png' to override it
+for one call."
+  :type 'string
+  :group 'financial-chart)
+
 (defcustom financial-chart-svg-background nil
   "Background color for the SVG renderer, or nil to use the current
 `default' face's background (theme-aware)."
@@ -733,7 +747,13 @@ regardless of whether a theme is loaded."
 (defun financial-chart--svg-y (value min max panel-y panel-height)
   "Map scale-space VALUE in [MIN,MAX] to a pixel Y within a panel
 spanning [PANEL-Y, PANEL-Y+PANEL-HEIGHT), Y growing downward."
-  (+ panel-y (* panel-height (- 1.0 (/ (- value min) (- max min))))))
+  ;; (float ...) on the numerator is load-bearing: MIN/MAX/VALUE are
+  ;; frequently plain integers (any bar data using whole-number prices),
+  ;; and Elisp's `/' truncates on all-integer operands -- (/ 6 33) is 0,
+  ;; not 0.18 -- which collapsed every candle but the topmost to the
+  ;; panel's bottom pixel until this was caught by testing with integer
+  ;; OHLC values.
+  (+ panel-y (* panel-height (- 1.0 (/ (float (- value min)) (- max min))))))
 
 (defun financial-chart--svg-price-panel (svg bars min max panel-y panel-h
                                              text-color indicator-series)
@@ -745,6 +765,7 @@ overlays) into SVG."
       (svg-text svg (string-trim (format financial-chart-axis-format
                                         (financial-chart--from-scale value)))
                :x 5 :y (+ y 4) :fill text-color
+               :font-family financial-chart-svg-font-family
                :font-size financial-chart-svg-font-size)))
   (cl-loop
    for i from 0
@@ -802,7 +823,8 @@ overlays) into SVG."
       (let ((y (financial-chart--svg-y value 0.0 max-vol panel-y panel-h)))
         (svg-text svg (string-trim (format financial-chart-volume-axis-format value))
                  :x 5 :y (+ y 4) :fill text-color
-                 :font-size financial-chart-svg-font-size)))
+                 :font-size financial-chart-svg-font-size
+                 :font-family financial-chart-svg-font-family)))
     (cl-loop
      for i from 0
      for bar in bars
@@ -833,17 +855,21 @@ overlays) into SVG."
           (svg-text svg (format-time-string financial-chart-x-axis-format
                                             (/ time 1000.0))
                    :x (financial-chart--svg-x i) :y (+ axis-y 15)
-                   :fill text-color :font-size financial-chart-svg-font-size))))))
+                   :fill text-color :font-size financial-chart-svg-font-size
+                   :font-family financial-chart-svg-font-family))))))
 
 ;;;###autoload
-(defun financial-chart-render-svg (bars &optional title)
+(defun financial-chart-render-svg (bars &optional title font-family)
   "Render BARS as a real vector SVG candlestick chart, returned as an
 XML string. Shares `financial-chart-render''s configuration surface
 \(bar windowing, colors, scale, volume panel, X-axis, indicators) plus
-its own `financial-chart-svg-*' size/margin/color knobs."
+its own `financial-chart-svg-*' size/margin/color knobs. FONT-FAMILY
+overrides `financial-chart-svg-font-family' for this call only."
   (unless bars
     (user-error "financial-chart-render-svg: no bars to render"))
-  (let* ((bars (financial-chart--window-bars bars))
+  (let* ((financial-chart-svg-font-family
+          (or font-family financial-chart-svg-font-family))
+         (bars (financial-chart--window-bars bars))
          (n (length bars))
          (range (financial-chart--bars-range bars))
          (min (car range))
@@ -878,6 +904,7 @@ its own `financial-chart-svg-*' size/margin/color knobs."
       (svg-text svg title :x financial-chart-svg-margin-left :y 20
                :fill text-color
                :font-size (+ 2 financial-chart-svg-font-size)
+               :font-family financial-chart-svg-font-family
                :font-weight "bold"))
     (financial-chart--svg-price-panel
      svg bars min max price-y price-h text-color indicator-series)
@@ -890,10 +917,11 @@ its own `financial-chart-svg-*' size/margin/color knobs."
       (buffer-string))))
 
 ;;;###autoload
-(defun financial-chart-export-svg (bars file &optional title)
-  "Write BARS as an SVG candlestick chart to FILE. Returns FILE."
+(defun financial-chart-export-svg (bars file &optional title font-family)
+  "Write BARS as an SVG candlestick chart to FILE. Returns FILE.
+FONT-FAMILY overrides `financial-chart-svg-font-family' for this call."
   (with-temp-file file
-    (insert (financial-chart-render-svg bars title)))
+    (insert (financial-chart-render-svg bars title font-family)))
   file)
 
 (defun financial-chart--resolve-png-converter ()
@@ -920,19 +948,21 @@ its own `financial-chart-svg-*' size/margin/color knobs."
         (user-error "financial-chart-export-png: %s exited %s" converter status)))))
 
 ;;;###autoload
-(defun financial-chart-export-png (bars file &optional title width height)
+(defun financial-chart-export-png (bars file &optional title width height
+                                        font-family)
   "Write BARS as a PNG candlestick chart to FILE.
 Renders to SVG first (`financial-chart-export-svg') then rasterizes via
 `financial-chart-png-converter' -- the one place this file shells out
 to an external process, because rasterizing vector graphics isn't
 something Elisp can do on its own. WIDTH/HEIGHT (pixels) are passed to
-the converter when it supports them (currently: rsvg-convert). Returns
-FILE."
+the converter when it supports them (currently: rsvg-convert).
+FONT-FAMILY overrides `financial-chart-svg-font-family' for this call.
+Returns FILE."
   (let ((svg-file (make-temp-file "financial-chart" nil ".svg"))
         (converter (financial-chart--resolve-png-converter)))
     (unwind-protect
         (progn
-          (financial-chart-export-svg bars svg-file title)
+          (financial-chart-export-svg bars svg-file title font-family)
           (if (functionp converter)
               (funcall converter svg-file file)
             (financial-chart--run-png-converter

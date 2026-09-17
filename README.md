@@ -113,6 +113,12 @@ Empty by default (no overlays drawn unless you configure one):
 ```elisp
 (financial-chart-export-svg bars "chart.svg" "MY SYMBOL")   ; pure Elisp
 (financial-chart-export-png bars "chart.png" "MY SYMBOL")   ; shells out to rasterize
+
+;; override the font for one call:
+(financial-chart-export-png bars "chart.png" "MY SYMBOL" nil nil "Hack")
+
+;; or set it machine-wide, e.g. in your init file:
+(setq financial-chart-svg-font-family "Hack")
 ```
 
 `financial-chart-render-svg` returns the SVG as a string, if you want it
@@ -124,6 +130,15 @@ volume panel, X-axis, indicators) plus its own size/margin knobs
 `-font-size`) and background/text color overrides
 (`financial-chart-svg-background`/`-text-color`, both nil by default —
 derived from your current theme).
+
+**Font:** `financial-chart-svg-font-family` defaults to a widely-available
+open-source monospace stack (`"DejaVu Sans Mono, Menlo, Consolas,
+monospace"`) that doesn't assume any one specific font is installed on
+whatever machine ends up rasterizing the SVG. Set it to your own
+preferred font for every chart (`(setq financial-chart-svg-font-family
+"Hack")`), or pass a `FONT-FAMILY` argument to `financial-chart-render-svg`/
+`-export-svg`/`-export-png` to override it for one call only, e.g.
+`(financial-chart-export-png bars file title nil nil "Hack")`.
 
 `financial-chart-export-png` renders to SVG first, then rasterizes via
 `financial-chart-png-converter` (nil auto-detects `rsvg-convert` /

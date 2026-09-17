@@ -577,5 +577,91 @@ standard value, so tests don't leak customizations across each other."
                (should (string-match-p "AAPL" (buffer-string)))))
          (delete-file file))))))
 
+;; -- built-in indicator functions --
+
+(defun financial-chart-test--close-bars (closes)
+  "Minimal bars with only :close set, for SMA/EMA/RSI tests."
+  (mapcar (lambda (c) (list :close c)) closes))
+
+(ert-deftest financial-chart-sma-nil-during-warmup-then-trailing-mean ()
+  (let ((sma (financial-chart-sma
+              (financial-chart-test--close-bars '(1 2 3 4 5)) 3)))
+    (should (equal (nth 0 sma) nil))
+    (should (equal (nth 1 sma) nil))
+    (should (= (nth 2 sma) 2.0))
+    (should (= (nth 3 sma) 3.0))
+    (should (= (nth 4 sma) 4.0))))
+
+(ert-deftest financial-chart-sma-respects-custom-field ()
+  (let* ((bars (list '(:close 1 :open 10) '(:close 2 :open 20) '(:close 3 :open 30)))
+         (sma (financial-chart-sma bars 2 :open)))
+    (should (equal (nth 0 sma) nil))
+    (should (= (nth 1 sma) 15.0))
+    (should (= (nth 2 sma) 25.0))))
+
+(ert-deftest financial-chart-ema-seeds-with-sma-then-smooths ()
+  (let ((ema (financial-chart-ema
+              (financial-chart-test--close-bars '(1 2 3 4 5)) 3)))
+    (should (equal (nth 0 ema) nil))
+    (should (equal (nth 1 ema) nil))
+    (should (= (nth 2 ema) 2.0))
+    (should (= (nth 3 ema) 3.0))
+    (should (= (nth 4 ema) 4.0))))
+
+(ert-deftest financial-chart-rsi-matches-hand-computed-example ()
+  ;; closes 10,11,12,11,13 -> changes +1,+1,-1,+2 ; period 3
+  (let ((rsi (financial-chart-rsi
+              (financial-chart-test--close-bars '(10 11 12 11 13)) 3)))
+    (should (equal (nth 0 rsi) nil))
+    (should (equal (nth 1 rsi) nil))
+    (should (equal (nth 2 rsi) nil))
+    ;; window [+1,+1,-1]: avg-gain=2/3, avg-loss=1/3, RS=2 -> RSI=66.667
+    (should (< (abs (- (nth 3 rsi) 66.6667)) 0.01))
+    ;; window [+1,-1,+2]: avg-gain=1.0, avg-loss=1/3, RS=3 -> RSI=75.0
+    (should (< (abs (- (nth 4 rsi) 75.0)) 0.01))))
+
+(ert-deftest financial-chart-rsi-is-100-when-no-losses-in-window ()
+  (let ((rsi (financial-chart-rsi
+              (financial-chart-test--close-bars '(10 11 12 13)) 2)))
+    (should (= (nth 3 rsi) 100.0))))
+
+(ert-deftest financial-chart-rsi-stays-within-0-100-bounds ()
+  (let ((rsi (financial-chart-rsi
+              (financial-chart-test--close-bars
+               '(100 95 110 88 120 80 130 70 140 60 150))
+              3)))
+    (dolist (v rsi)
+      (when v
+        (should (>= v 0.0))
+        (should (<= v 100.0))))))
+
+(ert-deftest financial-chart-vwap-matches-hand-computed-example ()
+  (let* ((bars (list '(:high 10 :low 8 :close 9 :volume 100)
+                     '(:high 12 :low 10 :close 11 :volume 200)))
+         (vwap (financial-chart-vwap bars)))
+    ;; bar1: typical=(10+8+9)/3=9, cum_pv=900, cum_vol=100 -> 9.0
+    (should (< (abs (- (nth 0 vwap) 9.0)) 0.001))
+    ;; bar2: typical=11, cum_pv=900+2200=3100, cum_vol=300 -> 10.3333
+    (should (< (abs (- (nth 1 vwap) 10.3333)) 0.001))))
+
+(ert-deftest financial-chart-vwap-nil-for-bars-without-volume ()
+  (let* ((bars (list '(:high 10 :low 8 :close 9)
+                     '(:high 12 :low 10 :close 11 :volume 200)))
+         (vwap (financial-chart-vwap bars)))
+    (should (equal (nth 0 vwap) nil))
+    (should (numberp (nth 1 vwap)))))
+
+(ert-deftest financial-chart-sma-usable-directly-as-indicator-overlay ()
+  ;; Confirms the documented usage pattern actually works end to end.
+  (financial-chart-test--with-defaults
+   (let* ((financial-chart-show-volume nil)
+          (financial-chart-show-x-axis nil)
+          (financial-chart-indicators
+           (list (list :fn (lambda (bars) (financial-chart-sma bars 3))
+                       :face 'font-lock-keyword-face)))
+          (bars (financial-chart-test--bars 10))
+          (svg (financial-chart-render-svg bars)))
+     (should (string-match-p "<polyline" svg)))))
+
 (provide 'financial-chart-test)
 ;;; financial-chart-test.el ends here

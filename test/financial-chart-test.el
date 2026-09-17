@@ -33,7 +33,21 @@ standard value, so tests don't leak customizations across each other."
          (financial-chart-show-x-axis t)
          (financial-chart-x-axis-label-count 4)
          (financial-chart-x-axis-format "%m/%d")
-         (financial-chart-indicators nil))
+         (financial-chart-indicators nil)
+         (financial-chart-svg-candle-width 6)
+         (financial-chart-svg-candle-gap 3)
+         (financial-chart-svg-wick-width 1)
+         (financial-chart-svg-price-height 400)
+         (financial-chart-svg-volume-height 100)
+         (financial-chart-svg-margin-left 55)
+         (financial-chart-svg-margin-right 20)
+         (financial-chart-svg-margin-top 40)
+         (financial-chart-svg-margin-bottom 30)
+         (financial-chart-svg-font-size 12)
+         (financial-chart-svg-background nil)
+         (financial-chart-svg-text-color nil)
+         (financial-chart-export-directory "~/Desktop")
+         (financial-chart-png-converter nil))
      ,@body))
 
 (defun financial-chart-test--bars (n)
@@ -315,6 +329,174 @@ standard value, so tests don't leak customizations across each other."
                     financial-chart-schwab-default-frequency-type))
      (should (equal (plist-get merged :frequency)
                     financial-chart-schwab-default-frequency)))))
+
+;; -- SVG rendering --
+
+(ert-deftest financial-chart-render-svg-errors-on-no-bars ()
+  (financial-chart-test--with-defaults
+   (should-error (financial-chart-render-svg nil) :type 'user-error)))
+
+(ert-deftest financial-chart-render-svg-produces-well-formed-xml ()
+  (financial-chart-test--with-defaults
+   (let* ((bars (financial-chart-test--bars 5))
+          (svg (financial-chart-render-svg bars "TEST")))
+     (should (string-prefix-p "<svg" (string-trim svg)))
+     (should (string-suffix-p "</svg>" (string-trim svg)))
+     (should (string-match-p "<rect" svg))
+     (should (string-match-p "<text" svg))
+     (should (string-match-p "TEST" svg)))))
+
+(ert-deftest financial-chart-render-svg-includes-volume-and-x-axis-when-present ()
+  (financial-chart-test--with-defaults
+   (let* ((bars (financial-chart-test--bars 5))
+          (svg (financial-chart-render-svg bars)))
+     ;; 5 bars * 2 candles-worth of rects (body) + volume bars = at least 10
+     (should (>= (cl-count-if (lambda (_) t) (split-string svg "<rect")) 10))
+     ;; a date-formatted label like "01/01" should appear on the X-axis
+     (should (string-match-p "[0-9][0-9]/[0-9][0-9]" svg)))))
+
+(ert-deftest financial-chart-render-svg-omits-volume-without-volume-data ()
+  (financial-chart-test--with-defaults
+   (let* ((bars (list '(:open 1 :high 2 :low 0 :close 1)
+                      '(:open 1 :high 2 :low 0 :close 1)))
+          (with-volume (financial-chart-render-svg (financial-chart-test--bars 5)))
+          (without-volume (financial-chart-render-svg bars)))
+     (should (string-match-p "[0-9][0-9]/[0-9][0-9]" with-volume))
+     ;; fewer rects: no volume-panel bars for a 2-bar chart with no :volume
+     (should (< (length without-volume) (length with-volume))))))
+
+(ert-deftest financial-chart-render-svg-respects-custom-margins-and-size ()
+  (financial-chart-test--with-defaults
+   (let* ((financial-chart-svg-margin-left 100)
+          (financial-chart-svg-candle-width 20)
+          (bars (financial-chart-test--bars 3))
+          (svg (financial-chart-render-svg bars))
+          (expected-width
+           (+ financial-chart-svg-margin-left financial-chart-svg-margin-right
+              (* 3 (+ financial-chart-svg-candle-width
+                     financial-chart-svg-candle-gap)))))
+     (should
+      (string-match-p (format "width=\"%d\"" expected-width) svg)))))
+
+(ert-deftest financial-chart-render-svg-draws-indicator-polyline ()
+  (financial-chart-test--with-defaults
+   (let* ((financial-chart-indicators
+           (list (list :fn (lambda (bars) (make-list (length bars) 100.0))
+                       :face 'success)))
+          (bars (financial-chart-test--bars 5))
+          (svg (financial-chart-render-svg bars)))
+     (should (string-match-p "<polyline" svg)))))
+
+;; -- SVG export --
+
+(ert-deftest financial-chart-export-svg-writes-file ()
+  (financial-chart-test--with-defaults
+   (let ((file (make-temp-file "financial-chart-test" nil ".svg")))
+     (unwind-protect
+         (progn
+           (financial-chart-export-svg (financial-chart-test--bars 5) file "AAPL")
+           (should (file-exists-p file))
+           (with-temp-buffer
+             (insert-file-contents file)
+             (should (string-match-p "AAPL" (buffer-string)))
+             (should (string-match-p "<svg" (buffer-string)))))
+       (delete-file file)))))
+
+;; -- PNG export (converter mocked -- no dependency on a real rsvg-convert/
+;; ImageMagick install being present on the test machine) --
+
+(ert-deftest financial-chart-export-png-invokes-function-converter ()
+  (financial-chart-test--with-defaults
+   (let* ((calls nil)
+          (svg-existed-at-call-time nil)
+          (financial-chart-png-converter
+           (lambda (svg-file png-file)
+             (push (cons svg-file png-file) calls)
+             (setq svg-existed-at-call-time (file-exists-p svg-file))
+             (with-temp-file png-file (insert "fake-png-bytes"))))
+          (out-file (make-temp-file "financial-chart-test" nil ".png")))
+     (unwind-protect
+         (progn
+           (financial-chart-export-png (financial-chart-test--bars 3) out-file "AAPL")
+           (should (= (length calls) 1))
+           ;; the intermediate .svg existed at call time (it's deleted by
+           ;; export-png's own unwind-protect right after this returns)
+           (should svg-existed-at-call-time)
+           (should (equal (cdar calls) out-file))
+           (with-temp-buffer
+             (insert-file-contents out-file)
+             (should (equal (buffer-string) "fake-png-bytes"))))
+       (delete-file out-file)))))
+
+(ert-deftest financial-chart-export-png-cleans-up-intermediate-svg ()
+  (financial-chart-test--with-defaults
+   (let* ((captured-svg-file nil)
+          (financial-chart-png-converter
+           (lambda (svg-file png-file)
+             (setq captured-svg-file svg-file)
+             (with-temp-file png-file (insert "x"))))
+          (out-file (make-temp-file "financial-chart-test" nil ".png")))
+     (unwind-protect
+         (progn
+           (financial-chart-export-png (financial-chart-test--bars 3) out-file)
+           (should-not (file-exists-p captured-svg-file)))
+       (delete-file out-file)))))
+
+(ert-deftest financial-chart-resolve-png-converter-errors-when-none-found ()
+  (financial-chart-test--with-defaults
+   (cl-letf (((symbol-function 'executable-find) (lambda (_) nil)))
+     (should-error (financial-chart--resolve-png-converter) :type 'user-error))))
+
+(ert-deftest financial-chart-resolve-png-converter-auto-detect-uses-real-executable-find ()
+  ;; Regression test: `executable-find' takes a STRING, and the auto-detect
+  ;; list is a list of SYMBOLS -- a prior version passed symbols straight
+  ;; through and errored with "wrong-type-argument stringp" the moment a
+  ;; converter actually needed to be found (every mocked test above hid
+  ;; this, since none of them exercised the real `executable-find').
+  ;; Deliberately does NOT mock `executable-find', so this only proves
+  ;; anything on a machine with at least one of rsvg-convert/convert/magick
+  ;; installed -- skip rather than false-negative if none are present.
+  (financial-chart-test--with-defaults
+   (if (cl-some #'executable-find '("rsvg-convert" "convert" "magick"))
+       (should (memq (financial-chart--resolve-png-converter)
+                     '(rsvg-convert convert magick)))
+     (ert-skip "no rsvg-convert/convert/magick on this machine"))))
+
+(ert-deftest financial-chart-resolve-png-converter-prefers-explicit-setting ()
+  (financial-chart-test--with-defaults
+   (let ((financial-chart-png-converter 'magick))
+     (should (eq (financial-chart--resolve-png-converter) 'magick)))))
+
+;; -- Schwab SVG/PNG export bridge --
+
+(ert-deftest financial-chart-schwab-export-svg-errors-without-schwab-broker-loaded ()
+  (should-not (fboundp 'schwab-broker-price-history-sync))
+  (should-error (financial-chart-schwab-export-svg "AAPL" "/tmp/x.svg")
+                :type 'user-error))
+
+(ert-deftest financial-chart-schwab-export-png-errors-without-schwab-broker-loaded ()
+  (should-not (fboundp 'schwab-broker-price-history-sync))
+  (should-error (financial-chart-schwab-export-png "AAPL" "/tmp/x.png")
+                :type 'user-error))
+
+(ert-deftest financial-chart-schwab-export-svg-writes-real-file-with-mocked-schwab ()
+  (financial-chart-test--with-defaults
+   (cl-letf (((symbol-function 'schwab-broker-price-history-sync)
+              (lambda (&rest _)
+                '((symbol . "AAPL")
+                  (candles
+                   .
+                   (((open . 100) (high . 105) (low . 99) (close . 103)
+                     (volume . 1000) (datetime . 0))))))))
+     (let ((file (make-temp-file "financial-chart-test" nil ".svg")))
+       (unwind-protect
+           (progn
+             (financial-chart-schwab-export-svg "AAPL" file)
+             (should (file-exists-p file))
+             (with-temp-buffer
+               (insert-file-contents file)
+               (should (string-match-p "AAPL" (buffer-string)))))
+         (delete-file file))))))
 
 (provide 'financial-chart-test)
 ;;; financial-chart-test.el ends here

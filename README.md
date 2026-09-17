@@ -1,11 +1,19 @@
 # financial-chart.el
 
-A pure-Elisp OHLC candlestick chart renderer, built entirely on Emacs's
-own display engine — no gnuplot, no image/PNG generation, no external
-process. Renders directly into a buffer using unicode box-drawing and
-block characters at half-block vertical resolution, with `propertize`
-faces for up/down coloring. Requires Emacs 27.1+ (for `propertize`
-face support on unicode glyphs; no other version-specific features).
+A pure-Elisp OHLC candlestick chart renderer, two output forms:
+
+1. **In-buffer** — unicode box-drawing/block characters at half-block
+   vertical resolution, `propertize` faces for up/down coloring. No
+   gnuplot, no external process.
+2. **SVG/PNG** — a real vector chart (actual rectangles and lines, not
+   glyphs), built with Emacs's own `svg.el`. Still no external process
+   for the SVG itself; PNG export shells out to whichever of
+   `rsvg-convert`/ImageMagick is installed, because rasterizing vector
+   graphics genuinely isn't something Elisp can do on its own.
+
+Both share the same configuration surface and the same data-prep code
+(bar windowing, scale conversion, price range), so they can't drift out
+of sync with each other. Requires Emacs 27.1+.
 
 Data-source agnostic: the renderer takes a plain list of
 `(:open :high :low :close &optional :volume :time)` plists, oldest bar
@@ -100,18 +108,55 @@ Empty by default (no overlays drawn unless you configure one):
                   :face 'font-lock-keyword-face :glyph ?•)))
 ```
 
+## SVG / PNG export
+
+```elisp
+(financial-chart-export-svg bars "chart.svg" "MY SYMBOL")   ; pure Elisp
+(financial-chart-export-png bars "chart.png" "MY SYMBOL")   ; shells out to rasterize
+```
+
+`financial-chart-render-svg` returns the SVG as a string, if you want it
+without writing a file (e.g. to embed in HTML). The SVG renderer shares
+`financial-chart-render`'s configuration (bar window, colors, scale,
+volume panel, X-axis, indicators) plus its own size/margin knobs
+(`financial-chart-svg-candle-width`/`-gap`, `-price-height`,
+`-volume-height`, `-margin-left`/`-right`/`-top`/`-bottom`,
+`-font-size`) and background/text color overrides
+(`financial-chart-svg-background`/`-text-color`, both nil by default —
+derived from your current theme).
+
+`financial-chart-export-png` renders to SVG first, then rasterizes via
+`financial-chart-png-converter` (nil auto-detects `rsvg-convert` /
+ImageMagick's `convert`/`magick` via `executable-find`, in that order;
+set it to a symbol to force one, or to a function of `(SVG-FILE
+PNG-FILE)` to convert some other way entirely). This is the one place
+in this file that shells out to an external process.
+
+**Themeless-session fallback colors:** if a face's color can't be
+resolved to anything real (Emacs's literal `"unspecified"` placeholder
+— happens in `emacs -Q --batch`, CI, or any session with no theme
+loaded), the SVG/PNG renderer falls back to
+`financial-chart-svg-fallback-foreground`/`-background`/`-up-color`/
+`-down-color` instead of silently passing garbage into the SVG (which
+rasterizes as a solid black image). A themed GUI session never hits
+this path — your actual theme colors are used.
+
 ## Schwab bridge
 
 If [schwab-broker.el](https://github.com/davidawad/schwab-broker.el)
-is loaded, `financial-chart-schwab-view` fetches real price history and
-renders it directly:
+is loaded:
 
 ```elisp
 (financial-chart-schwab-view
  "AAPL" :period-type "day" :period 5 :frequency-type "minute" :frequency 5)
+(financial-chart-schwab-export-svg "AAPL" "aapl.svg")
+(financial-chart-schwab-export-png "AAPL" "aapl.png")
 ```
 
-`M-x financial-chart-schwab-view` (just a symbol prompt) uses
+fetch real price history and render/export it directly.
+`M-x financial-chart-schwab-view`/`-export-svg`/`-export-png` (a symbol
+prompt, plus a file prompt for the export commands, defaulting under
+`financial-chart-export-directory` — `~/Desktop` by default) use
 `financial-chart-schwab-default-period-type`/`-period`/
 `-frequency-type`/`-frequency` (default: 1 month of daily bars) for
 whichever keys you don't supply — each explicit key you pass overrides

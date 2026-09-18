@@ -592,36 +592,57 @@ returns two synthetic bar/v1 plists and records its call + received
    (let ((financial-chart-png-converter 'magick))
      (should (eq (financial-chart--resolve-png-converter) 'magick)))))
 
-;; -- Schwab SVG/PNG export bridge --
+;; -- provider-agnostic SVG/PNG export + doctor hook --
 
-(ert-deftest financial-chart-schwab-export-svg-errors-without-schwab-broker-loaded ()
-  (should-not (fboundp 'schwab-broker-price-history-sync))
-  (should-error (financial-chart-schwab-export-svg "AAPL" "/tmp/x.svg")
+(ert-deftest financial-chart-export-symbol-svg-errors-without-market-data ()
+  (should-not (fboundp 'market-data-bars))
+  (should-error (financial-chart-export-symbol-svg "AAPL" "/tmp/x.svg")
                 :type 'user-error))
 
-(ert-deftest financial-chart-schwab-export-png-errors-without-schwab-broker-loaded ()
-  (should-not (fboundp 'schwab-broker-price-history-sync))
-  (should-error (financial-chart-schwab-export-png "AAPL" "/tmp/x.png")
-                :type 'user-error))
-
-(ert-deftest financial-chart-schwab-export-svg-writes-real-file-with-mocked-schwab ()
+(ert-deftest financial-chart-export-symbol-svg-writes-file-with-provenance-title ()
   (financial-chart-test--with-defaults
-   (cl-letf (((symbol-function 'schwab-broker-price-history-sync)
-              (lambda (&rest _)
-                '((symbol . "AAPL")
-                  (candles
-                   .
-                   (((open . 100) (high . 105) (low . 99) (close . 103)
-                     (volume . 1000) (datetime . 0))))))))
-     (let ((file (make-temp-file "financial-chart-test" nil ".svg")))
-       (unwind-protect
-           (progn
-             (financial-chart-schwab-export-svg "AAPL" file)
-             (should (file-exists-p file))
-             (with-temp-buffer
-               (insert-file-contents file)
-               (should (string-match-p "AAPL" (buffer-string)))))
-         (delete-file file))))))
+   (financial-chart-test--with-mock-market-data
+    (let ((file (make-temp-file "financial-chart-test" nil ".svg")))
+      (unwind-protect
+          (progn
+            (financial-chart-export-symbol-svg "aapl" file)
+            (should financial-chart-test--md-bars-called)
+            (should (file-exists-p file))
+            (with-temp-buffer
+              (insert-file-contents file)
+              (let ((s (buffer-string)))
+                (should (string-match-p "AAPL" s))
+                ;; provenance title stamped into the SVG
+                (should (string-match-p "schwab" s)))))
+        (delete-file file))))))
+
+(ert-deftest financial-chart-schwab-export-fns-are-obsolete-aliases ()
+  ;; deprecation, not deletion: both export wrappers still fbound + obsolete-marked
+  (should (fboundp 'financial-chart-schwab-export-svg))
+  (should (get 'financial-chart-schwab-export-svg 'byte-obsolete-info))
+  (should (fboundp 'financial-chart-schwab-export-png))
+  (should (get 'financial-chart-schwab-export-png 'byte-obsolete-info)))
+
+(ert-deftest financial-chart-doctor-checks-shape-and-loadable ()
+  (financial-chart-test--with-defaults
+   (let ((checks (financial-chart-doctor-checks)))
+     ;; every entry is (LABEL . CHECK-FN)
+     (should (cl-every (lambda (c) (and (stringp (car c)) (functionp (cdr c))))
+                       checks))
+     ;; package-loadable check passes (financial-chart is required here)
+     (let ((res (funcall (cdr (assoc "financial-chart package loadable" checks)))))
+       (should (plist-get res :ok)))
+     ;; with a provider available (mocked), the bridge check passes
+     (financial-chart-test--with-mock-market-data
+      (let ((res (funcall
+                  (cdr (assoc "financial-chart bridge resolves a provider via market-data"
+                              checks)))))
+        (should (plist-get res :ok))))
+     ;; each check returns a plist carrying :ok and :detail
+     (dolist (c checks)
+       (let ((res (funcall (cdr c))))
+         (should (plist-member res :ok))
+         (should (stringp (plist-get res :detail))))))))
 
 ;; -- built-in indicator functions --
 

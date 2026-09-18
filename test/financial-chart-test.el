@@ -663,5 +663,151 @@ standard value, so tests don't leak customizations across each other."
           (svg (financial-chart-render-svg bars)))
      (should (string-match-p "<polyline" svg)))))
 
+;; -- indicator cohorts (L4) --
+
+(defconst financial-chart-test--rsi-record
+  '((ref . ((kind . "indicator") (id . "finance.market.rsi-14")))
+    (name . "Observed 14-period relative strength index")
+    (revision . "1.0.0")
+    (attributes
+     . ((description . "RSI")
+        (value . ((type . "array") (unit . "1") (nullable . t)
+                  (item_type . "number") (scale . "linear")
+                  (bounds . ((min . 0) (max . 100))))))))
+  "Mock `david-core-resource-get' record for a bounded (oscillator) indicator.")
+
+(defconst financial-chart-test--sma-record
+  '((ref . ((kind . "indicator") (id . "finance.market.sma")))
+    (name . "Observed close simple moving average")
+    (revision . "1.0.0")
+    (attributes
+     . ((description . "SMA")
+        (value . ((type . "array") (unit . "usd/share") (nullable . t)
+                  (item_type . "number") (scale . "linear"))))))
+  "Mock `david-core-resource-get' record for a price-scale indicator.")
+
+(ert-deftest financial-chart-cohort-builtin-only-resolves-without-catalog ()
+  "A builtin-only cohort resolves purely, never touching the .3 bridge."
+  (let ((called nil))
+    (cl-letf (((symbol-function 'david-core-resource-get)
+               (lambda (&rest _) (setq called t) nil)))
+      (let ((specs (financial-chart-resolve-cohort 'trend-following)))
+        (should (= (length specs) 3))
+        (should (cl-every (lambda (s) (functionp (plist-get s :fn))) specs))
+        (should-not called)))))
+
+(ert-deftest financial-chart-cohort-builtin-args-thread-into-closure ()
+  "A builtin member's :args curry into the resolved one-arg overlay fn."
+  (let* ((financial-chart-indicator-cohorts
+          '((c :doc "d" :members ((:fn financial-chart-sma :args (5))))))
+         (spec (car (financial-chart-resolve-cohort 'c)))
+         (bars (financial-chart-test--bars 10)))
+    (should (equal (funcall (plist-get spec :fn) bars)
+                   (financial-chart-sma bars 5)))))
+
+(ert-deftest financial-chart-cohort-catalog-member-resolves-with-param ()
+  "A catalog member threads its :params through the evaluator table into
+the builtin, purely (no bridge call needed for resolve)."
+  (let ((financial-chart-indicator-cohorts
+         '((cat :doc "catalog sma"
+                :members ((:indicator "finance.market.sma" :params (:window 30)))))))
+    (let* ((specs (financial-chart-resolve-cohort 'cat))
+           (fn (plist-get (car specs) :fn))
+           (bars (financial-chart-test--bars 40))
+           (series (funcall fn bars)))
+      (should (= (length specs) 1))
+      (should (= (length series) 40))
+      (should-not (nth 28 series))
+      (should (numberp (nth 29 series)))
+      (should (equal series (financial-chart-sma bars 30))))))
+
+(ert-deftest financial-chart-cohort-unresolvable-member-signals-typed-error ()
+  "A catalog member with no evaluator entry signals the typed error,
+naming the member and the fix."
+  (let ((financial-chart-indicator-cohorts
+         '((bad :doc "no evaluator"
+                :members ((:indicator "finance.market.bar-return" :params nil))))))
+    (let ((err (should-error (financial-chart-resolve-cohort 'bad)
+                             :type 'financial-chart-unresolvable-cohort)))
+      (should (string-match-p "finance.market.bar-return" (cadr err)))
+      (should (string-match-p "financial-chart-recipe-evaluators" (cadr err))))))
+
+(ert-deftest financial-chart-cohort-unknown-name-signals ()
+  "Resolving an undefined cohort name signals the typed error."
+  (should-error (financial-chart-resolve-cohort 'does-not-exist)
+                :type 'financial-chart-unresolvable-cohort))
+
+(ert-deftest financial-chart-cohort-all-oscillator-resolves-empty ()
+  "An all-oscillator cohort resolves to an empty overlay set (excluded,
+not an error)."
+  (should (null (financial-chart-resolve-cohort 'momentum))))
+
+(ert-deftest financial-chart-cohort-describe-flags-oscillator ()
+  "Describe flags an oscillator member `needs-oscillator-panel'."
+  (let* ((desc (financial-chart-describe-cohort 'mean-reversion))
+         (members (plist-get desc :members))
+         (rsi (cl-find-if
+               (lambda (m) (equal (plist-get (plist-get m :member) :indicator)
+                                  "finance.market.rsi-14"))
+               members)))
+    (should rsi)
+    (should (eq (plist-get rsi :status) 'needs-oscillator-panel))))
+
+(ert-deftest financial-chart-cohort-overlay-safety-probed-from-value ()
+  "Overlay-safety is derived from the record's `attributes.value' (bounds
+/ unit), not a hardcoded symbol list; describe surfaces the live probe."
+  (should (financial-chart--catalog-value-oscillator-p
+           (alist-get 'value (alist-get 'attributes
+                                        financial-chart-test--rsi-record))))
+  (should-not (financial-chart--catalog-value-oscillator-p
+               (alist-get 'value (alist-get 'attributes
+                                            financial-chart-test--sma-record))))
+  (let ((financial-chart-indicator-cohorts
+         '((c :doc "d"
+              :members ((:indicator "finance.market.rsi-14" :params (:period 14)))))))
+    (cl-letf (((symbol-function 'david-core-resource-get)
+               (lambda (&rest _) financial-chart-test--rsi-record)))
+      (let* ((desc (financial-chart-describe-cohort 'c))
+             (m (car (plist-get desc :members))))
+        (should (eq (plist-get m :catalog-live) t))
+        (should (eq (plist-get m :probed-oscillator) t))))))
+
+(ert-deftest financial-chart-cohort-describe-soft-fails-without-bridge ()
+  "Describe of a catalog member downgrades to :unknown when the .3 bridge
+is absent (fboundp soft-fail), never erroring."
+  (let ((financial-chart-indicator-cohorts
+         '((c :doc "d"
+              :members ((:indicator "finance.market.sma" :params (:window 20)))))))
+    (cl-letf (((symbol-function 'david-core-resource-get) nil))
+      (fmakunbound 'david-core-resource-get)
+      (let* ((desc (financial-chart-describe-cohort 'c))
+             (m (car (plist-get desc :members))))
+        (should (eq (plist-get m :catalog-live) :unknown))))))
+
+(ert-deftest financial-chart-cohort-list-summarizes ()
+  "`financial-chart-list-cohorts' returns a pure per-cohort summary."
+  (let ((rows (financial-chart-list-cohorts)))
+    (let ((tf (assq 'trend-following rows)))
+      (should tf)
+      (should (= (plist-get (cdr tf) :members) 3))
+      (should (= (plist-get (cdr tf) :resolvable) 3))
+      (should (= (plist-get (cdr tf) :excluded) 0)))
+    (let ((mr (cdr (assq 'mean-reversion rows))))
+      (should (= (plist-get mr :resolvable) 1))
+      (should (= (plist-get mr :excluded) 1)))))
+
+(ert-deftest financial-chart-cohort-doctor-checks-pass-and-fail ()
+  "The L4 doctor hook passes for resolvable cohorts and fails (with a
+remediation) for a broken one."
+  (let ((checks (financial-chart-cohort-doctor-checks)))
+    (should (cl-every (lambda (c) (eq (plist-get c :status) 'pass)) checks))
+    (should (cl-every (lambda (c) (equal (plist-get c :layer) "L4")) checks)))
+  (let ((financial-chart-indicator-cohorts
+         '((broken :doc "d" :members ((:indicator "nope.no.eval" :params nil))))))
+    (let ((c (car (financial-chart-cohort-doctor-checks))))
+      (should (eq (plist-get c :status) 'fail))
+      (should (string-match-p "nope.no.eval" (plist-get c :detail)))
+      (should (> (length (plist-get c :remediation)) 0)))))
+
 (provide 'financial-chart-test)
 ;;; financial-chart-test.el ends here

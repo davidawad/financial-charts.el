@@ -378,6 +378,25 @@ returns two synthetic bar/v1 plists and records its call + received
     (with-current-buffer "*financial-chart*"
       (should (string-match-p "schwab" (buffer-string)))))))
 
+(ert-deftest financial-chart-view-symbol-propagates-market-data-typed-errors ()
+  ;; Law 4: a fetch-time typed error propagates UNTOUCHED -- financial-chart
+  ;; must not swallow it into a (message ...)+nil.
+  (define-error 'market-data-error "market-data error")
+  (define-error 'market-data-auth-required "not authenticated" 'market-data-error)
+  (financial-chart-test--with-defaults
+   (cl-letf (((symbol-function 'market-data-explain)
+              (lambda (symbol &rest keys)
+                (list :symbol (upcase symbol)
+                      :provider (or (plist-get keys :provider) 'schwab)
+                      :params (list :period-type "month" :period 1
+                                    :frequency-type "daily" :frequency 1))))
+             ((symbol-function 'market-data-bars)
+              (lambda (&rest _)
+                (signal 'market-data-auth-required
+                        (list "provider schwab not authenticated -- run (schwab-broker-authorize)")))))
+     (should-error (financial-chart-view-symbol "aapl")
+                   :type 'market-data-auth-required))))
+
 ;; -- SVG rendering --
 
 (ert-deftest financial-chart-render-svg-errors-on-no-bars ()

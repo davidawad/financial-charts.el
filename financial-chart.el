@@ -1469,11 +1469,11 @@ defaults to SYMBOL-chart.png under `financial-chart-export-directory'."
 
 ;;;###autoload
 (defun financial-chart-explain-symbol (symbol &rest keys)
-  "Return the fully-expanded plan for `financial-chart-view-symbol' -- ZERO I/O (Law 3).
-Merges `market-data-explain' (chosen provider + why + normalized fetch
-params) with the effective render configuration (each render defcustom's
-current value, under `:render'). Never fetches; agents inspect the plan,
-then execute."
+  "Return the expanded plan for a `financial-chart-view-symbol' call (Law 3).
+Performs ZERO I/O. Merges `market-data-explain' (chosen provider + why +
+normalized fetch params) with the effective render configuration (each
+render defcustom's current value, under `:render'). Never fetches; agents
+inspect the plan, then execute."
   (financial-chart--require-market-data)
   (let ((plan (apply #'market-data-explain symbol
                      (financial-chart--symbol-md-keys keys))))

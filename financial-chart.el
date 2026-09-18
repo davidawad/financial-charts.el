@@ -1367,6 +1367,14 @@ Returns FILE."
 ;; obsolete-marked wrappers with :provider 'schwab.
 ;; -----------------------------------------------------------------------
 
+;; Soft-dependency declarations: market-data.el (L1) is never hard-required
+;; (see the comment above); these keep the byte-compiler quiet about the
+;; fboundp-guarded calls below without creating a load-time dependency.
+(declare-function market-data-bars "market-data")
+(declare-function market-data-quote "market-data")
+(declare-function market-data-explain "market-data")
+(declare-function market-data-capabilities "market-data")
+
 (defun financial-chart--require-market-data ()
   "Signal a clear `user-error' unless market-data.el (L1) is loaded."
   (unless (fboundp 'market-data-bars)

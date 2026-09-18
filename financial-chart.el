@@ -1518,7 +1518,7 @@ KEYS are forwarded verbatim (period/frequency fetch keys)."
 
 ;;;###autoload
 (defun financial-chart-schwab-export-png (symbol file &rest keys)
-  "Obsolete alias for `financial-chart-export-symbol-png' with :provider 'schwab."
+  "Obsolete alias: `financial-chart-export-symbol-png' with the schwab provider."
   (declare (obsolete financial-chart-export-symbol-png "2026-09"))
   (interactive
    (let ((symbol (read-string "Symbol: ")))

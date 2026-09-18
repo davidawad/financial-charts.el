@@ -513,6 +513,13 @@ list the same length as BARS; nil for any bar with no :volume."
 ;; for catalog members, a live probe of the .3 indicator catalog.
 ;; -----------------------------------------------------------------------
 
+;; Soft dependency on the L3 core-resource Emacs bridge (dotfiles
+;; core-resources.el, dot-financial-abstraction-tower-s15we.3): called only
+;; under `fboundp' in `financial-chart--probe-catalog-member', never
+;; hard-required, so this file stays a standalone package.
+(declare-function david-core-resource-get "core-resources"
+                  (kind id &optional scope))
+
 (define-error 'financial-chart-unresolvable-cohort
   "financial-chart: cohort member cannot be resolved" 'error)
 

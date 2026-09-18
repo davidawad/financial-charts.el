@@ -289,48 +289,113 @@ standard value, so tests don't leak customizations across each other."
           (rendered (financial-chart-render bars 10)))
      (should-not (string-match-p "X" rendered)))))
 
-;; -- Schwab bridge --
+;; -- provider-agnostic bridge (L2, all data via market-data.el) --
 
-(ert-deftest financial-chart-schwab-candle-maps-reference-shaped-fixture ()
-  (let* ((candle
-          '((open . 189.5) (high . 190.2) (low . 189.1) (close . 190.0)
-            (volume . 1234567) (datetime . 1757790000000)))
-         (bar (financial-chart--schwab-candle->bar candle)))
-    (should (= (plist-get bar :open) 189.5))
-    (should (= (plist-get bar :high) 190.2))
-    (should (= (plist-get bar :low) 189.1))
-    (should (= (plist-get bar :close) 190.0))
-    (should (= (plist-get bar :volume) 1234567))
-    (should (= (plist-get bar :time) 1757790000000))))
+(defvar financial-chart-test--md-bars-called nil
+  "Set non-nil by the mock `market-data-bars' when it is invoked.")
+(defvar financial-chart-test--md-bars-provider nil
+  "Records the :provider the mock `market-data-bars' received.")
 
-(ert-deftest financial-chart-schwab-view-errors-without-schwab-broker-loaded ()
-  (should-not (fboundp 'schwab-broker-price-history-sync))
-  (should-error (financial-chart-schwab-view "AAPL") :type 'user-error))
+(defmacro financial-chart-test--with-mock-market-data (&rest body)
+  "Run BODY with `market-data-explain'/`-bars'/`-capabilities' mocked.
+The mock `market-data-explain' echoes the requested (or default)
+provider + normalized params with ZERO I/O; the mock `market-data-bars'
+returns two synthetic bar/v1 plists and records its call + received
+:provider.  Nothing here touches a network or a broker."
+  `(let ((financial-chart-test--md-bars-called nil)
+         (financial-chart-test--md-bars-provider nil))
+     (cl-letf (((symbol-function 'market-data-explain)
+                (lambda (symbol &rest keys)
+                  (list :symbol (upcase symbol)
+                        :provider (or (plist-get keys :provider) 'schwab)
+                        :why 'only-loaded
+                        :want-fields (plist-get keys :fields)
+                        :params
+                        (list :period-type (or (plist-get keys :period-type) "month")
+                              :period (or (plist-get keys :period) 1)
+                              :frequency-type (or (plist-get keys :frequency-type) "daily")
+                              :frequency (or (plist-get keys :frequency) 1)))))
+               ((symbol-function 'market-data-bars)
+                (lambda (_symbol &rest keys)
+                  (setq financial-chart-test--md-bars-called t
+                        financial-chart-test--md-bars-provider (plist-get keys :provider))
+                  (list (list :open 100 :high 105 :low 99 :close 103 :volume 1000 :time 0)
+                        (list :open 103 :high 107 :low 102 :close 106 :volume 1200
+                              :time 86400000))))
+               ((symbol-function 'market-data-capabilities)
+                (lambda ()
+                  '((schwab :loaded t :authed t :native-fields nil :priority 20)))))
+       ,@body)))
 
-(ert-deftest financial-chart-merge-schwab-defaults-fills-missing-keys-only ()
+(ert-deftest financial-chart-view-symbol-renders-with-provenance-title ()
   (financial-chart-test--with-defaults
-   (let ((merged (financial-chart--merge-schwab-defaults
-                  (list :period-type "day" :period 5))))
-     ;; explicit keys survive unchanged
-     (should (equal (plist-get merged :period-type) "day"))
-     (should (equal (plist-get merged :period) 5))
-     ;; missing keys filled from defaults
-     (should (equal (plist-get merged :frequency-type)
-                    financial-chart-schwab-default-frequency-type))
-     (should (equal (plist-get merged :frequency)
-                    financial-chart-schwab-default-frequency)))))
+   (financial-chart-test--with-mock-market-data
+    (financial-chart-view-symbol "aapl")
+    (with-current-buffer "*financial-chart*"
+      (let ((s (buffer-string)))
+        ;; Law 7 title block: symbol · provider · period/frequency · bars · fetched-at
+        (should (string-match-p "AAPL" s))
+        (should (string-match-p "schwab" s))
+        (should (string-match-p "month" s))
+        (should (string-match-p "daily" s))
+        (should (string-match-p "2 bars" s))
+        (should (string-match-p "[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}T" s)))))))
 
-(ert-deftest financial-chart-merge-schwab-defaults-on-empty-keys ()
+(ert-deftest financial-chart-view-symbol-threads-provider-override ()
   (financial-chart-test--with-defaults
-   (let ((merged (financial-chart--merge-schwab-defaults nil)))
-     (should (equal (plist-get merged :period-type)
-                    financial-chart-schwab-default-period-type))
-     (should (equal (plist-get merged :period)
-                    financial-chart-schwab-default-period))
-     (should (equal (plist-get merged :frequency-type)
-                    financial-chart-schwab-default-frequency-type))
-     (should (equal (plist-get merged :frequency)
-                    financial-chart-schwab-default-frequency)))))
+   (financial-chart-test--with-mock-market-data
+    (financial-chart-view-symbol "aapl" :provider 'alpaca)
+    ;; :provider override threads end-to-end into the fetch
+    (should (eq financial-chart-test--md-bars-provider 'alpaca))
+    (with-current-buffer "*financial-chart*"
+      (should (string-match-p "alpaca" (buffer-string)))))))
+
+(ert-deftest financial-chart-explain-symbol-is-zero-io ()
+  (financial-chart-test--with-defaults
+   (financial-chart-test--with-mock-market-data
+    (let ((plan (financial-chart-explain-symbol "aapl" :provider 'schwab)))
+      ;; Law 3: explain performs NO fetch (mock bars asserted uncalled)
+      (should-not financial-chart-test--md-bars-called)
+      (should (eq (plist-get plan :provider) 'schwab))
+      ;; merged render config present + reflects the effective defcustom
+      (should (plist-member plan :render))
+      (should (= (plist-get (plist-get plan :render) :height)
+                 financial-chart-height))))))
+
+(ert-deftest financial-chart-view-symbol-errors-without-market-data ()
+  ;; market-data (L1) not loaded -> typed user-error naming the fix (Law 4)
+  (should-not (fboundp 'market-data-bars))
+  (should-error (financial-chart-view-symbol "AAPL") :type 'user-error))
+
+(ert-deftest financial-chart-schwab-view-is-obsolete-alias-forwarding-schwab ()
+  ;; deprecation, not deletion: still fbound, obsolete-marked, forwards :provider 'schwab
+  (should (fboundp 'financial-chart-schwab-view))
+  (should (get 'financial-chart-schwab-view 'byte-obsolete-info))
+  (financial-chart-test--with-defaults
+   (financial-chart-test--with-mock-market-data
+    (financial-chart-schwab-view "aapl")
+    (should (eq financial-chart-test--md-bars-provider 'schwab))
+    (with-current-buffer "*financial-chart*"
+      (should (string-match-p "schwab" (buffer-string)))))))
+
+(ert-deftest financial-chart-view-symbol-propagates-market-data-typed-errors ()
+  ;; Law 4: a fetch-time typed error propagates UNTOUCHED -- financial-chart
+  ;; must not swallow it into a (message ...)+nil.
+  (define-error 'market-data-error "market-data error")
+  (define-error 'market-data-auth-required "not authenticated" 'market-data-error)
+  (financial-chart-test--with-defaults
+   (cl-letf (((symbol-function 'market-data-explain)
+              (lambda (symbol &rest keys)
+                (list :symbol (upcase symbol)
+                      :provider (or (plist-get keys :provider) 'schwab)
+                      :params (list :period-type "month" :period 1
+                                    :frequency-type "daily" :frequency 1))))
+             ((symbol-function 'market-data-bars)
+              (lambda (&rest _)
+                (signal 'market-data-auth-required
+                        (list "provider schwab not authenticated -- run (schwab-broker-authorize)")))))
+     (should-error (financial-chart-view-symbol "aapl")
+                   :type 'market-data-auth-required))))
 
 ;; -- SVG rendering --
 
@@ -546,36 +611,57 @@ standard value, so tests don't leak customizations across each other."
    (let ((financial-chart-png-converter 'magick))
      (should (eq (financial-chart--resolve-png-converter) 'magick)))))
 
-;; -- Schwab SVG/PNG export bridge --
+;; -- provider-agnostic SVG/PNG export + doctor hook --
 
-(ert-deftest financial-chart-schwab-export-svg-errors-without-schwab-broker-loaded ()
-  (should-not (fboundp 'schwab-broker-price-history-sync))
-  (should-error (financial-chart-schwab-export-svg "AAPL" "/tmp/x.svg")
+(ert-deftest financial-chart-export-symbol-svg-errors-without-market-data ()
+  (should-not (fboundp 'market-data-bars))
+  (should-error (financial-chart-export-symbol-svg "AAPL" "/tmp/x.svg")
                 :type 'user-error))
 
-(ert-deftest financial-chart-schwab-export-png-errors-without-schwab-broker-loaded ()
-  (should-not (fboundp 'schwab-broker-price-history-sync))
-  (should-error (financial-chart-schwab-export-png "AAPL" "/tmp/x.png")
-                :type 'user-error))
-
-(ert-deftest financial-chart-schwab-export-svg-writes-real-file-with-mocked-schwab ()
+(ert-deftest financial-chart-export-symbol-svg-writes-file-with-provenance-title ()
   (financial-chart-test--with-defaults
-   (cl-letf (((symbol-function 'schwab-broker-price-history-sync)
-              (lambda (&rest _)
-                '((symbol . "AAPL")
-                  (candles
-                   .
-                   (((open . 100) (high . 105) (low . 99) (close . 103)
-                     (volume . 1000) (datetime . 0))))))))
-     (let ((file (make-temp-file "financial-chart-test" nil ".svg")))
-       (unwind-protect
-           (progn
-             (financial-chart-schwab-export-svg "AAPL" file)
-             (should (file-exists-p file))
-             (with-temp-buffer
-               (insert-file-contents file)
-               (should (string-match-p "AAPL" (buffer-string)))))
-         (delete-file file))))))
+   (financial-chart-test--with-mock-market-data
+    (let ((file (make-temp-file "financial-chart-test" nil ".svg")))
+      (unwind-protect
+          (progn
+            (financial-chart-export-symbol-svg "aapl" file)
+            (should financial-chart-test--md-bars-called)
+            (should (file-exists-p file))
+            (with-temp-buffer
+              (insert-file-contents file)
+              (let ((s (buffer-string)))
+                (should (string-match-p "AAPL" s))
+                ;; provenance title stamped into the SVG
+                (should (string-match-p "schwab" s)))))
+        (delete-file file))))))
+
+(ert-deftest financial-chart-schwab-export-fns-are-obsolete-aliases ()
+  ;; deprecation, not deletion: both export wrappers still fbound + obsolete-marked
+  (should (fboundp 'financial-chart-schwab-export-svg))
+  (should (get 'financial-chart-schwab-export-svg 'byte-obsolete-info))
+  (should (fboundp 'financial-chart-schwab-export-png))
+  (should (get 'financial-chart-schwab-export-png 'byte-obsolete-info)))
+
+(ert-deftest financial-chart-doctor-checks-shape-and-loadable ()
+  (financial-chart-test--with-defaults
+   (let ((checks (financial-chart-doctor-checks)))
+     ;; every entry is (LABEL . CHECK-FN)
+     (should (cl-every (lambda (c) (and (stringp (car c)) (functionp (cdr c))))
+                       checks))
+     ;; package-loadable check passes (financial-chart is required here)
+     (let ((res (funcall (cdr (assoc "financial-chart package loadable" checks)))))
+       (should (plist-get res :ok)))
+     ;; with a provider available (mocked), the bridge check passes
+     (financial-chart-test--with-mock-market-data
+      (let ((res (funcall
+                  (cdr (assoc "financial-chart bridge resolves a provider via market-data"
+                              checks)))))
+        (should (plist-get res :ok))))
+     ;; each check returns a plist carrying :ok and :detail
+     (dolist (c checks)
+       (let ((res (funcall (cdr c))))
+         (should (plist-member res :ok))
+         (should (stringp (plist-get res :detail))))))))
 
 ;; -- built-in indicator functions --
 

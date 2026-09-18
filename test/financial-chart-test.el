@@ -895,5 +895,104 @@ remediation) for a broken one."
       (should (string-match-p "nope.no.eval" (plist-get c :detail)))
       (should (> (length (plist-get c :remediation)) 0)))))
 
+;; -- chart presets (L5) --
+
+(ert-deftest financial-chart-preset-resolve-merges-render-with-source-tags ()
+  "resolve-preset merges preset-set render keys over inherited defcustoms,
+tags each key's :source, decides the provider, and performs ZERO fetch."
+  (financial-chart-test--with-mock-market-data
+   (let* ((plan (financial-chart-resolve-preset 'options-memo "aapl"))
+          (render (plist-get plan :render)))
+     ;; options-memo sets :show-volume nil -> preset-set
+     (let ((sv (cdr (assq :show-volume render))))
+       (should (eq (plist-get sv :value) nil))
+       (should (eq (plist-get sv :source) 'preset-set)))
+     ;; :height unset -> inherited-default = the current defcustom value
+     (let ((h (cdr (assq :height render))))
+       (should (= (plist-get h :value) financial-chart-height))
+       (should (eq (plist-get h :source) 'inherited-default)))
+     ;; provider decided (via market-data-explain), cohort resolved, no fetch
+     (should (eq (plist-get (plist-get plan :market-data) :provider) 'schwab))
+     (should (plist-get plan :cohort))
+     (should-not financial-chart-test--md-bars-called))))
+
+(ert-deftest financial-chart-preset-resolve-threads-provider-override ()
+  "A :provider override in KEYS threads into the resolved fetch + plan."
+  (financial-chart-test--with-mock-market-data
+   (let ((plan (financial-chart-resolve-preset 'swing "aapl" :provider 'alpaca)))
+     (should (eq (plist-get (plist-get plan :fetch) :provider) 'alpaca))
+     (should (eq (plist-get (plist-get plan :market-data) :provider) 'alpaca))
+     (should-not financial-chart-test--md-bars-called))))
+
+(ert-deftest financial-chart-preset-bad-cohort-signals-typed-error ()
+  "A preset whose :cohort does not resolve signals the typed preset error
+naming BOTH the preset and the cohort."
+  (let ((financial-chart-presets '((broken :doc "d" :cohort no-such-cohort))))
+    (let ((err (should-error (financial-chart-resolve-preset 'broken "AAPL")
+                             :type 'financial-chart-unresolvable-preset)))
+      (should (string-match-p "broken" (cadr err)))
+      (should (string-match-p "no-such-cohort" (cadr err))))))
+
+(ert-deftest financial-chart-preset-unknown-name-signals ()
+  "Resolving an undefined preset name signals the typed preset error."
+  (should-error (financial-chart-resolve-preset 'does-not-exist "AAPL")
+                :type 'financial-chart-unresolvable-preset))
+
+(ert-deftest financial-chart-view-preset-renders-with-preset-title ()
+  "view-preset renders end-to-end and headers with the Law-7 title:
+preset · symbol · provider · timeframe · bars · fetched-at."
+  (financial-chart-test--with-defaults
+   (financial-chart-test--with-mock-market-data
+    (financial-chart-view-preset "aapl" 'swing)
+    (should financial-chart-test--md-bars-called)
+    (with-current-buffer "*financial-chart*"
+      (let ((s (buffer-string)))
+        (should (string-match-p "swing" s))
+        (should (string-match-p "AAPL" s))
+        (should (string-match-p "schwab" s))
+        (should (string-match-p "2 bars" s))
+        (should (string-match-p "[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}T" s)))))))
+
+(ert-deftest financial-chart-view-preset-restores-defcustoms ()
+  "The preset's render defcustom overrides are restored after the render
+\(cl-progv dynamic binding, not a permanent mutation)."
+  (financial-chart-test--with-defaults
+   (financial-chart-test--with-mock-market-data
+    (let ((before financial-chart-show-volume))
+      ;; options-memo forces :show-volume nil during its render
+      (financial-chart-view-preset "aapl" 'options-memo)
+      (should (eq financial-chart-show-volume before))))))
+
+(ert-deftest financial-chart-describe-preset-tags-render-sources ()
+  "describe-preset reports every render key with its source tag, plus
+provenance and fetch params."
+  (let* ((d (financial-chart-describe-preset 'options-memo))
+         (render (plist-get d :render)))
+    (should (eq (plist-get (cdr (assq :show-volume render)) :source) 'preset-set))
+    (should (eq (plist-get (cdr (assq :height render)) :source)
+                'inherited-default))
+    (should (plist-get d :provenance))
+    (should (plist-get d :fetch))))
+
+(ert-deftest financial-chart-list-presets-reports-validity ()
+  "list-presets reports each seed preset with its cohort and validity."
+  (let ((rows (financial-chart-list-presets)))
+    (dolist (name '(daytrade swing options-memo))
+      (let ((r (cdr (assq name rows))))
+        (should r)
+        (should (eq (plist-get r :valid) t))))))
+
+(ert-deftest financial-chart-preset-doctor-checks-pass-and-fail ()
+  "The L5 preset doctor hook passes for resolvable presets and fails
+\(with a remediation) for a broken one."
+  (let ((checks (financial-chart-preset-doctor-checks)))
+    (should (cl-every (lambda (c) (eq (plist-get c :status) 'pass)) checks))
+    (should (cl-every (lambda (c) (equal (plist-get c :layer) "L5")) checks)))
+  (let ((financial-chart-presets '((broken :doc "d" :cohort nope))))
+    (let ((c (car (financial-chart-preset-doctor-checks))))
+      (should (eq (plist-get c :status) 'fail))
+      (should (string-match-p "nope" (plist-get c :detail)))
+      (should (> (length (plist-get c :remediation)) 0)))))
+
 (provide 'financial-chart-test)
 ;;; financial-chart-test.el ends here

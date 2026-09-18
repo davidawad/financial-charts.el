@@ -1499,7 +1499,7 @@ inspect the plan, then execute."
 
 ;;;###autoload
 (defun financial-chart-schwab-view (symbol &rest keys)
-  "Obsolete alias for `financial-chart-view-symbol' with :provider 'schwab.
+  "Obsolete alias: `financial-chart-view-symbol' with the schwab provider.
 KEYS are forwarded verbatim (period/frequency fetch keys)."
   (declare (obsolete financial-chart-view-symbol "2026-09"))
   (interactive (list (read-string "Symbol: ")))

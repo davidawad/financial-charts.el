@@ -290,16 +290,19 @@ numeric point.  UNIT suffixes the Y-axis and legend values."
           :to-json financial-chart-multi--to-json)
         financial-chart-shapes))
 
+;; The example is already rebased to 100 (what `:normalize 100' does to
+;; raw prices), so the comparison is visible; series at very different
+;; price levels plot as flat lines on a shared scale.
 (setf (plist-get (alist-get 'multi-series financial-chart-shapes) :example)
       (list (cons "AAPL"
                   (financial-chart--example-series
-                   190.0 48 [0.52 -0.2 0.16 -0.35 0.7 -0.12 0.32 -0.46 0.4]))
+                   100.0 48 [0.52 -0.2 0.16 -0.35 0.7 -0.12 0.32 -0.46 0.4]))
             (cons "SPY"
                   (financial-chart--example-series
-                   450.0 48 [0.4 -0.24 0.28 -0.3 0.52 -0.14 0.3 -0.38 0.2]))
+                   100.0 48 [0.4 -0.24 0.28 -0.3 0.52 -0.14 0.3 -0.38 0.2]))
             (cons "QQQ"
                   (financial-chart--example-series
-                   380.0 48 [0.64 -0.3 0.14 -0.5 0.72 -0.06 0.35 -0.48 0.46]))))
+                   100.0 48 [0.64 -0.3 0.14 -0.5 0.72 -0.06 0.35 -0.48 0.46]))))
 
 (financial-chart-register-kind
  'multi :shape 'multi-series

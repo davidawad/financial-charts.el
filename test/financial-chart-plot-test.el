@@ -25,10 +25,20 @@
       (let ((coding-system-for-write 'utf-8-unix))
         (write-region text nil file)))
     (should (file-exists-p file))
-    (should (equal text (with-temp-buffer
-                          (let ((coding-system-for-read 'utf-8-unix))
-                            (insert-file-contents file))
-                          (buffer-string))))))
+    (let ((expected (with-temp-buffer
+                      (let ((coding-system-for-read 'utf-8-unix))
+                        (insert-file-contents file))
+                      (buffer-string))))
+      (should (equal (financial-chart-plot-test--normalize name text)
+                     (financial-chart-plot-test--normalize name expected))))))
+
+(defun financial-chart-plot-test--normalize (name s)
+  "S, with whitespace around SVG tags dropped when NAME is an .svg fixture.
+svg.el's printer puts whitespace between elements in some Emacs builds
+and not others; text fixtures stay byte-exact."
+  (if (string-suffix-p ".svg" name)
+      (replace-regexp-in-string "[ \t\n]*\\(<\\|>\\)[ \t\n]*" "\\1" s)
+    s))
 
 (defconst financial-chart-plot-test--series
   '((1 40.0) (2 45.0) (3 50.0) (4 42.0) (5 47.5) (6 39.0) (7 41.0))
@@ -227,6 +237,20 @@
     (with-temp-buffer
       (financial-chart-plot-insert 'area nil)
       (should (equal (buffer-string) "no data")))))
+
+(ert-deftest financial-chart-plot-test-insert-svg-falls-back-without-svg-support ()
+  "An Emacs built without SVG images gets the text chart plus a note."
+  (cl-letf (((symbol-function 'image-type-available-p) (lambda (_) nil)))
+    (with-temp-buffer
+      (financial-chart-plot-insert 'area '(1 2 3) :backend 'svg :width 3 :height 2)
+      (should (string-prefix-p "(this Emacs cannot display SVG" (buffer-string)))
+      (should (string-match-p "last 3" (buffer-string))))))
+
+(ert-deftest financial-chart-plot-test-svg-golden-ignores-tag-whitespace ()
+  (should (equal (financial-chart-plot-test--normalize "x.svg" "<svg> <rect></rect>\n <text> a</text></svg>")
+                 (financial-chart-plot-test--normalize "x.svg" "<svg><rect></rect><text>a</text></svg>")))
+  (should-not (equal (financial-chart-plot-test--normalize "x.txt" " a")
+                     (financial-chart-plot-test--normalize "x.txt" "a"))))
 
 (ert-deftest financial-chart-plot-test-view-and-toggle ()
   (let ((buf (financial-chart-plot-view 'payoff financial-chart-plot-test--straddle

@@ -218,13 +218,19 @@ from the scale center; DOWN-FACE and UP-FACE distinguish its sides."
 
 (defun financial-chart-matrix--color (value range)
   "Diverging palette color for VALUE on RANGE."
-  (let ((center (financial-chart-matrix--center range)))
+  (let ((center (financial-chart-matrix--center range))
+        (negative (if (eq financial-chart-color-palette 'colorblind-safe)
+                      "#D55E00" financial-chart-matrix--negative-color))
+        (positive (if (eq financial-chart-color-palette 'colorblind-safe)
+                      "#0072B2" financial-chart-matrix--positive-color))
+        (neutral (if (eq financial-chart-color-palette 'colorblind-safe)
+                     "#f7f7f7" financial-chart-matrix--neutral-color)))
     (if (<= value center)
         (financial-chart-matrix--mix-color
-         financial-chart-matrix--negative-color financial-chart-matrix--neutral-color
+         negative neutral
          (/ (float (- value (car range))) (- center (car range))))
       (financial-chart-matrix--mix-color
-       financial-chart-matrix--neutral-color financial-chart-matrix--positive-color
+       neutral positive
        (/ (float (- value center)) (- (cdr range) center))))))
 
 (defun financial-chart-matrix--contrast (color)
@@ -255,12 +261,18 @@ observed minimum and maximum."
            (values (apply #'append (mapcar (lambda (r) (append r nil)) rows)))
            (range (financial-chart-matrix--range values))
            (row-count (length labels))
-           (left (min (max 0 (1- width))
+           (frame (financial-chart-svg--frame width height title))
+           (frame-x (nth 0 frame))
+           (frame-y (nth 1 frame))
+           (frame-width (nth 2 frame))
+           (frame-height (nth 3 frame))
+           (left (max frame-x
                       (+ 18 (* 7 (apply #'max (mapcar #'string-width labels))))))
-           (top 48)
+           (top frame-y)
            (legend-h 46)
-           (cell-width (min 140 (/ (float (max 1 (- width left 12))) column-count)))
-           (cell-height (min 48 (/ (float (max 1 (- height top legend-h 10))) row-count)))
+           (cell-width (min 140 (/ (float (max 1 (- (+ frame-x frame-width) left)))
+                                   column-count)))
+           (cell-height (min 48 (/ (float (max 1 (- frame-height legend-h 10))) row-count)))
            (grid-width (* column-count cell-width))
            (grid-height (* row-count cell-height))
            (svg (financial-chart-svg--canvas width height title))
@@ -283,14 +295,20 @@ observed minimum and maximum."
                            for color = (financial-chart-matrix--color value range)
                            for x = (+ grid-x (* column-index cell-width))
                            for y = (+ grid-y (* row-index cell-height))
-                           do (svg-rectangle svg x y cell-width cell-height
-                                             :fill color :stroke "#ffffff" :stroke-width 1)
-                           when (>= cell-width 38)
-                           do (financial-chart-svg--text
-                               svg (financial-chart-fmt value)
-                               (+ x (/ cell-width 2.0))
-                               (+ y (/ cell-height 2.0) 4) "middle"
-                               (financial-chart-matrix--contrast color))))
+                           do (let ((group
+                                     (financial-chart-svg--element-title
+                                      (svg-node svg 'g)
+                                      (format "%s, %s: %s"
+                                              (nth row-index labels)
+                                              (nth column-index column-labels) value))))
+                                (svg-rectangle group x y cell-width cell-height
+                                               :fill color :stroke "#ffffff" :stroke-width 1)
+                                (when (>= cell-width 38)
+                                  (financial-chart-svg--text
+                                   group (financial-chart-fmt value)
+                                   (+ x (/ cell-width 2.0))
+                                   (+ y (/ cell-height 2.0) 4) "middle"
+                                   (financial-chart-matrix--contrast color))))))
       (let* ((legend-y (+ grid-y grid-height 28))
              (legend-x grid-x)
              (legend-width (max 60 (min 180 grid-width))))
@@ -428,49 +446,65 @@ price labels. The displayed profile is estimated from OHLCV bars."
            (max-volume (max 1.0 (apply #'max volumes)))
            (poc (plist-get profile :poc))
            (last-close (plist-get profile :last-close))
+           (frame (financial-chart-svg--frame width height title))
+           (frame-x (nth 0 frame))
+           (frame-y (nth 1 frame))
+           (frame-width (nth 2 frame))
+           (frame-height (nth 3 frame))
+           (left (+ frame-x 26))
+           (right 42)
+           (top frame-y)
+           (plot-width (max 10 (- frame-width 26 right)))
+           (plot-height (max 10 (- frame-height 30)))
            (last-close-y (and (numberp last-close)
-                              (+ 34 (* (- height 58)
-                                       (- 1.0 (max 0.0
-                                                  (min 1.0
-                                                       (/ (float (- last-close low))
-                                                          (- high low)))))))))
-           (left 82)
-           (right 100)
-           (top 34)
-           (bottom 24)
-           (plot-width (max 10 (- width left right)))
-           (plot-height (max 10 (- height top bottom)))
+                              (+ top (* plot-height
+                                        (- 1.0 (max 0.0
+                                                   (min 1.0
+                                                        (/ (float (- last-close low))
+                                                           (- high low)))))))))
            (row-height (/ plot-height (float bins)))
            (svg (financial-chart-svg--canvas width height title)))
       (financial-chart-svg--text
        svg "OHLCV estimate: volume is spread uniformly across each bar's low-high range"
-       8 30 "start")
+       frame-x (max 12 (- top 10)) "start")
+      (financial-chart-svg--horizontal-ticks
+       svg (mapcar (lambda (price)
+                     (list (+ top (* plot-height
+                                     (- 1.0 (/ (float (- price low)) (- high low)))))
+                           (concat unit (financial-chart-fmt price))))
+                   (financial-chart--axis-label-values low high 5))
+       left (+ left plot-width))
       (cl-loop for index downfrom (1- bins) to 0
                for volume = (nth index volumes)
                for row = (- (1- bins) index)
                for bar-width = (* plot-width (/ volume max-volume))
                for y = (+ top (* row row-height))
                for price = (+ low (* (+ index 0.5) step))
-               for label-step = (max 1 (ceiling (/ 14.0 row-height)))
-               when (= (% index label-step) 0)
-               do (financial-chart-svg--text
-                   svg (concat unit (financial-chart-fmt price)) 5 (+ y (/ row-height 2.0) 4) "start")
-               do (svg-rectangle svg left y bar-width (max 1 (- row-height 1))
-                                 :fill (if (and poc (= index poc))
-                                           "#7b3294" "#4393c3"))
+               do (let ((group
+                         (financial-chart-svg--element-title
+                          (svg-node svg 'g)
+                          (format "Price %s, estimated volume %s%s"
+                                  (concat unit (financial-chart-fmt price))
+                                  (financial-chart-fmt volume)
+                                  (if (and poc (= index poc)) ", point of control" "")))))
+                    (svg-rectangle group left y bar-width (max 1 (- row-height 1))
+                                   :fill (if (and poc (= index poc))
+                                             "#7b3294" (financial-chart-svg--color 'up)))
+                    )
                when (and poc (= index poc))
                do (financial-chart-svg--text svg "POC" (+ left bar-width 6)
                                              (+ y (/ row-height 2.0) 4) "start" "#7b3294"))
       (when last-close-y
         (svg-line svg left last-close-y (+ left plot-width) last-close-y
-                  :stroke "#c62828" :stroke-width 1.5)
+                  :stroke (financial-chart-svg--color 'down) :stroke-width 1.5)
         (financial-chart-svg--text svg
                                    (concat "Close " unit
                                            (financial-chart-fmt last-close))
-                                   (+ left plot-width 8) last-close-y "start" "#c62828"))
-      (financial-chart-matrix--svg-legend svg left (- height 18)
+                                   (+ left plot-width 8) last-close-y "start"
+                                   (financial-chart-svg--color 'down)))
+      (financial-chart-matrix--svg-legend svg left (+ top plot-height 18)
                                           (if poc "POC" "POC unavailable") "#7b3294"
-                                          "Last close" "#c62828")
+                                          "Last close" (financial-chart-svg--color 'down))
       (financial-chart-svg--string svg))))
 
 (defun financial-chart-matrix--svg-legend (svg x y first first-color second second-color)

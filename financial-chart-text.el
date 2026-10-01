@@ -19,6 +19,33 @@
 (require 'financial-chart-core)
 (require 'financial-chart-indicators)
 
+(defun financial-chart-text--palette-face (face)
+  "Map semantic FACE roles to colorblind-safe faces when selected."
+  (if (not (eq financial-chart-color-palette 'colorblind-safe))
+      face
+    (cond
+     ((memq face (list 'financial-chart-up 'success financial-chart-up-face))
+      'financial-chart-colorblind-up)
+     ((memq face (list 'financial-chart-down 'error financial-chart-down-face))
+      'financial-chart-colorblind-down)
+     ((and (listp face) (not (keywordp (car-safe face))))
+      (mapcar #'financial-chart-text--palette-face face))
+     (t face))))
+
+(defun financial-chart-text--apply-palette (text)
+  "Apply the selected semantic palette to face properties in TEXT."
+  (when (and (stringp text) (eq financial-chart-color-palette 'colorblind-safe))
+    (let ((position 0))
+      (while (< position (length text))
+        (let* ((next (or (next-single-property-change position 'face text)
+                         (length text)))
+               (face (get-text-property position 'face text))
+               (mapped (financial-chart-text--palette-face face)))
+          (unless (eq face mapped)
+            (put-text-property position next 'face mapped text))
+          (setq position next)))))
+  text)
+
 ;; -----------------------------------------------------------------------
 ;; Price panel
 ;; -----------------------------------------------------------------------

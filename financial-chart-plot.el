@@ -82,10 +82,10 @@ optional, so a module adding a shape never edits this file.")
 (defvar financial-chart-kinds
   '((area :shape series :text financial-chart-text-area :svg financial-chart-svg-area
           :doc "Eighth-block area chart of a price or value history.")
-    (line :shape series :text financial-chart-text-line :svg financial-chart-svg-area
-          :doc "Braille line chart (2x4 dots per cell); SVG draws it as an area.")
+    (line :shape series :text financial-chart-text-line :svg financial-chart-svg-line
+          :doc "Braille text or unfilled SVG line chart.")
     (sparkline :shape series :text financial-chart-text-sparkline
-               :svg financial-chart-svg-area
+               :svg financial-chart-svg-sparkline
                :doc "One-row sparkline for tables and mode lines.")
     (payoff :shape payoff :text financial-chart-text-payoff
             :svg financial-chart-svg-payoff
@@ -294,18 +294,24 @@ DATA must fit its shape (`financial-chart-validate').  PROPS: :backend
 \(text, svg or auto -- see `financial-chart-backend'), :width/:height
 \(text columns/rows), :pixel-width/:pixel-height (SVG), :unit, :title,
 per-renderer options such as :up-face/:down-face, and :scale `linear' or
-`log' for area/line series.  With `svg' the
+`log' for area/line series.  :palette selects `default' or
+`colorblind-safe' for this call.  With `svg' the
 string is an SVG document carrying a <title>/<desc> provenance block;
 with `text' it is propertized unicode.  Returns nil when DATA is empty
 \(sparkline: \"\").  `financial-chart-explain' shows the plan first."
   (let* ((entry (financial-chart--kind kind))
+         (financial-chart-color-palette
+          (or (plist-get props :palette) financial-chart-color-palette))
          (backend (financial-chart-plot--resolve-backend (plist-get props :backend))))
     (apply #'financial-chart-validate kind data props)
     (let ((out (apply (plist-get entry (if (eq backend 'svg) :svg :text)) data
                       (financial-chart--renderer-args backend props))))
-      (if (and out (eq backend 'svg))
-          (financial-chart--svg-provenance out kind data props)
-        out))))
+      (cond
+       ((and out (eq backend 'svg))
+        (financial-chart--svg-provenance out kind data props))
+       ((eq backend 'text)
+        (financial-chart-text--apply-palette out))
+       (t out)))))
 
 ;;;###autoload
 (defun financial-chart-plot-spec (spec)

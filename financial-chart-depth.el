@@ -311,10 +311,12 @@ the down color.  The annotation reports the mid price and spread."
              (top-label (financial-chart-depth--price price-high unit))
              (bottom-label (financial-chart-depth--price price-low unit))
              (axis-label-width (max (string-width top-label) (string-width bottom-label)))
-             (x0 (+ 12 (* axis-label-width (* 0.6 financial-chart-svg-font-size))))
-             (y0 (if title 38 22))
-             (plot-width (max 2 (- width x0 16)))
-             (plot-height (max 20 (- height y0 48)))
+             (frame (financial-chart-svg--frame width height title))
+             (x0 (max (nth 0 frame)
+                      (+ 12 (* axis-label-width (* 0.6 financial-chart-svg-font-size)))))
+             (y0 (nth 1 frame))
+             (plot-width (max 2 (- width x0 financial-chart-svg-margin-right)))
+             (plot-height (max 20 (- (nth 3 frame) 30)))
              (center-x (+ x0 (/ plot-width 2.0)))
              (center-y (+ y0 (* plot-height
                                 (- 1.0 (/ (- reference price-low) price-span)))))
@@ -338,6 +340,17 @@ the down color.  The annotation reports the mid price and spread."
         (svg-line svg center-x y0 center-x bottom :stroke grid-color)
         (svg-line svg x0 center-y (+ x0 plot-width) center-y
                   :stroke grid-color :stroke-dasharray "4 3")
+        (financial-chart-svg--horizontal-ticks
+         svg (mapcar (lambda (price)
+                       (list (funcall price-y price)
+                             (financial-chart-depth--price price unit)))
+                     (financial-chart--axis-label-values price-low price-high 5))
+         x0 (+ x0 plot-width))
+        (financial-chart-svg--vertical-ticks
+         svg `((0 ,(financial-chart-depth--number max-cumulative))
+               (0.5 "0")
+               (1 ,(financial-chart-depth--number max-cumulative)))
+         x0 y0 plot-width plot-height)
         (when bid-points
           (svg-polygon svg (append bid-points
                                    (list (cons (caar (last bid-points)) center-y)))
@@ -348,15 +361,26 @@ the down color.  The annotation reports the mid price and spread."
                                    (list (cons (caar (last ask-points)) center-y)))
                        :fill ask-color :fill-opacity 0.2 :stroke "none")
           (svg-polyline svg ask-points :fill "none" :stroke ask-color :stroke-width 2))
-        (financial-chart-svg--text svg top-label
-                                   (- x0 5) (+ y0 10) "end")
-        (financial-chart-svg--text svg bottom-label
-                                   (- x0 5) bottom "end")
+        (dolist (level bids)
+          (let ((x (- center-x (* (/ plot-width 2.0)
+                                 (/ (nth 2 level) (float max-cumulative)))))
+                (y (funcall price-y (car level))))
+            (financial-chart-svg--point-target
+             svg x y (format "Bid %s: size %s, cumulative %s"
+                             (financial-chart-fmt (car level))
+                             (financial-chart-fmt (cadr level))
+                             (financial-chart-fmt (nth 2 level))))))
+        (dolist (level asks)
+          (let ((x (+ center-x (* (/ plot-width 2.0)
+                                 (/ (nth 2 level) (float max-cumulative)))))
+                (y (funcall price-y (car level))))
+            (financial-chart-svg--point-target
+             svg x y (format "Ask %s: size %s, cumulative %s"
+                             (financial-chart-fmt (car level))
+                             (financial-chart-fmt (cadr level))
+                             (financial-chart-fmt (nth 2 level))))))
         (financial-chart-svg--text svg (plist-get summary :text)
                                    center-x (- y0 8) "middle")
-        (financial-chart-svg--text svg "0" center-x (+ bottom 14) "middle")
-        (financial-chart-svg--text svg (financial-chart-depth--number max-cumulative)
-                                   (+ x0 plot-width) (+ bottom 14) "end")
         (financial-chart-svg--text svg "cumulative size" center-x (+ bottom 29) "middle")
         (financial-chart-svg--text svg "BIDS" x0 (+ y0 14) "start" bid-color)
         (financial-chart-svg--text svg "ASKS" (+ x0 plot-width) (+ y0 14) "end" ask-color)

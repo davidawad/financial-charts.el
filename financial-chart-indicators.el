@@ -25,7 +25,10 @@
   "Evaluate every spec in SPECS over BARS, returning normalized series specs."
   (mapcar
    (lambda (spec)
-     (list :glyph (or (plist-get spec :glyph) financial-chart-glyph-indicator)
+     (list :label (or (plist-get spec :label)
+                      (let ((fn (plist-get spec :fn)))
+                        (if (symbolp fn) (symbol-name fn) "Indicator")))
+           :glyph (or (plist-get spec :glyph) financial-chart-glyph-indicator)
            :face (or (plist-get spec :face) 'default)
            :series (funcall (plist-get spec :fn) bars)))
    specs))

@@ -33,6 +33,14 @@
   "Face for falling series, negative P/L and ask-side depth."
   :group 'financial-chart)
 
+(defface financial-chart-colorblind-up '((t :foreground "#0072B2"))
+  "Blue semantic face for rising or positive values in the safe palette."
+  :group 'financial-chart)
+
+(defface financial-chart-colorblind-down '((t :foreground "#D55E00"))
+  "Orange semantic face for falling or negative values in the safe palette."
+  :group 'financial-chart)
+
 (defface financial-chart-dim '((t :inherit shadow))
   "Face for axis labels and secondary annotations."
   :group 'financial-chart)

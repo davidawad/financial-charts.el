@@ -288,7 +288,9 @@ standard deviation, and observation count."
       (let* ((drawdowns (mapcar (lambda (point) (plist-get point :drawdown)) records))
              (low (apply #'min drawdowns))
              (display-low (if (= low 0) -0.01 low)))
-        (pcase-let* ((`(,x0 ,y0 ,w ,h) (financial-chart-svg--frame width height title))
+        (pcase-let* ((`(,x0 ,y0 ,w ,frame-h) (financial-chart-svg--frame width height title))
+                     (x-ticks (financial-chart-svg--series-x-ticks series w))
+                     (h (max 1 (- frame-h 42)))
                      (xmax (max 1 (1- (length records))))
                      (sx (lambda (index)
                            (financial-chart-svg--n (+ x0 (* w (/ index (float xmax)))))))
@@ -303,6 +305,12 @@ standard deviation, and observation count."
           (dolist (point (cdr records))
             (when (< (plist-get point :drawdown) (plist-get worst :drawdown))
               (setq worst point)))
+          (financial-chart-svg--horizontal-ticks
+           svg (mapcar (lambda (value)
+                         (list (funcall sy value)
+                               (financial-chart-returns--percent value)))
+                       (list 0.0 (/ low 2.0) low))
+           x0 (+ x0 w))
           (svg-polygon svg (append (list (cons x0 y0)) points
                                    (list (cons (+ x0 w) y0)))
                        :fill (financial-chart-svg--color 'down)
@@ -312,15 +320,21 @@ standard deviation, and observation count."
                     :stroke-dasharray "4 3")
           (svg-polyline svg points :fill "none"
                         :stroke (financial-chart-svg--color 'down) :stroke-width 1.5)
-          (financial-chart-svg--text svg "0%" (- x0 6) (+ y0 4) "end")
-          (financial-chart-svg--text svg
-                                     (financial-chart-returns--percent low)
-                                     (- x0 6) (+ y0 h) "end")
+          (cl-loop for point in records for index from 0
+                   do (financial-chart-svg--point-target
+                       svg (funcall sx index)
+                       (funcall sy (plist-get point :drawdown))
+                       (format "%s: %s"
+                               (financial-chart-returns--location point)
+                               (financial-chart-returns--percent
+                                (plist-get point :drawdown)))))
+          (when x-ticks
+            (financial-chart-svg--series-x-axis svg x-ticks x0 y0 w h nil))
           (financial-chart-svg--text
            svg (format "max drawdown %s at %s"
                        (financial-chart-returns--percent (plist-get worst :drawdown))
                        (financial-chart-returns--location worst))
-           (+ x0 w) (+ y0 h 18) "end")
+           (+ x0 w) (+ y0 h (if x-ticks 36 18)) "end")
           (financial-chart-svg--string svg))))))
 
 (cl-defun financial-chart-svg-histogram
@@ -331,13 +345,23 @@ standard deviation, and observation count."
          (histogram (financial-chart-histogram-bins returns bins))
          (stats (financial-chart-returns--statistics returns)))
     (when histogram
-      (pcase-let* ((`(,x0 ,y0 ,w ,plot-height) (financial-chart-svg--frame width height title))
-                   (h (max 1 (- plot-height 20)))
+      (pcase-let* ((`(,x0 ,y0 ,w ,frame-h) (financial-chart-svg--frame width height title))
+                   (h (max 1 (- frame-h 42)))
                    (low (caar histogram))
                    (high (cadr (car (last histogram))))
                    (span (if (= low high) 1.0 (- high low)))
                    (count-max (max 1 (apply #'max (mapcar #'caddr histogram))))
+                   (x-ticks `((0 ,(financial-chart-returns--percent low))
+                              (0.5 ,(financial-chart-returns--percent (/ (+ low high) 2.0)))
+                              (1 ,(financial-chart-returns--percent high))))
+                   (y-ticks
+                    (mapcar (lambda (value)
+                              (list (+ y0 (* h (- 1 (/ value (float count-max)))))
+                                    (number-to-string (round value))))
+                            (financial-chart--axis-label-values 0 count-max 3)))
                    (svg (financial-chart-svg--canvas width height title)))
+        (financial-chart-svg--horizontal-ticks svg y-ticks x0 (+ x0 w))
+        (financial-chart-svg--vertical-ticks svg x-ticks x0 y0 w h)
         (cl-loop for (bin-low bin-high count) in histogram for index from 0
                  for bar-x = (if (= low high)
                                  (+ x0 (* w (/ (+ index 0.25) (float (length histogram)))))
@@ -346,9 +370,15 @@ standard deviation, and observation count."
                                    (+ x0 (* w (/ (+ index 0.75) (float (length histogram)))))
                                  (+ x0 (* w (/ (- bin-high low) span))))
                  for bar-y = (+ y0 (* h (- 1 (/ count (float count-max)))))
-                 do (svg-rectangle svg bar-x bar-y (max 0.5 (- bar-end bar-x))
-                                   (- (+ y0 h) bar-y)
-                                   :fill (financial-chart-svg--color 'up)))
+                 do (let ((group
+                           (financial-chart-svg--titled-group
+                            svg (format "Return %s to %s: %d observations"
+                                        (financial-chart-returns--percent bin-low)
+                                        (financial-chart-returns--percent bin-high) count))))
+                      (svg-rectangle group bar-x bar-y
+                                     (max 0.5 (- bar-end bar-x))
+                                     (- (+ y0 h) bar-y)
+                                     :fill (financial-chart-svg--color 'up))))
         (when (and (< low 0) (> high 0))
           (let ((zero-x (+ x0 (* w (/ (- low) span)))))
             (svg-line svg zero-x y0 zero-x (+ y0 h)

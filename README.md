@@ -75,6 +75,15 @@ or put the directory on `load-path` and `(require 'financial-chart)`.
 `bin/financial-chart kinds` lists them with docs; `bin/financial-chart example KIND`
 prints a ready-to-render spec for any of them.
 
+Looks: every SVG shares one style (gridlines, tick labels, legends, a
+hover `<title>` on each point or bar). `financial-chart-color-palette`
+(or `:palette` per call) switches to a colorblind-safe blue/orange scheme
+in text and SVG. Text candlesticks can trade the default half-block glyphs
+for `braille` (4x vertical resolution) or `eighths` (8x) via
+`financial-chart-candle-style`. Oscillators such as RSI draw in their own
+0-100 panel under the price chart (`financial-chart-oscillators`, or a
+cohort that contains them).
+
 Common props: `:backend` (`text`, `svg`, `auto`; default
 `financial-chart-backend`), `:width`/`:height` (text columns/rows),
 `:pixel-width`/`:pixel-height` (SVG), `:unit`, `:title`, and

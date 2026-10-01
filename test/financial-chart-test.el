@@ -364,10 +364,11 @@ returns two synthetic bar/v1 plists and records its call + received
 
 (ert-deftest financial-chart-view-symbol-errors-without-market-data ()
   ;; market-data not loaded -> typed error naming the fix
-  (should-not (fboundp 'market-data-bars))
-  (let ((err (should-error (financial-chart-view-symbol "AAPL")
-                           :type 'financial-chart-error)))
-    (should (equal (plist-get (cddr err) :code) "market_data_missing"))))
+  (cl-letf (((symbol-function 'market-data-bars) nil))
+    (fmakunbound 'market-data-bars)
+    (let ((err (should-error (financial-chart-view-symbol "AAPL")
+                             :type 'financial-chart-error)))
+      (should (equal (plist-get (cddr err) :code) "market_data_missing")))))
 
 (ert-deftest financial-chart-view-symbol-propagates-market-data-typed-errors ()
   ;; a fetch-time typed error propagates UNTOUCHED -- financial-chart
@@ -605,9 +606,10 @@ returns two synthetic bar/v1 plists and records its call + received
 ;; -- provider-agnostic SVG/PNG export + doctor hook --
 
 (ert-deftest financial-chart-export-symbol-svg-errors-without-market-data ()
-  (should-not (fboundp 'market-data-bars))
-  (should-error (financial-chart-export-symbol-svg "AAPL" "/tmp/x.svg")
-                :type 'financial-chart-error))
+  (cl-letf (((symbol-function 'market-data-bars) nil))
+    (fmakunbound 'market-data-bars)
+    (should-error (financial-chart-export-symbol-svg "AAPL" "/tmp/x.svg")
+                  :type 'financial-chart-error)))
 
 (ert-deftest financial-chart-export-symbol-svg-writes-file-with-provenance-title ()
   (financial-chart-test--with-defaults
@@ -963,6 +965,19 @@ provenance and fetch params."
       (let ((r (cdr (assq name rows))))
         (should r)
         (should (eq (plist-get r :valid) t))))))
+
+(ert-deftest financial-chart-preset-plan-records-market-data-failure ()
+  "With market-data loaded but unable to plan (no provider), the preset
+plan still resolves and carries the error instead of signalling it."
+  (cl-letf (((symbol-function 'market-data-explain)
+             (lambda (&rest _)
+               (signal 'error (list "No market-data provider is loaded")))))
+    (let ((plan (financial-chart-resolve-preset 'swing "AAPL")))
+      (should (equal (plist-get (plist-get plan :market-data) :message)
+                     "No market-data provider is loaded"))
+      (should (plist-get plan :render)))
+    (should (cl-every (lambda (c) (eq (plist-get c :status) 'pass))
+                      (financial-chart-preset-doctor-checks)))))
 
 (ert-deftest financial-chart-preset-doctor-checks-pass-and-fail ()
   "The preset doctor rows pass for resolvable presets and fails

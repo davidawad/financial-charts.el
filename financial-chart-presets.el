@@ -118,7 +118,9 @@ Returns a plist: (:preset NAME :symbol SYMBOL :render RENDER :cohort
 SPECS :cohort-name COHORT :fetch FETCH :market-data PLAN), where RENDER is
 `financial-chart--preset-render-config' output, SPECS is the resolved
 overlay list, and PLAN is `market-data-explain' output (nil when
-market-data is not loaded).  Signals `financial-chart-unresolvable-preset'
+market-data is not loaded; (:error SYMBOL :message MSG) when it cannot
+plan, e.g. no provider loaded -- the fetch would signal that error).
+Signals `financial-chart-unresolvable-preset'
 -- naming the preset (and, for a bad :cohort, the cohort and the fix) --
 when the preset or its cohort cannot be resolved."
   (let ((preset (financial-chart--preset name)))
@@ -142,7 +144,11 @@ when the preset or its cohort cannot be resolved."
                                  :provider (plist-get keys :provider))
                     fetch))
            (plan (when (fboundp 'market-data-explain)
-                   (apply #'market-data-explain symbol fetch))))
+                   (condition-case err
+                       (apply #'market-data-explain symbol fetch)
+                     (error (list :error (car err)
+                                  :message (if (stringp (cadr err)) (cadr err)
+                                             (error-message-string err))))))))
       (list :preset name
             :symbol (upcase symbol)
             :render (financial-chart--preset-render-config preset)

@@ -304,6 +304,7 @@ be charted:
 ```sh
 make test      # every test/*-test.el, offline, no display
 make compile   # byte-compile with warnings as errors
+make test MARKET_DATA=../market-data.el   # same suite with market-data loaded
 ```
 
 Golden text and SVG fixtures are in `test/fixtures/`. After an intended

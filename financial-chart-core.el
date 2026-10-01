@@ -180,12 +180,14 @@ Only takes effect when at least one bar carries a non-nil :time."
   :group 'financial-chart)
 
 (defcustom financial-chart-x-axis-label-count 4
-  "Number of evenly-spaced date/time labels on the X-axis."
+  "Number of evenly-spaced date/time labels on chart X-axes.
+Series with epoch-millisecond X coordinates show between two and four labels."
   :type 'integer
   :group 'financial-chart)
 
 (defcustom financial-chart-x-axis-format "%m/%d"
-  "`format-time-string' format for one X-axis label."
+  "`format-time-string' format for one date/time X-axis label.
+Used for OHLC bars and series with epoch-millisecond X coordinates."
   :type 'string
   :group 'financial-chart)
 

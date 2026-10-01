@@ -38,7 +38,7 @@
 (require 'json)
 (require 'financial-chart)
 
-(defconst financial-chart-batch--symbol-props '(:backend)
+(defconst financial-chart-batch--symbol-props '(:backend :scale)
   "Props whose JSON string value is a Lisp symbol.")
 
 (defun financial-chart-batch--keyword (key)

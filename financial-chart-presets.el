@@ -56,8 +56,9 @@ COHORT-NAME [RENDER-KEY VAL...]).  FETCH keys (:period-type/:period/
 :frequency-type/:frequency/:provider) go to `market-data-bars'; RENDER
 keys (see `financial-chart--preset-render-keys') override the matching
 render defcustom for this preset only; :cohort names a
-`financial-chart-indicator-cohorts' entry whose resolved members overlay
-the chart.  An unset key inherits the render defcustom's current value.
+`financial-chart-indicator-cohorts' entry whose resolved members draw in
+their assigned price or oscillator panel. An unset key inherits the
+render defcustom's current value.
 Adding a preset is a pure data edit; expand one with
 `financial-chart-resolve-preset'."
   :type '(alist :key-type symbol :value-type plist)
@@ -72,6 +73,8 @@ Adding a preset is a pure data edit; expand one with
     (:axis-label-count . financial-chart-axis-label-count)
     (:show-volume . financial-chart-show-volume)
     (:volume-height . financial-chart-volume-height)
+    (:oscillator-height . financial-chart-oscillator-height)
+    (:svg-oscillator-height . financial-chart-svg-oscillator-height)
     (:show-x-axis . financial-chart-show-x-axis))
   "Map each preset render-key to the render defcustom it overrides.
 `financial-chart-resolve-preset'/`-view-preset' bind these dynamically
@@ -117,7 +120,7 @@ would do.  KEYS may supply :provider to override the preset's provider.
 Returns a plist: (:preset NAME :symbol SYMBOL :render RENDER :cohort
 SPECS :cohort-name COHORT :fetch FETCH :market-data PLAN), where RENDER is
 `financial-chart--preset-render-config' output, SPECS is the resolved
-overlay list, and PLAN is `market-data-explain' output (nil when
+price and oscillator list, and PLAN is `market-data-explain' output (nil when
 market-data is not loaded; (:error SYMBOL :message MSG) when it cannot
 plan, e.g. no provider loaded -- the fetch would signal that error).
 Signals `financial-chart-unresolvable-preset'
@@ -217,8 +220,9 @@ drifts from a plain symbol render's."
   "Resolve preset NAME for SYMBOL, fetch its bars via market-data, and
 call RENDER-FN with (BARS TITLE) under the preset's render defcustoms
 \(bound dynamically via `cl-progv', restored afterwards) and its resolved
-cohort overlays (`financial-chart-indicators').  KEYS may override
-:provider.  market-data's typed errors propagate untouched."
+cohort specs split between `financial-chart-indicators' and
+`financial-chart-oscillators'. KEYS may override :provider.
+market-data's typed errors propagate untouched."
   (financial-chart--require-market-data)
   (let* ((plan (apply #'financial-chart-resolve-preset name symbol keys))
          (md (plist-get plan :market-data))
@@ -230,12 +234,22 @@ cohort overlays (`financial-chart-indicators').  KEYS may override
          (title (financial-chart--preset-title name symbol md (length bars)
                                                fetched-at))
          (render (plist-get plan :render))
+         (cohort-specs (plist-get plan :cohort))
+         (indicator-specs
+          (cl-remove-if (lambda (spec)
+                          (eq (plist-get spec :panel) 'oscillator))
+                        cohort-specs))
+         (oscillator-specs
+          (cl-remove-if-not (lambda (spec)
+                              (eq (plist-get spec :panel) 'oscillator))
+                            cohort-specs))
          (syms (mapcar (lambda (kv)
                          (cdr (assq (car kv) financial-chart--preset-render-keys)))
                        render))
          (vals (mapcar (lambda (kv) (plist-get (cdr kv) :value)) render)))
     (cl-progv syms vals
-      (let ((financial-chart-indicators (plist-get plan :cohort)))
+      (let ((financial-chart-indicators indicator-specs)
+            (financial-chart-oscillators oscillator-specs))
         (funcall render-fn bars title)))))
 
 ;;;###autoload

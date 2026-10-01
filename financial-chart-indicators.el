@@ -21,14 +21,22 @@
 ;; Indicator overlays
 ;; -----------------------------------------------------------------------
 
-(defun financial-chart--compute-indicator-series (bars)
-  "Evaluate every `financial-chart-indicators' spec's `:fn' over BARS."
+(defun financial-chart--compute-series (bars specs)
+  "Evaluate every spec in SPECS over BARS, returning normalized series specs."
   (mapcar
    (lambda (spec)
      (list :glyph (or (plist-get spec :glyph) financial-chart-glyph-indicator)
            :face (or (plist-get spec :face) 'default)
            :series (funcall (plist-get spec :fn) bars)))
-   financial-chart-indicators))
+   specs))
+
+(defun financial-chart--compute-indicator-series (bars)
+  "Evaluate every `financial-chart-indicators' spec over BARS."
+  (financial-chart--compute-series bars financial-chart-indicators))
+
+(defun financial-chart--compute-oscillator-series (bars)
+  "Evaluate every `financial-chart-oscillators' spec over BARS."
+  (financial-chart--compute-series bars financial-chart-oscillators))
 
 (defun financial-chart--indicator-overlay (row-low row-high index series-list)
   "Return (TEXT . FACE), the last SERIES-LIST entry landing in this row
@@ -56,8 +64,8 @@ at bar INDEX, or nil when none do."
 ;;   (setq financial-chart-indicators
 ;;         (list (list :fn #'financial-chart-sma :face 'font-lock-keyword-face)))
 ;;
-;; RSI is a 0-100 oscillator, NOT on the price scale -- see its own
-;; docstring below before reaching for it as an overlay.
+;; RSI is a 0-100 oscillator, NOT on the price scale -- configure it in
+;; `financial-chart-oscillators' or resolve a cohort that contains it.
 ;; -----------------------------------------------------------------------
 
 (defun financial-chart-sma (bars &optional window field)
@@ -104,14 +112,9 @@ first WINDOW-1 entries."
   "Simple-average RSI of BARS' FIELD (default :close) over PERIOD bars
 \(default 14). Returns a list the same length as BARS, values in
 [0,100]; nil for the first bar (no prior value to diff against) and
-for any bar before PERIOD changes have accumulated.
-
-RSI is NOT on the same scale as price (0-100, vs. actual price levels)
--- do not pass this directly as a `financial-chart-indicators' :fn; it
-will render invisible or nonsensical overlaid on the price panel's own
-price-based Y-axis. Use it for a table/memo (see investment-memo.el's
-option snapshot for the pattern), or build a separate oscillator
-sub-panel with its own 0-100 scale, analogous to the volume panel."
+for any bar before PERIOD changes have accumulated. Use it as an
+`:fn' in `financial-chart-oscillators', or as a cohort member, so it is
+drawn in its own fixed 0-100 panel rather than on the price scale."
   (let* ((period (or period 14))
          (field (or field :close))
          (values (mapcar (lambda (b) (plist-get b field)) bars))
@@ -165,9 +168,9 @@ list the same length as BARS; nil for any bar with no :volume."
 ;; reusable set of members, each either a built-in overlay fn or a
 ;; catalog recipe id. Adding a cohort or a member is a data
 ;; edit -- no new code. `financial-chart-resolve-cohort' turns a cohort
-;; into concrete `financial-chart-indicators' :fn specs (pure, no I/O);
-;; `financial-chart-describe-cohort' explains every member's disposition
-;; (resolved / needs-oscillator-panel / unresolvable) with provenance and,
+;; into concrete price/oscillator specs (pure, no I/O);
+;; `financial-chart-describe-cohort' explains where each member draws
+;; (price / oscillator / unresolvable) with provenance and,
 ;; for catalog members, a probe of the configured indicator catalog.
 ;; -----------------------------------------------------------------------
 
@@ -191,14 +194,13 @@ catalog members are classified from `financial-chart-recipe-evaluators'."
                (:fn financial-chart-sma :args (50) :face font-lock-type-face)
                (:fn financial-chart-vwap :face font-lock-constant-face)))
     (mean-reversion
-     :doc "SMA20 price overlay plus catalog RSI-14 (oscillator, sub-panel only)."
+     :doc "SMA20 price overlay plus catalog RSI-14 in the oscillator sub-panel."
      :members ((:fn financial-chart-sma :args (20) :face font-lock-keyword-face)
                (:indicator "finance.market.rsi-14" :params (:period 14))))
     (momentum
-     :doc "Catalog RSI-14 only -- all-oscillator; resolves to an empty overlay \
-set until a 0-100 sub-panel exists (visible via describe-cohort)."
+     :doc "Catalog RSI-14 only, drawn in the 0-100 oscillator sub-panel."
      :members ((:indicator "finance.market.rsi-14" :params (:period 14)))))
-  "Named indicator cohorts for `financial-chart-indicators' overlays.
+  "Named indicator cohorts for price and oscillator panels.
 Each entry is (COHORT-NAME :doc DOC :members (MEMBER...)).  A MEMBER is
 either a built-in spec (:fn FN :args ARGS :face F :glyph G) -- FN a
 `financial-chart-*' indicator applied to bars plus ARGS -- or a
@@ -216,8 +218,8 @@ a member is a pure data edit; resolve with `financial-chart-resolve-cohort'."
 built-in evaluator.  Each entry is (RECIPE-ID :fn FN :arg-keys (KEY...)
 [:oscillator BOOL]).  `financial-chart-resolve-cohort' maps a catalog
 member's :params through :arg-keys into FN's trailing arguments;
-:oscillator flags a 0-100 sub-panel indicator (excluded from the price
-overlay).  A recipe id absent from this table is UNRESOLVABLE -- never
+:oscillator flags a 0-100 sub-panel indicator.  A recipe id absent from
+this table is UNRESOLVABLE -- never
 silently dropped.  Extending coverage is a data edit: add one entry.
 `resource indicator get' returns a recipe DAG, not an elisp function, so
 this explicit id-keyed table is the honest boundary (the transform chain
@@ -226,32 +228,28 @@ is not reachable through the front door), not a general recipe evaluator."
   :group 'financial-chart)
 
 (defconst financial-chart--oscillator-fns '(financial-chart-rsi)
-  "Built-in indicator fns producing a 0-100 oscillator, NOT a price-scale
-overlay.  Members using these are flagged `needs-oscillator-panel' and
-excluded from `financial-chart-resolve-cohort' until a sub-panel exists --
-see `financial-chart-rsi's own docstring.")
+  "Built-in indicator functions whose cohort specs use the oscillator panel.")
 
 (defun financial-chart--cohort (name)
   "Return cohort NAME's plist (:doc/:members) from
 `financial-chart-indicator-cohorts', or nil when NAME is undefined."
   (cdr (assq name financial-chart-indicator-cohorts)))
 
-(defun financial-chart--cohort-overlay-spec (member fn args)
-  "Build a concrete `financial-chart-indicators' spec: FN curried over
-ARGS into a one-argument overlay fn, carrying MEMBER's :face/:glyph."
+(defun financial-chart--cohort-overlay-spec (member fn args &optional oscillator)
+  "Build a concrete panel spec: FN curried over ARGS into a one-argument
+function, carrying MEMBER's :face/:glyph and marking OSCILLATOR specs."
   (let ((face (plist-get member :face))
         (glyph (plist-get member :glyph)))
     (append
      (list :fn (lambda (bars) (apply fn bars args)))
+     (when oscillator (list :panel 'oscillator))
      (when face (list :face face))
      (when glyph (list :glyph glyph)))))
 
 (defun financial-chart--resolve-member (member)
   "Classify MEMBER, returning (STATUS . DETAIL).  STATUS is `resolved'
-\(DETAIL a concrete overlay spec), `needs-oscillator-panel' (DETAIL a
-reason string; the member is a valid oscillator excluded from the price
-overlay), or `unresolvable' (DETAIL a reason string naming the fix).
-Pure: performs no I/O."
+\(DETAIL a concrete spec, tagged `:panel oscillator' when appropriate)
+or `unresolvable' (DETAIL a reason string naming the fix). Pure: no I/O."
   (cond
    ((plist-member member :fn)
     (let ((fn (plist-get member :fn))
@@ -261,11 +259,9 @@ Pure: performs no I/O."
         (cons 'unresolvable
               (format "built-in fn `%s' is undefined -- load financial-chart.el \
 or fix the cohort member" fn)))
-       ((memq fn financial-chart--oscillator-fns)
-        (cons 'needs-oscillator-panel
-              (format "`%s' is a 0-100 oscillator; needs a sub-panel, excluded \
-from the price overlay" fn)))
-       (t (cons 'resolved (financial-chart--cohort-overlay-spec member fn args))))))
+       (t (cons 'resolved
+                (financial-chart--cohort-overlay-spec
+                 member fn args (memq fn financial-chart--oscillator-fns)))))))
    ((plist-member member :indicator)
     (let* ((id (plist-get member :indicator))
            (params (plist-get member :params))
@@ -275,16 +271,16 @@ from the price overlay" fn)))
         (cons 'unresolvable
               (format "no local evaluator for indicator `%s' -- add an entry to \
 `financial-chart-recipe-evaluators' or drop the member" id)))
-       ((plist-get evaluator :oscillator)
-        (cons 'needs-oscillator-panel
-              (format "indicator `%s' is a 0-100 oscillator; needs a sub-panel, \
-excluded from the price overlay" id)))
        (t
         (let* ((fn (plist-get evaluator :fn))
                (arg-keys (plist-get evaluator :arg-keys))
+               (oscillator (or (plist-get evaluator :oscillator)
+                               (memq fn financial-chart--oscillator-fns)))
                (args (mapcar (lambda (k) (plist-get params k)) arg-keys)))
           (if (fboundp fn)
-              (cons 'resolved (financial-chart--cohort-overlay-spec member fn args))
+              (cons 'resolved
+                    (financial-chart--cohort-overlay-spec
+                     member fn args oscillator))
             (cons 'unresolvable
                   (format "evaluator for `%s' maps to undefined fn `%s'" id fn))))))))
    (t (cons 'unresolvable
@@ -292,14 +288,10 @@ excluded from the price overlay" id)))
 spec: %S" member)))))
 
 (defun financial-chart-resolve-cohort (name)
-  "Resolve cohort NAME to a list of concrete `financial-chart-indicators'
-specs -- the price-overlay-safe members only.  Oscillator members are
-EXCLUDED (their price-panel overlay would be nonsensical; see
-`financial-chart-describe-cohort' for the full per-member disposition).
-Signal `financial-chart-unresolvable-cohort' -- its message naming the
-offending member and the fix -- if any member cannot be resolved at all.
-Pure: performs no I/O, so builtin-only cohorts resolve with the .3
-catalog bridge absent."
+  "Resolve cohort NAME to concrete specs for price and oscillator panels.
+Oscillator specs carry `:panel oscillator'; ordinary specs omit :panel.
+Signal `financial-chart-unresolvable-cohort' if any member cannot be
+resolved. Pure: no I/O, so builtin cohorts work without a catalog."
   (let ((cohort (financial-chart--cohort name)))
     (unless cohort
       (signal 'financial-chart-unresolvable-cohort
@@ -310,7 +302,6 @@ catalog bridge absent."
         (let ((res (financial-chart--resolve-member member)))
           (pcase (car res)
             ('resolved (push (cdr res) specs))
-            ('needs-oscillator-panel nil)
             ('unresolvable
              (signal 'financial-chart-unresolvable-cohort
                      (list (format "cohort `%s': %s" name (cdr res))))))))
@@ -318,22 +309,26 @@ catalog bridge absent."
 
 (defun financial-chart-list-cohorts ()
   "Return a summary of every cohort in `financial-chart-indicator-cohorts':
-one (NAME :doc DOC :members N :resolvable R :excluded E :unresolvable U)
-per cohort.  Pure: uses the static oscillator/evaluator classification,
-not the live catalog."
+one (NAME :doc DOC :members N :resolvable R :oscillators O :excluded E
+:unresolvable U) per cohort.  OSCILLATORS are resolved members assigned to
+the separate panel; EXCLUDED remains as a zero-valued compatibility field.
+Pure: uses static classification, not the live catalog."
   (mapcar
    (lambda (entry)
      (let* ((name (car entry))
             (plist (cdr entry))
             (members (plist-get plist :members))
-            (r 0) (e 0) (u 0))
+            (r 0) (o 0) (u 0))
        (dolist (m members)
-         (pcase (car (financial-chart--resolve-member m))
-           ('resolved (setq r (1+ r)))
-           ('needs-oscillator-panel (setq e (1+ e)))
-           ('unresolvable (setq u (1+ u)))))
+         (let ((res (financial-chart--resolve-member m)))
+           (pcase (car res)
+             ('resolved
+              (setq r (1+ r))
+              (when (eq (plist-get (cdr res) :panel) 'oscillator)
+                (setq o (1+ o))))
+             ('unresolvable (setq u (1+ u))))))
        (list name :doc (plist-get plist :doc)
-             :members (length members) :resolvable r :excluded e
+             :members (length members) :resolvable r :oscillators o :excluded 0
              :unresolvable u)))
    financial-chart-indicator-cohorts))
 
@@ -373,27 +368,34 @@ catalog" id))
 
 (defun financial-chart--describe-member (member)
   "Return a disposition plist for MEMBER: (:member M :kind KIND :status
-STATUS :detail DETAIL [catalog probe keys]).  Catalog members carry a
+STATUS :detail DETAIL :panel PANEL [catalog probe keys]).  Resolved
+members name their price or oscillator panel. Catalog members carry a
 live probe from `financial-chart--probe-catalog-member'."
   (let* ((res (financial-chart--resolve-member member))
-         (detail (if (eq (car res) 'resolved)
-                     "resolves to a price-panel overlay"
-                   (cdr res))))
+         (panel (and (eq (car res) 'resolved)
+                     (or (plist-get (cdr res) :panel) 'price)))
+         (detail (if panel
+                     (format "resolves to the %s panel"
+                             (if (eq panel 'price) "price" "oscillator"))
+                   (cdr res)))
+         (description (list :member member :status (car res)
+                            :detail detail :panel panel)))
     (cond
      ((plist-member member :fn)
-      (list :member member :kind 'builtin :status (car res) :detail detail))
+      (plist-put description :kind 'builtin))
      ((plist-member member :indicator)
       (append
-       (list :member member :kind 'catalog :status (car res) :detail detail)
+       (plist-put description :kind 'catalog)
        (financial-chart--probe-catalog-member (plist-get member :indicator))))
-     (t (list :member member :kind 'unknown :status (car res) :detail detail)))))
+     (t (plist-put description :kind 'unknown)))))
 
 (defun financial-chart-describe-cohort (name)
   "Describe cohort NAME: provenance plus each member's disposition.
 Returns (:name NAME :doc DOC :provenance PROV :members (MDESC...)); each
-MDESC is a `financial-chart--describe-member' plist.  For catalog members
-this MAY call `financial-chart-indicator-catalog-function' (the only
-I/O in this layer, read-only; with none set, static classification)
+MDESC names its :panel (`price' or `oscillator') when resolved. For
+catalog members this MAY call
+`financial-chart-indicator-catalog-function' (the only I/O in this layer,
+read-only; with none set, static classification)
 to confirm live catalog validity and PROBE overlay-safety from the
 record's value.  Signals `financial-chart-unresolvable-cohort' when NAME
 is undefined."
@@ -416,15 +418,19 @@ is undefined."
   "Doctor rows for the cohorts, one per cohort:
 \(:name NAME :status pass|fail :detail D :remediation R).
 PASS iff the cohort resolves without a `financial-chart-unresolvable-cohort'
-error (oscillator exclusions are expected, not failures)."
+error."
   (mapcar
    (lambda (entry)
      (let ((name (car entry)))
        (condition-case err
-           (let ((specs (financial-chart-resolve-cohort name)))
+           (let* ((specs (financial-chart-resolve-cohort name))
+                  (oscillators
+                   (cl-count 'oscillator specs
+                             :key (lambda (spec) (plist-get spec :panel))))
+                  (overlays (- (length specs) oscillators)))
              (list :name (format "cohort:%s" name) :status 'pass
-                   :detail (format "resolves to %d price-overlay spec(s)"
-                                   (length specs))
+                   :detail (format "resolves to %d price-overlay and %d oscillator spec(s)"
+                                   overlays oscillators)
                    :remediation nil))
          (financial-chart-unresolvable-cohort
           (list :name (format "cohort:%s" name) :status 'fail

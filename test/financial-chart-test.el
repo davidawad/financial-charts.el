@@ -808,13 +808,14 @@ naming the member and the fix."
   (should-error (financial-chart-resolve-cohort 'does-not-exist)
                 :type 'financial-chart-unresolvable-cohort))
 
-(ert-deftest financial-chart-cohort-all-oscillator-resolves-empty ()
-  "An all-oscillator cohort resolves to an empty overlay set (excluded,
-not an error)."
-  (should (null (financial-chart-resolve-cohort 'momentum))))
+(ert-deftest financial-chart-cohort-all-oscillator-resolves-to-panel ()
+  "An all-oscillator cohort resolves to one oscillator-panel spec."
+  (let ((specs (financial-chart-resolve-cohort 'momentum)))
+    (should (= (length specs) 1))
+    (should (eq (plist-get (car specs) :panel) 'oscillator))))
 
-(ert-deftest financial-chart-cohort-describe-flags-oscillator ()
-  "Describe flags an oscillator member `needs-oscillator-panel'."
+(ert-deftest financial-chart-cohort-describe-reports-oscillator-panel ()
+  "Describe reports where a resolved oscillator member draws."
   (let* ((desc (financial-chart-describe-cohort 'mean-reversion))
          (members (plist-get desc :members))
          (rsi (cl-find-if
@@ -822,7 +823,8 @@ not an error)."
                                   "finance.market.rsi-14"))
                members)))
     (should rsi)
-    (should (eq (plist-get rsi :status) 'needs-oscillator-panel))))
+    (should (eq (plist-get rsi :status) 'resolved))
+    (should (eq (plist-get rsi :panel) 'oscillator))))
 
 (ert-deftest financial-chart-cohort-overlay-safety-probed-from-value ()
   "Overlay-safety is derived from the record's `attributes.value' (bounds
@@ -861,10 +863,12 @@ function is configured, never erroring."
       (should tf)
       (should (= (plist-get (cdr tf) :members) 3))
       (should (= (plist-get (cdr tf) :resolvable) 3))
-      (should (= (plist-get (cdr tf) :excluded) 0)))
+      (should (= (plist-get (cdr tf) :excluded) 0))
+      (should (= (plist-get (cdr tf) :oscillators) 0)))
     (let ((mr (cdr (assq 'mean-reversion rows))))
-      (should (= (plist-get mr :resolvable) 1))
-      (should (= (plist-get mr :excluded) 1)))))
+      (should (= (plist-get mr :resolvable) 2))
+      (should (= (plist-get mr :oscillators) 1))
+      (should (= (plist-get mr :excluded) 0)))))
 
 (ert-deftest financial-chart-cohort-doctor-checks-pass-and-fail ()
   "The cohort doctor rows pass for resolvable cohorts and fails (with a

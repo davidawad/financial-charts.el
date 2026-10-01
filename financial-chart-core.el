@@ -149,6 +149,11 @@ Only takes effect when at least one bar carries a non-nil :volume."
   :type 'integer
   :group 'financial-chart)
 
+(defcustom financial-chart-oscillator-height 5
+  "Number of character rows the oscillator pane uses."
+  :type 'integer
+  :group 'financial-chart)
+
 (defcustom financial-chart-volume-up-face nil
   "Face for up-candle volume bars, or nil to reuse `financial-chart-up-face'."
   :type '(choice (const :tag "Same as financial-chart-up-face" nil) face)
@@ -205,6 +210,20 @@ scale as the candles) or nil (no value yet, e.g. a warm-up period).
 
 When more than one indicator's value lands in the same cell, the last
 matching spec in this list wins."
+  :type '(repeat plist)
+  :group 'financial-chart)
+
+(defcustom financial-chart-oscillators nil
+  "List of 0-100 oscillator specs, each a plist:
+`:fn' (required) -- a function of one argument, the (already-windowed)
+bars list, returning a list of the same length with numeric values in
+[0,100] or nil when no value is available.
+`:face' -- face for the oscillator series (default `default').
+`:glyph' -- character for its text-rendered value (default
+`financial-chart-glyph-indicator').
+
+Configured oscillators render in a separate panel between prices and
+volume, with fixed 0/30/70/100 guides."
   :type '(repeat plist)
   :group 'financial-chart)
 

@@ -58,12 +58,22 @@ or put the directory on `load-path` and `(require 'financial-chart)`.
 (financial-chart-demo)
 ```
 
-| Kind | Data shape | Example |
+| Kind | What it draws | Data shape |
 |---|---|---|
-| `area`, `line`, `sparkline` | series: numbers, `(X Y)` or `(X . Y)`, oldest first | `'((1 40.0) (2 45.0))` |
-| `payoff` | `(PRICE PNL)` sorted by price | `'((90 50) (100 -100) (110 50))` |
-| `bars` | `(LABEL . VALUE)` | `'(("AAPL" . 1200) ("TSLA" . -950))` |
-| `ohlc` | `(:open :high :low :close [:volume] [:time])` plists, `:time` in epoch ms | see above |
+| `area`, `line`, `sparkline` | price or value history; numeric X is spaced by value, epoch-ms X gets a date axis, `:scale 'log` | series: numbers, `(X Y)` or `(X . Y)`, oldest first |
+| `ohlc` | candlesticks with volume panel, X-axis, indicator overlays and an oscillator sub-panel (RSI) | `(:open :high :low :close [:volume] [:time])` plists, `:time` in epoch ms |
+| `multi` | several named series on one scale, `:normalize 100` to rebase (ticker vs benchmark) | `(("AAPL" . SERIES) ("SPY" . SERIES))` |
+| `payoff` | option P/L vs price with breakevens and true max gain/loss | `(PRICE PNL)` sorted by price |
+| `payoff-curves` | T+n payoff curves on one price grid | `(("T+0" . PAYOFF) ("T+30" . PAYOFF))` |
+| `bars` | diverging bars, e.g. P/L per position | `(LABEL . VALUE)` |
+| `drawdown` | running % decline from the high-water mark, max drawdown | series (equity or price) |
+| `histogram` | distribution of period returns, mean and stdev (`:bins`) | series |
+| `depth` | order book as a ladder or cumulative depth (`:style 'cumulative`) | `(:bids ((P S) ...) :asks ((P S) ...))` |
+| `heatmap` | labeled matrix, e.g. correlations, diverging colors | `(:labels (...) :rows ((...) ...))` |
+| `volume-profile` | volume by price level with point of control | ohlc |
+
+`bin/financial-chart kinds` lists them with docs; `bin/financial-chart example KIND`
+prints a ready-to-render spec for any of them.
 
 Common props: `:backend` (`text`, `svg`, `auto`; default
 `financial-chart-backend`), `:width`/`:height` (text columns/rows),
@@ -71,6 +81,15 @@ Common props: `:backend` (`text`, `svg`, `auto`; default
 `:up-face`/`:down-face`/`:dim-face`/`:accent-face` for the text kinds.
 A chart is also plain data, `(:kind area :data ... :unit "$")`, which
 `financial-chart-plot-spec` renders.
+
+### The chart buffer
+
+`financial-chart-plot-view` shows a chart in a `financial-chart-plot-mode`
+buffer: `g` re-renders to the window, `t` flips text/SVG, `+`/`-` zoom a
+series around point or the latest data and `0` resets, and moving point
+over a text chart shows that column's X and Y in the echo area. Pass
+`:refresh-fn` (returns fresh data) and `:refresh-interval` (seconds) for a
+live chart; `r` toggles the timer.
 
 ## For programs and agents
 
@@ -285,7 +304,13 @@ be charted:
   producing a series, payoff or labeled list for `financial-chart-plot`.
   From outside Emacs, emit a JSON spec for `bin/financial-chart`.
 - **New chart types** register with `financial-chart-register-kind`; the
-  doctor, `describe` and the CLI pick them up.
+  doctor, `describe` and the CLI pick them up. A new data shape is one
+  `financial-chart-shapes` entry: `:doc`, `:example`, `:validator`, and
+  optionally `:values` (the numbers explain/provenance summarize),
+  `:from-json`/`:to-json` (the CLI's JSON form); a kind may add `:check`
+  for props that change how data is read. Each built-in kind beyond the
+  core ones lives in its own module this way, so adding one never edits
+  a core file.
 
 ## Layout
 

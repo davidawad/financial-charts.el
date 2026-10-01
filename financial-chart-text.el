@@ -36,14 +36,108 @@
           text))
     (make-string (length (format financial-chart-axis-format 0.0)) ?\s)))
 
+(defconst financial-chart--braille-left-bits '(64 4 2 1)
+  "Braille dot bits for vertical samples, from bottom to top, left column.")
+
+(defconst financial-chart--braille-right-bits '(128 32 16 8)
+  "Braille dot bits for vertical samples, from bottom to top, right column.")
+
+(defconst financial-chart--eighth-block-candidates
+  '((0 . ?\s)
+    (1 . ?▁) (3 . ?▂) (7 . ?▃) (15 . ?▄)
+    (31 . ?▅) (63 . ?▆) (127 . ?▇)
+    (128 . ?▔) (240 . ?▀) (255 . ?█))
+  "Unicode block masks available to the eighth-resolution renderer.
+Bits run from bottom to top. Masks not represented here use the nearest
+available mask.")
+
+(defun financial-chart--range-mask (row-low row-high low high samples)
+  "Return a SAMPLES-bit mask for LOW..HIGH inside ROW-LOW..ROW-HIGH.
+Bit zero represents the bottom sample. A sample is set when its price
+interval overlaps LOW..HIGH."
+  (let ((row-height (/ (- row-high row-low) (float samples)))
+        (mask 0)
+        (index 0))
+    (while (< index samples)
+      (let ((sample-low (+ row-low (* index row-height)))
+            (sample-high (+ row-low (* (1+ index) row-height))))
+        (when (< (max sample-low low) (min sample-high high))
+          (setq mask (logior mask (ash 1 index)))))
+      (setq index (1+ index)))
+    mask))
+
+(defun financial-chart--point-mask (row-low row-high value samples)
+  "Return the one-bit SAMPLES mask nearest VALUE in ROW-LOW..ROW-HIGH."
+  (let* ((fraction (/ (- value row-low) (- row-high row-low)))
+         (index (max 0 (min (1- samples)
+                            (floor (* fraction samples))))))
+    (ash 1 index)))
+
+(defun financial-chart--braille-char (mask wick)
+  "Encode vertical sample MASK as a Braille character.
+When WICK is non-nil, use only the left dot column for a narrower wick."
+  (let ((bits 0))
+    (dotimes (index 4)
+      (when (/= 0 (logand mask (ash 1 index)))
+        (setq bits (logior bits (nth index financial-chart--braille-left-bits)))
+        (unless wick
+          (setq bits
+                (logior bits (nth index financial-chart--braille-right-bits))))))
+    (+ #x2800 bits)))
+
+(defun financial-chart--eighths-char (mask)
+  "Encode eight-sample MASK with the nearest available block-element glyph."
+  (let* ((mask (logand mask 255))
+         (best (car financial-chart--eighth-block-candidates))
+         (distance (logcount (logxor mask (car best)))))
+    (dolist (candidate (cdr financial-chart--eighth-block-candidates))
+      (let ((candidate-distance (logcount (logxor mask (car candidate)))))
+        (when (< candidate-distance distance)
+          (setq best candidate
+                distance candidate-distance))))
+    (cdr best)))
+
+(defun financial-chart--res-candle-glyph
+    (row-low row-high body-low body-high wick-low wick-high style)
+  "Return a high-resolution candle (TYPE . CHAR) for one text row."
+  (let* ((samples (if (eq style 'braille) 4 8))
+         (body-mask (financial-chart--range-mask
+                     row-low row-high body-low body-high samples))
+         (type (cond
+                ((/= body-mask 0) 'body)
+                ((and (<= wick-low row-high) (>= wick-high row-low)) 'wick)
+                (t 'empty)))
+         (mask (if (eq type 'body)
+                   body-mask
+                 (financial-chart--range-mask
+                  row-low row-high wick-low wick-high samples))))
+    (when (and (eq type 'wick) (= mask 0))
+      (setq mask
+            (financial-chart--point-mask
+             row-low row-high (/ (+ wick-low wick-high) 2.0) samples)))
+    (cons type
+          (pcase type
+            ('empty financial-chart-glyph-empty)
+            (_ (pcase style
+                 ('braille (financial-chart--braille-char
+                            mask (eq type 'wick)))
+                 (_ (if (and (eq type 'wick) (= mask 255))
+                        financial-chart-glyph-wick
+                      (financial-chart--eighths-char mask)))))))))
+
 (defun financial-chart--candle-cell (row-low row-high bar)
   "Return (TEXT . FACE) for BAR's candle at the row bound by ROW-LOW/ROW-HIGH."
   (let* ((open (financial-chart--to-scale (plist-get bar :open)))
          (close (financial-chart--to-scale (plist-get bar :close)))
          (low (financial-chart--to-scale (plist-get bar :low)))
          (high (financial-chart--to-scale (plist-get bar :high)))
-         (glyph (financial-chart--glyph
-                 row-low row-high (min open close) (max open close) low high))
+         (glyph (if (eq financial-chart-candle-style 'block)
+                    (financial-chart--glyph
+                     row-low row-high (min open close) (max open close)
+                     low high)
+                  (financial-chart--res-candle-glyph
+                   row-low row-high (min open close) (max open close)
+                   low high financial-chart-candle-style)))
          (type (car glyph))
          (char (cdr glyph))
          (face
@@ -237,9 +331,10 @@ BARS is a list of (:open :high :low :close &optional :volume :time)
 plists; only :open/:high/:low/:close are required. HEIGHT overrides
 `financial-chart-height' for the price panel specifically; every other
 aspect of rendering (bar-count window, candle width/gap, colors,
-glyphs, scale, axis label counts/formats, the volume panel, the
-X-axis, and overlay indicators) is controlled by the corresponding
-`financial-chart-*' custom variable -- `let'-bind one for a one-off
+glyphs and `financial-chart-candle-style', scale, axis label
+counts/formats, the volume panel, the X-axis, and overlay indicators) is
+controlled by the corresponding `financial-chart-*' custom variable --
+`let'-bind one for a one-off
 override rather than passing it positionally. Configured
 `financial-chart-oscillators' render in a separate fixed 0-100 panel
 between prices and volume."

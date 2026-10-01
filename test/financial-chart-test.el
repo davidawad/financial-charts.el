@@ -497,8 +497,9 @@ returns two synthetic bar/v1 plists and records its call + received
           (svg (financial-chart-render-svg bars))
           (expected-width
            (+ financial-chart-svg-margin-left financial-chart-svg-margin-right
-              (* 3 (+ financial-chart-svg-candle-width
-                     financial-chart-svg-candle-gap)))))
+              (max financial-chart-svg--ohlc-min-plot-width
+                   (* 3 (+ financial-chart-svg-candle-width
+                          financial-chart-svg-candle-gap))))))
      (should
       (string-match-p (format "width=\"%d\"" expected-width) svg)))))
 

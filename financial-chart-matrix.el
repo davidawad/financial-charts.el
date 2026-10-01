@@ -98,8 +98,12 @@
       '(:doc "Numeric matrix: (:labels (ROW-LABEL ...) :rows ((VALUE ...) ...));
 optional :column-labels names columns, otherwise square matrices reuse :labels.
 JSON: {\"labels\": [...], \"rows\": [[...], ...], \"column_labels\": [...]}."
-        :example (:labels ("SPY" "QQQ" "TLT")
-                  :rows ((1.0 0.82 -0.12) (0.82 1.0 -0.08) (-0.12 -0.08 1.0)))
+        :example (:labels ("SPY" "QQQ" "TLT" "GLD" "USO")
+                  :rows ((1.0 0.84 -0.26 0.03 0.22)
+                         (0.84 1.0 -0.18 -0.04 0.17)
+                         (-0.26 -0.18 1.0 0.12 -0.31)
+                         (0.03 -0.04 0.12 1.0 0.14)
+                         (0.22 0.17 -0.31 0.14 1.0)))
         :validator financial-chart-matrix--validate
         :values financial-chart-matrix--values
         :from-json financial-chart-matrix--from-json
@@ -268,7 +272,7 @@ observed minimum and maximum."
            (frame-height (nth 3 frame))
            (left (max frame-x
                       (+ 18 (* 7 (apply #'max (mapcar #'string-width labels))))))
-           (top frame-y)
+           (top (+ frame-y 16))
            (legend-h 46)
            (cell-width (min 140 (/ (float (max 1 (- (+ frame-x frame-width) left)))
                                    column-count)))
@@ -380,8 +384,8 @@ observed minimum and maximum."
   "Render OHLCV BARS as a horizontal volume profile.
 BINS is the number of price levels, WIDTH is the maximum bar width, and
 UNIT is appended to price labels.  BINS ranges from 1 to
-`financial-chart-matrix-max-bins'.  P marks point of control; C marks the
-last close's bin.  This OHLCV estimate spreads each bar's volume uniformly
+`financial-chart-matrix-max-bins'.  Suffixes mark the point of control and
+last close.  This OHLCV estimate spreads each bar's volume uniformly
 across its low-high range; it does not use trade-level volume data."
   (when bars
     (let* ((title (and title (financial-chart-matrix--label title)))
@@ -407,25 +411,26 @@ across its low-high range; it does not use trade-level volume data."
                      for volume = (nth index volumes)
                      for count = (if (= max-volume 0) 0
                                    (round (* width (/ volume max-volume))))
-                     for marker = (concat (if (and poc (= index poc)) "P" " ")
-                                          (if (and close-bin (= index close-bin)) "C" " "))
                      for price = (+ low (* (+ index 0.5) step))
+                     for marker = (concat (when (and poc (= index poc)) " ◀ POC")
+                                          (when (and close-bin (= index close-bin))
+                                            " ◀ close"))
                      for face = (if (and poc (= index poc)) accent-face up-face)
                      collect
-                     (concat (propertize (financial-chart-matrix--pad marker 2)
-                                         'face (if (string-match-p "P" marker)
-                                                   accent-face
-                                                 (if (string-match-p "C" marker)
-                                                     down-face dim-face)))
-                             (financial-chart-matrix--pad (concat unit
+                     (concat (financial-chart-matrix--pad (concat unit
                                                                   (financial-chart-fmt price))
                                                           label-width)
-                             " │" (propertize (make-string count ?█) 'face face)))))
+                             " │" (propertize (make-string count ?█) 'face face)
+                             (when marker
+                               (propertize marker 'face
+                                           (cond ((and poc (= index poc)) accent-face)
+                                                 ((and close-bin (= index close-bin)) down-face)
+                                                 (t dim-face))))))))
       (concat (when title (concat title "\n"))
               (mapconcat #'identity body "\n") "\n"
-              (propertize (concat (if poc "P = point of control"
+              (propertize (concat (if poc "◀ POC = point of control"
                                     "POC unavailable: no positive volume")
-                                  "   C = last close\n"
+                                  "   ◀ close = last close\n"
                                   "OHLCV estimate: volume is spread uniformly across each bar's low-high range")
                           'face dim-face)))))
 
@@ -446,32 +451,46 @@ price labels. The displayed profile is estimated from OHLCV bars."
            (max-volume (max 1.0 (apply #'max volumes)))
            (poc (plist-get profile :poc))
            (last-close (plist-get profile :last-close))
+           (close-label (and (numberp last-close)
+                             (concat "Close " unit
+                                     (financial-chart-fmt last-close))))
            (frame (financial-chart-svg--frame width height title))
            (frame-x (nth 0 frame))
            (frame-y (nth 1 frame))
            (frame-width (nth 2 frame))
            (frame-height (nth 3 frame))
            (left (+ frame-x 26))
-           (right 42)
-           (top frame-y)
+           (right (if close-label
+                      (+ 12 (* (string-width close-label)
+                               financial-chart-svg-font-size 0.62))
+                    42))
+           (top (+ frame-y 18))
            (plot-width (max 10 (- frame-width 26 right)))
-           (plot-height (max 10 (- frame-height 30)))
+           (plot-height (max 10 (- frame-height 34)))
+           (price-span (max 1e-9 (- high low)))
            (last-close-y (and (numberp last-close)
                               (+ top (* plot-height
                                         (- 1.0 (max 0.0
                                                    (min 1.0
                                                         (/ (float (- last-close low))
-                                                           (- high low)))))))))
+                                                           price-span))))))))
+           (close-label-y (and last-close-y
+                               (max (+ top financial-chart-svg-font-size)
+                                    (min (- (+ top plot-height) 2)
+                                         last-close-y))))
            (row-height (/ plot-height (float bins)))
            (svg (financial-chart-svg--canvas width height title)))
       (financial-chart-svg--text
        svg "OHLCV estimate: volume is spread uniformly across each bar's low-high range"
-       frame-x (max 12 (- top 10)) "start")
+       frame-x (+ frame-y (if title 1 12)) "start" nil
+       (if title (max 9 (- financial-chart-svg-font-size 2))
+         financial-chart-svg-font-size))
       (financial-chart-svg--horizontal-ticks
        svg (mapcar (lambda (price)
                      (list (+ top (* plot-height
-                                     (- 1.0 (/ (float (- price low)) (- high low)))))
-                           (concat unit (financial-chart-fmt price))))
+                                     (- 1.0 (/ (float (- price low)) price-span))))
+                           (financial-chart--axis-tick-label
+                            price low high 5 unit)))
                    (financial-chart--axis-label-values low high 5))
        left (+ left plot-width))
       (cl-loop for index downfrom (1- bins) to 0
@@ -487,20 +506,19 @@ price labels. The displayed profile is estimated from OHLCV bars."
                                   (concat unit (financial-chart-fmt price))
                                   (financial-chart-fmt volume)
                                   (if (and poc (= index poc)) ", point of control" "")))))
-                    (svg-rectangle group left y bar-width (max 1 (- row-height 1))
+                    (svg-rectangle group left y bar-width row-height
                                    :fill (if (and poc (= index poc))
-                                             "#7b3294" (financial-chart-svg--color 'up)))
-                    )
+                                             "#7b3294" (financial-chart-svg--color 'up))))
                when (and poc (= index poc))
-               do (financial-chart-svg--text svg "POC" (+ left bar-width 6)
-                                             (+ y (/ row-height 2.0) 4) "start" "#7b3294"))
+               do (financial-chart-svg--text svg "POC"
+                                             (+ left bar-width 6)
+                                             (+ y (/ row-height 2.0) 4)
+                                             "start" "#7b3294"))
       (when last-close-y
         (svg-line svg left last-close-y (+ left plot-width) last-close-y
                   :stroke (financial-chart-svg--color 'down) :stroke-width 1.5)
-        (financial-chart-svg--text svg
-                                   (concat "Close " unit
-                                           (financial-chart-fmt last-close))
-                                   (+ left plot-width 8) last-close-y "start"
+        (financial-chart-svg--text svg close-label
+                                   (+ left plot-width 8) close-label-y "start"
                                    (financial-chart-svg--color 'down)))
       (financial-chart-matrix--svg-legend svg left (+ top plot-height 18)
                                           (if poc "POC" "POC unavailable") "#7b3294"

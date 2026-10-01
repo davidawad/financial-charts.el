@@ -386,16 +386,12 @@ standard deviation, and observation count."
                       :stroke-dasharray "3 3")))
         (svg-line svg x0 (+ y0 h) (+ x0 w) (+ y0 h)
                   :stroke (financial-chart-svg--color 'grid))
-        (financial-chart-svg--text svg (financial-chart-returns--percent low)
-                                   x0 (+ y0 h 14) "start")
-        (financial-chart-svg--text svg (financial-chart-returns--percent high)
-                                   (+ x0 w) (+ y0 h 14) "end")
         (financial-chart-svg--text
          svg (format "mean %s   stdev %s   n %d"
                      (financial-chart-returns--percent (car stats) t)
                      (financial-chart-returns--percent (cdr stats))
                      (length returns))
-         (+ x0 w) (+ y0 h 28) "end")
+         (+ x0 w) (+ y0 h 38) "end")
         (financial-chart-svg--string svg)))))
 
 (financial-chart-register-kind

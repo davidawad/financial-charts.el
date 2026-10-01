@@ -1,0 +1,5 @@
+       SPY      QQQ      TLT
+SPY     █1      ▓0.8    ░-0.1
+QQQ    ▓0.8      █1     ░-0.1
+TLT   ░-0.1    ░-0.1      █1
+Legend: − below · 0 + above; shades show distance from center (-1…1)

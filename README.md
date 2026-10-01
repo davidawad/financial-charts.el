@@ -1,57 +1,116 @@
 # financial-chart.el
 
-A pure-Elisp OHLC candlestick chart renderer, two output forms:
+Financial charts in Emacs from plain Lisp data. One call draws any chart
+kind (candlesticks, area, braille line, sparkline, option payoff,
+diverging P/L bars) as unicode text in a terminal frame or as an SVG
+image in a GUI frame. Pure Elisp on Emacs's built-in `svg.el`; the only
+external process is optional PNG export.
 
-1. **In-buffer** — unicode box-drawing/block characters at half-block
-   vertical resolution, `propertize` faces for up/down coloring. No
-   gnuplot, no external process.
-2. **SVG/PNG** — a real vector chart (actual rectangles and lines, not
-   glyphs), built with Emacs's own `svg.el`. Still no external process
-   for the SVG itself; PNG export shells out to whichever of
-   `rsvg-convert`/ImageMagick is installed, because rasterizing vector
-   graphics genuinely isn't something Elisp can do on its own.
+```
+   +$50 █▅▂               ▂▅█
+      0 ███▆▃───────────▃▆███
+              █████████      
+               ▀█████▀       
+                ▀███▀        
+  -$100          ▔█▔         
+        $90              $110
 
-Both share the same configuration surface and the same data-prep code
-(bar windowing, scale conversion, price range), so they can't drift out
-of sync with each other. Requires Emacs 27.1+.
+        breakeven $95, $105   max +$50 / -$100   5 pts
+```
 
-Data-source agnostic: the renderer takes a plain list of
-`(:open :high :low :close &optional :volume :time)` plists, oldest bar
-first. It doesn't know or care where those bars came from. `:volume`
-and `:time` are both optional and independently gate an optional
-volume panel and X-axis — omit either (or both) and the chart degrades
-gracefully rather than erroring or drawing an empty panel.
-
-Every visual and behavioral aspect of the chart is a `defcustom` — see
-**Configuration** below. Nothing is hardcoded into the rendering
-functions; override anything for one call by `let`-binding the
-relevant variable(s) around it.
+Requires Emacs 29.1+. No dependencies. Optional:
+market-data.el (companion package) for
+charting ticker symbols from a broker
+([schwab-broker.el](https://github.com/davidawad/schwab-broker.el),
+[alpaca-broker.el](https://github.com/davidawad/alpaca-broker.el)).
 
 ## Install
 
-Copy `financial-chart.el` somewhere on your `load-path`, then:
+With Emacs 30's `use-package :vc`:
 
 ```elisp
-(require 'financial-chart)
+(use-package financial-chart
+  :vc (:url "https://github.com/davidawad/financial-chart.el"))
 ```
+
+or put the directory on `load-path` and `(require 'financial-chart)`.
 
 ## Use
 
 ```elisp
-(financial-chart-view
- '((:open 100 :high 103 :low 99 :close 102 :volume 12000 :time 1700000000000)
-   (:open 102 :high 104 :low 101 :close 101.5 :volume 9500 :time 1700086400000)
-   (:open 101.5 :high 102 :low 96 :close 97 :volume 21000 :time 1700172800000))
- "MY SYMBOL")
+;; a string: SVG in a GUI frame, unicode text in a terminal
+(financial-chart-plot 'area '((1 40.0) (2 45.0) (3 50.0) (4 42.0)) :unit "$")
+
+;; at point, or in a buffer (g re-renders to the window, t flips text/SVG)
+(financial-chart-plot-insert 'payoff '((90 50) (95 0) (100 -100) (105 0) (110 50)))
+(financial-chart-plot-view 'bars '(("AAPL" . 1200) ("VTI" . 8000) ("TSLA" . -950))
+                           :title "open P/L" :unit "$")
+
+;; candlesticks with volume panel, X-axis and indicator overlays
+(financial-chart-plot-view 'ohlc
+  '((:open 100 :high 103 :low 99 :close 102 :volume 12000 :time 1700000000000)
+    (:open 102 :high 104 :low 101 :close 101.5 :volume 9500 :time 1700086400000)))
+
+;; every kind over sample data
+(financial-chart-demo)
 ```
 
-pops a `*financial-chart*` buffer with a candlestick render (volume
-panel and X-axis included automatically, since these bars carry
-`:volume`/`:time`). Call `financial-chart-render` directly instead if
-you want the chart as a plain string (e.g. to embed elsewhere, such as
-in an org-mode `#+begin_example` block) rather than a popped buffer.
+| Kind | Data shape | Example |
+|---|---|---|
+| `area`, `line`, `sparkline` | series: numbers, `(X Y)` or `(X . Y)`, oldest first | `'((1 40.0) (2 45.0))` |
+| `payoff` | `(PRICE PNL)` sorted by price | `'((90 50) (100 -100) (110 50))` |
+| `bars` | `(LABEL . VALUE)` | `'(("AAPL" . 1200) ("TSLA" . -950))` |
+| `ohlc` | `(:open :high :low :close [:volume] [:time])` plists, `:time` in epoch ms | see above |
 
-## Configuration
+Common props: `:backend` (`text`, `svg`, `auto`; default
+`financial-chart-backend`), `:width`/`:height` (text columns/rows),
+`:pixel-width`/`:pixel-height` (SVG), `:unit`, `:title`, and
+`:up-face`/`:down-face`/`:dim-face`/`:accent-face` for the text kinds.
+A chart is also plain data, `(:kind area :data ... :unit "$")`, which
+`financial-chart-plot-spec` renders.
+
+## For programs and agents
+
+Every part of the package can be listed, checked and planned before
+anything is drawn:
+
+```elisp
+(financial-chart-list-kinds)            ; kinds with shape and doc
+(financial-chart-describe-kind 'payoff) ; shape doc, example data, renderers
+(financial-chart-validate 'payoff data) ; t, or financial-chart-invalid-data with :index
+(financial-chart-explain 'area data :backend 'svg) ; renderer, args, backend and why; draws nothing
+(financial-chart-describe)              ; the whole package as JSON-ready data
+(financial-chart-doctor)                ; M-x: does every kind render here?
+(financial-chart-register-kind 'my-kind :shape 'series :text #'my-text :svg #'my-svg :doc "...")
+```
+
+Errors are typed (`financial-chart-unknown-kind`,
+`financial-chart-invalid-data`, parent `financial-chart-error`); their
+message says what to do and their data carries `:code` and, for bad
+data, the offending `:index`. SVG output carries a `<title>` and a
+`<desc>` stating the kind, point count and value range.
+
+From outside Emacs, `bin/financial-chart` takes the same spec as JSON:
+
+```sh
+bin/financial-chart example payoff                 # a spec to start from
+bin/financial-chart example payoff | bin/financial-chart render -
+echo '{"kind":"bars","data":{"AAPL":1200,"TSLA":-950},"unit":"$","backend":"svg"}' \
+  | bin/financial-chart render - > pnl.svg
+bin/financial-chart explain spec.json   # the plan, as JSON
+bin/financial-chart kinds | describe | doctor
+```
+
+Failures print `{"ok":false,"error":{"code":...,"message":...}}` and exit 1.
+
+## Candlesticks
+
+`financial-chart-render` (text) and `financial-chart-render-svg` take a
+list of OHLC plists directly, and `financial-chart-view` pops a buffer.
+Every visual aspect of a candlestick chart is a `defcustom`;
+`let`-bind one for a one-off override.
+
+### Configuration
 
 All `financial-chart-*` custom variables (`M-x customize-group
 financial-chart`):
@@ -102,7 +161,7 @@ Empty by default (no overlays drawn unless you configure one):
                   :face 'font-lock-keyword-face)))
 ```
 
-## Built-in indicators
+### Built-in indicators
 
 - `financial-chart-sma`/`-ema` `(bars &optional window field)` — moving
   average of `:close` (or `FIELD`) over `WINDOW` bars (default 20). On
@@ -126,7 +185,7 @@ OHLCV only (Alpaca's bars do include a native `vw` VWAP field per bar,
 recompute it). RSI is never native to any broker API; it's always
 computed from closes, here or anywhere else.
 
-## SVG / PNG export
+### SVG / PNG export
 
 ```elisp
 (financial-chart-export-svg bars "chart.svg" "MY SYMBOL")   ; pure Elisp
@@ -174,40 +233,58 @@ loaded), the SVG/PNG renderer falls back to
 rasterizes as a solid black image). A themed GUI session never hits
 this path — your actual theme colors are used.
 
-## Schwab bridge
+## Ticker symbols, presets and cohorts
 
-If [schwab-broker.el](https://github.com/davidawad/schwab-broker.el)
-is loaded:
+With market-data.el and a
+broker package loaded, charts can be fetched by symbol. market-data
+picks the provider; nothing here names a broker.
 
 ```elisp
-(financial-chart-schwab-view
- "AAPL" :period-type "day" :period 5 :frequency-type "minute" :frequency 5)
-(financial-chart-schwab-export-svg "AAPL" "aapl.svg")
-(financial-chart-schwab-export-png "AAPL" "aapl.png")
+(financial-chart-view-symbol "AAPL" :period-type "day" :period 5
+                             :frequency-type "minute" :frequency 5)
+(financial-chart-explain-symbol "AAPL")          ; provider decision + render config, no fetch
+(financial-chart-export-symbol-svg "AAPL" "aapl.svg")
+
+(financial-chart-list-presets)                   ; daytrade, swing, options-memo
+(financial-chart-resolve-preset 'swing "AAPL")   ; the full plan, no network
+(financial-chart-view-preset "AAPL" 'swing)
+
+(financial-chart-list-cohorts)                   ; named indicator sets
+(financial-chart-describe-cohort 'trend-following)
 ```
 
-fetch real price history and render/export it directly.
-`M-x financial-chart-schwab-view`/`-export-svg`/`-export-png` (a symbol
-prompt, plus a file prompt for the export commands, defaulting under
-`financial-chart-export-directory` — `~/Desktop` by default) use
-`financial-chart-schwab-default-period-type`/`-period`/
-`-frequency-type`/`-frequency` (default: 1 month of daily bars) for
-whichever keys you don't supply — each explicit key you pass overrides
-only that one default, the rest still apply.
+Presets (`financial-chart-presets`) and cohorts
+(`financial-chart-indicator-cohorts`) are data: add an entry to add
+one. Titles of symbol charts state the symbol, provider, period, bar
+count and fetch time. `financial-chart-schwab-view` and friends remain
+as obsolete wrappers over the symbol functions.
 
-This is a soft dependency (checked via `fboundp` at call time, not
-`require`d) — `financial-chart.el` never needs schwab-broker.el loaded
-to do anything else.
+## Layout
+
+| File | What |
+|---|---|
+| `financial-chart.el` | entry: requires everything, `describe`, `doctor` |
+| `financial-chart-core.el` | customization group, candle defcustoms, scale and windowing |
+| `financial-chart-series.el` | data shapes, faces, resampling, formatting, breakevens |
+| `financial-chart-indicators.el` | SMA/EMA/RSI/VWAP, overlays, cohorts |
+| `financial-chart-text.el` | text renderers |
+| `financial-chart-svg.el` | SVG renderers, SVG/PNG export |
+| `financial-chart-plot.el` | kind and shape registries, `plot`, `validate`, `explain`, plot buffers |
+| `financial-chart-symbol.el` | charts by ticker through market-data.el |
+| `financial-chart-presets.el` | named presets |
+| `financial-chart-batch.el`, `bin/financial-chart` | JSON command line |
 
 ## Tests
 
-ERT tests live in `test/financial-chart-test.el`, pure logic (no
-network, no Emacs display needed). Run standalone:
-
 ```sh
-emacs -Q --batch -L . -l financial-chart.el -l test/financial-chart-test.el \
-  -f ert-run-tests-batch-and-exit
+make test      # every test/*-test.el, offline, no display
+make compile   # byte-compile with warnings as errors
 ```
+
+Golden text and SVG fixtures are in `test/fixtures/`. After an intended
+visual change, regenerate them with `FINANCIAL_CHART_UPDATE_GOLDEN=1
+make test` and review the diff. Trailing spaces in fixtures are data;
+`.gitattributes` and `.editorconfig` keep tools from stripping them.
 
 ## License
 

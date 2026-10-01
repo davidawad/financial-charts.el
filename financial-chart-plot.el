@@ -173,13 +173,18 @@ Each renderer is called as (FN DATA &rest PROPS) and returns a string.")
                  (financial-chart--invalid i "required key %s missing or non-number" key))))))
 
 ;;;###autoload
-(defun financial-chart-validate (kind data)
+(defun financial-chart-validate (kind data &rest props)
   "Return t when DATA fits KIND's shape, else signal a typed error.
 `financial-chart-invalid-data' carries the offending element's :index.
-Empty DATA is valid: it renders as \"no data\"."
-  (let ((shape (plist-get (financial-chart--kind kind) :shape)))
+Empty DATA is valid: it renders as \"no data\".  A kind whose registry
+entry has :check (a function of DATA and PROPS) also validates the props
+that change how DATA is read, e.g. `multi''s :normalize."
+  (let* ((entry (financial-chart--kind kind))
+         (shape (plist-get entry :shape)))
     (when data
-      (funcall (plist-get (alist-get shape financial-chart-shapes) :validator) data))
+      (funcall (plist-get (alist-get shape financial-chart-shapes) :validator) data)
+      (when-let* ((check (plist-get entry :check)))
+        (funcall check data props)))
     t))
 
 ;; -- backend --
@@ -241,7 +246,7 @@ A plist: :kind :shape :valid (t, or the error message) :backend and
   (let* ((entry (financial-chart--kind kind))
          (shape (plist-get entry :shape))
          (decision (financial-chart--backend-decision (plist-get props :backend)))
-         (valid (condition-case err (financial-chart-validate kind data)
+         (valid (condition-case err (apply #'financial-chart-validate kind data props)
                   (error (error-message-string err)))))
     (append
      (list :kind kind :shape shape :valid valid
@@ -286,7 +291,7 @@ with `text' it is propertized unicode.  Returns nil when DATA is empty
 \(sparkline: \"\").  `financial-chart-explain' shows the plan first."
   (let* ((entry (financial-chart--kind kind))
          (backend (financial-chart-plot--resolve-backend (plist-get props :backend))))
-    (financial-chart-validate kind data)
+    (apply #'financial-chart-validate kind data props)
     (let ((out (apply (plist-get entry (if (eq backend 'svg) :svg :text)) data
                       (financial-chart--renderer-args backend props))))
       (if (and out (eq backend 'svg))
@@ -586,7 +591,7 @@ for a real timer."
          (refresh-fn (plist-get props :refresh-fn)))
     (when (functionp refresh-fn)
       (let ((data (funcall refresh-fn)))
-        (financial-chart-validate kind data)
+        (apply #'financial-chart-validate kind data props)
         (setf (nth 1 financial-chart-plot--spec) data)
         (financial-chart-plot--render)
         data))))

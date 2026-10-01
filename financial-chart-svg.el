@@ -556,9 +556,7 @@ overrides `financial-chart-svg-font-family' for this call only."
        svg bars volume-y volume-h plot-width))
     (when show-x-axis
       (financial-chart--svg-x-axis svg bars xaxis-y text-color))
-    (with-temp-buffer
-      (svg-print svg)
-      (buffer-string))))
+    (financial-chart-svg--string svg)))
 
 ;;;###autoload
 (defun financial-chart-export-svg (bars file &optional title font-family)
@@ -751,8 +749,13 @@ A missing key falls back to the matching financial-chart face, then to
     (apply #'svg-text svg text properties)))
 
 (defun financial-chart-svg--string (svg)
-  "SVG serialized to a string."
-  (with-temp-buffer (svg-print svg) (buffer-string)))
+  "SVG serialized to a string, identical on every Emacs build.
+`svg-print' puts whitespace between elements and around text in some
+builds and not others; it carries no meaning in these documents, so it
+is removed here, the one place SVG is serialized."
+  (replace-regexp-in-string
+   "[ \t\n]*\\(<\\|>\\)[ \t\n]*" "\\1"
+   (with-temp-buffer (svg-print svg) (buffer-string))))
 
 (defun financial-chart-svg--frame (width height title)
   "Plot box (X0 Y0 W H) inside a WIDTH x HEIGHT canvas with TITLE."

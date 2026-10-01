@@ -16,7 +16,8 @@
 ;;   SERIES  numbers, (X Y) lists or (X . Y) conses, oldest first
 ;;   PAYOFF  a SERIES of (PRICE PNL), sorted by price
 ;;   LABELED a list of (LABEL . VALUE) conses, e.g. P/L per position
-;;   OHLC    (:open :high :low :close [:volume] [:time]) plists, oldest first
+;;   OHLC    (:open :high :low :close [:volume] [:time]) plists, oldest first;
+;;           supplied :volume is non-negative
 
 ;;; Code:
 

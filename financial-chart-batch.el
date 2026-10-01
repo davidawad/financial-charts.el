@@ -27,7 +27,8 @@
 ;; props being the keyword arguments of `financial-chart-plot' without
 ;; the colon ("backend": "text", "width": 60, "unit": "$", "title": ...).
 ;; Data per shape: series [1,2,3] or [[x,y],...]; payoff [[price,pnl],...];
-;; labeled [["AAPL",1200],...] or {"AAPL":1200}; ohlc
+;; labeled [["AAPL",1200],...] or {"AAPL":1200}; matrix
+;; {"labels":[...],"rows":[[...],...],"column_labels":[...]}; ohlc
 ;; [{"open":..,"high":..,"low":..,"close":..,"volume":..,"time":..},...].
 ;;
 ;; Failures print {"ok":false,"error":{"code","message"}} on stdout and
@@ -48,6 +49,10 @@
 (defun financial-chart-batch--data (shape data)
   "JSON-parsed DATA converted to SHAPE's Lisp form."
   (pcase shape
+    ('matrix (append (list :labels (alist-get 'labels data))
+                     (when (alist-get 'column_labels data)
+                       (list :column-labels (alist-get 'column_labels data)))
+                     (list :rows (alist-get 'rows data))))
     ('ohlc (mapcar (lambda (bar)
                      (cl-loop for (k . v) in bar
                               append (list (financial-chart-batch--keyword k) v)))
@@ -104,17 +109,20 @@
 (defun financial-chart-batch--example (kind)
   "A SPEC for KIND built from its shape's example, as a JSON-able alist."
   (let* ((d (financial-chart-describe-kind kind))
-         (ex (plist-get d :example)))
-    `((kind . ,(symbol-name kind))
-      (data . ,(apply #'vector
-                      (pcase (plist-get d :shape)
-                        ('ohlc (mapcar (lambda (b)
-                                         (cl-loop for (k v) on b by #'cddr
-                                                  collect (cons (substring (symbol-name k) 1) v)))
-                                       ex))
-                        ('labeled (mapcar (lambda (p) (vector (car p) (cdr p))) ex))
-                        (_ (mapcar (lambda (p) (if (consp p) (apply #'vector p) p)) ex)))))
-      (backend . "text"))))
+         (ex (plist-get d :example))
+         (shape (plist-get d :shape))
+         (data
+          (pcase shape
+            ('matrix `((labels . ,(vconcat (plist-get ex :labels)))
+                       (rows . ,(vconcat (mapcar #'vconcat (plist-get ex :rows))))))
+            ('ohlc (vconcat
+                    (mapcar (lambda (b)
+                              (cl-loop for (k v) on b by #'cddr
+                                       collect (cons (substring (symbol-name k) 1) v)))
+                            ex)))
+            ('labeled (vconcat (mapcar (lambda (p) (vector (car p) (cdr p))) ex)))
+            (_ (vconcat (mapcar (lambda (p) (if (consp p) (apply #'vector p) p)) ex))))))
+    `((kind . ,(symbol-name kind)) (data . ,data) (backend . "text"))))
 
 (defun financial-chart-batch--error-code (err)
   "Stable code for ERR: its :code, else derived from its symbol."

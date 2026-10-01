@@ -68,8 +68,8 @@ unicode text -- so the same call looks right in a GUI and a terminal."
      :validator financial-chart--validate-labeled)
     (ohlc
      :doc "bar/v1 plists (:open :high :low :close [:volume] [:time]), oldest
-first; :time is epoch milliseconds.  Validated by market-data.el when it
-is loaded (it owns the shape), else by the same required-key rule here."
+first; supplied :volume is non-negative and :time is epoch milliseconds.
+Validated by market-data.el when loaded, else by the same required-key rule here."
      :example ((:open 100 :high 103 :low 99 :close 102 :volume 12000 :time 1700000000000)
                (:open 102 :high 104 :low 101 :close 101.5 :volume 9500 :time 1700086400000))
      :validator financial-chart--validate-ohlc))
@@ -155,7 +155,7 @@ Each renderer is called as (FN DATA &rest PROPS) and returns a string.")
            do (financial-chart--invalid i "expected (LABEL . NUMBER), got %S" p)))
 
 (defun financial-chart--validate-ohlc (data)
-  "Signal unless DATA is a list of bar/v1 plists."
+  "Signal unless DATA is a list of valid bar/v1 plists with non-negative volume."
   (if (fboundp 'market-data-validate-bars)
       (market-data-validate-bars data)
     (unless (listp data)
@@ -166,7 +166,12 @@ Each renderer is called as (FN DATA &rest PROPS) and returns a string.")
                   (financial-chart--invalid i "bar is not a plist: %S" bar))
              (dolist (key '(:open :high :low :close))
                (unless (numberp (plist-get bar key))
-                 (financial-chart--invalid i "required key %s missing or non-number" key))))))
+                 (financial-chart--invalid i "required key %s missing or non-number" key)))))
+  (cl-loop for bar in data
+           for i from 0
+           for volume = (plist-get bar :volume)
+           when (and volume (not (and (numberp volume) (>= volume 0))))
+           do (financial-chart--invalid i ":volume must be a non-negative number when present")))
 
 ;;;###autoload
 (defun financial-chart-validate (kind data)
@@ -215,10 +220,13 @@ BACKEND nil means `financial-chart-backend'."
   "Point count and value range of DATA in SHAPE, for explain and provenance."
   (let ((ys (pcase shape
               ('labeled (mapcar #'cdr data))
+              ('matrix (apply #'append
+                              (mapcar (lambda (row) (append row nil))
+                                      (append (plist-get data :rows) nil))))
               ('ohlc (append (delq nil (mapcar (lambda (b) (plist-get b :low)) data))
                              (delq nil (mapcar (lambda (b) (plist-get b :high)) data))))
               (_ (financial-chart-series-values data)))))
-    (append (list :points (length data))
+    (append (list :points (if (eq shape 'matrix) (length ys) (length data)))
             (when ys (list :min (apply #'min ys) :max (apply #'max ys))))))
 
 ;;;###autoload
@@ -246,7 +254,11 @@ A plist: :kind :shape :valid (t, or the error message) :backend and
 An agent reading the file alone knows what it shows."
   (let* ((summary (financial-chart--data-summary
                    (plist-get (financial-chart--kind kind) :shape) data))
-         (title (or (plist-get props :title) (format "%s chart" kind)))
+         (title (replace-regexp-in-string
+                 "[[:cntrl:]]" ""
+                 (format "%s" (or (plist-get props :title)
+                                   (format "%s chart" kind)))
+                 t t))
          (desc (format "financial-chart %s: %d points%s" kind (plist-get summary :points)
                        (if (plist-get summary :min)
                            (format ", range %s to %s"

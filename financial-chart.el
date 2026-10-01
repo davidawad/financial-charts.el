@@ -62,6 +62,7 @@
 (require 'financial-chart-multi)
 (require 'financial-chart-returns)
 (require 'financial-chart-depth)
+(require 'financial-chart-matrix)
 
 (defconst financial-chart-version "0.2.0"
   "Version of the financial-chart package.")

@@ -16,7 +16,6 @@
 ;;; Code:
 
 (require 'cl-lib)
-(require 'color)
 (require 'financial-chart-series)
 (require 'financial-chart-text)
 (require 'financial-chart-svg)
@@ -26,26 +25,14 @@
   '(financial-chart-up financial-chart-down font-lock-keyword-face financial-chart-accent)
   "Text faces assigned to series in order, then cycled.")
 
-(defconst financial-chart-multi-svg-colors
-  '("#2e7d32" "#c62828" "#1565c0" "#8e24aa")
-  "Initial SVG colors assigned to series in order.")
-
 (defun financial-chart-multi--label (label)
   "Return LABEL as display text with control characters replaced by spaces."
   (replace-regexp-in-string "[[:cntrl:]]" " " (format "%s" label)))
 
 (defun financial-chart-multi--svg-colors (count)
-  "Return COUNT distinct SVG colors, preserving the initial palette."
-  (let ((colors (copy-sequence financial-chart-multi-svg-colors))
-        (candidate-index 0))
-    (while (< (length colors) count)
-      (let* ((hue (mod (* candidate-index 0.618033988749895) 1.0))
-             (rgb (color-hsl-to-rgb hue 0.72 0.45))
-             (candidate (apply #'color-rgb-to-hex (append rgb '(2)))))
-        (setq candidate-index (1+ candidate-index))
-        (unless (member candidate colors)
-          (setq colors (append colors (list candidate))))))
-    (cl-subseq colors 0 count)))
+  "Return COUNT distinct SVG colors from the shared palette."
+  (cl-loop for index below count
+           collect (financial-chart-svg--series-color index)))
 
 (defun financial-chart-multi--prepare (data normalize)
   "Return DATA as (LABEL . VALUES) entries, rebased to NORMALIZE when set."
@@ -200,7 +187,7 @@ numeric point.  UNIT suffixes the Y-axis and legend values."
          (x0 (nth 0 frame))
          (y0 (nth 1 frame))
          (w (nth 2 frame))
-         (plot-height (max 1 (- (nth 3 frame) 28)))
+         (plot-height (max 1 (- (nth 3 frame) 46)))
          (colors (financial-chart-multi--svg-colors (length series)))
          (range (financial-chart-multi--range series)))
     (when range
@@ -209,15 +196,15 @@ numeric point.  UNIT suffixes the Y-axis and legend values."
              (span (max 0.001 (- hi lo)))
              (svg (financial-chart-svg--canvas width height title))
              (ticks (list hi (/ (+ hi lo) 2.0) lo))
+             (x-ticks (financial-chart-svg--series-x-ticks (cdar series) w))
              (legend-y (+ y0 plot-height 38)))
-        (cl-loop for value in ticks
-                 for index from 0
-                 for y = (+ y0 (* plot-height (/ index 2.0)))
-                 do (svg-line svg x0 y (+ x0 w) y
-                              :stroke (financial-chart-svg--color 'grid))
-                 do (financial-chart-svg--text
-                     svg (concat (financial-chart-fmt value) unit)
-                     (- x0 6) (+ y 4) "end"))
+        (financial-chart-svg--horizontal-ticks
+         svg (cl-loop for value in ticks for index from 0
+                      collect (list (+ y0 (* plot-height (/ index 2.0)))
+                                    (concat (financial-chart-fmt value) unit)))
+         x0 (+ x0 w))
+        (when x-ticks
+          (financial-chart-svg--series-x-axis svg x-ticks x0 y0 w plot-height nil))
         (cl-loop for entry in series
                  for index from 0
                  for values = (financial-chart-multi--sample
@@ -234,7 +221,17 @@ numeric point.  UNIT suffixes the Y-axis and legend values."
                                            (financial-chart-svg--n
                                             (+ y0 (* plot-height
                                                      (- 1 (/ (float (- value lo)) span)))))))))
-                      (svg-polyline svg points :fill "none" :stroke color :stroke-width 1.8)))
+                      (svg-polyline svg points :fill "none" :stroke color :stroke-width 1.8)
+                      (cl-loop for value in (cdr entry) for point-index from 0
+                               for point-x = (+ x0 (* w (/ point-index
+                                                           (float (max 1 (1- (length (cdr entry))))))))
+                               for point-y = (+ y0 (* plot-height
+                                                      (- 1 (/ (float (- value lo)) span))))
+                               do (financial-chart-svg--point-target
+                                   svg point-x point-y
+                                   (format "%s: %s%s"
+                                           (financial-chart-multi--label (car entry))
+                                           (financial-chart-fmt value) unit)))))
         (let ((step (/ (float w) (max 1 (length series)))))
           (cl-loop for entry in series
                    for index from 0

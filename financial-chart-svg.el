@@ -507,7 +507,7 @@ A missing key falls back to the matching financial-chart face, then to
         (ys (financial-chart-series-values payoff)))
     (when (and ys (= (length xs) (length ys)) (cdr xs))
       (pcase-let* ((`(,x0 ,y0 ,w ,h) (financial-chart-svg--frame width height title))
-                   (`(,lo . ,hi) (financial-chart-range ys t))
+                   (`(,lo . ,hi) (financial-chart-payoff-range payoff))
                    (span (float (max 0.001 (- hi lo))))
                    (`(,plo . ,phi) (financial-chart-range xs))
                    (pspan (float (max 0.001 (- phi plo))))

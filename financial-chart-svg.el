@@ -39,6 +39,14 @@
   :type 'integer
   :group 'financial-chart)
 
+(defconst financial-chart-svg--ohlc-min-plot-width 480
+  "Minimum horizontal space for OHLC candles in the SVG renderer.")
+(defconst financial-chart-svg--ohlc-max-body-width 14
+  "Largest candle body width used when OHLC bars are spread across a plot.")
+(defvar financial-chart-svg--candle-step nil)
+(defvar financial-chart-svg--candle-count nil)
+(defvar financial-chart-svg--plot-area-width nil)
+
 (defcustom financial-chart-svg-wick-width 1
   "Pixel stroke width of a candle's wick line in the SVG renderer."
   :type 'number
@@ -181,17 +189,110 @@ regardless of whether a theme is loaded."
               financial-chart-svg-fallback-foreground))
       (format "%s" value))))
 
+(defun financial-chart--axis-step (min max count)
+  "Choose a 1-2-5 step near the raw tick spacing for MIN, MAX and COUNT."
+  (let ((raw (/ (- max min) (float (max 1 (1- count))))))
+    (if (<= raw 0)
+        0
+      (let ((power 1.0))
+        (while (<= (* power 10) raw)
+          (setq power (* power 10)))
+        (while (> power raw)
+          (setq power (/ power 10.0)))
+        (let ((fraction (/ raw power)))
+          (* power (cond ((<= fraction 1) 1)
+                         ((<= fraction 2) 2)
+                         ((<= fraction 5) 5)
+                         (t 10))))))))
+
+(defun financial-chart--axis-label-precision (min max count)
+  "Decimal places needed to display nice ticks between MIN and MAX."
+  (let ((step (financial-chart--axis-step min max count))
+        (precision 0))
+    (while (and (> step 0) (< step 1) (< precision 8))
+      (setq step (* step 10)
+            precision (1+ precision)))
+    precision))
+
+(defun financial-chart--axis-tick-label (value min max count &optional unit)
+  "Format nice tick VALUE using the precision implied by MIN, MAX and COUNT."
+  (concat (or unit "")
+          (format (format "%%.%df"
+                          (financial-chart--axis-label-precision min max count))
+                  value)))
+
+(defun financial-chart--axis-format-value (value min max count format-string)
+  "Format nice tick VALUE using FORMAT-STRING and enough decimal places.
+MIN, MAX and COUNT determine the minimum precision needed by the ticks."
+  (let* ((precision (financial-chart--axis-label-precision min max count))
+         (format-string
+          (if (string-match "\\(%[-+ #0-9]*\\.\\)\\([0-9]+\\)\\([fF]\\)"
+                            format-string)
+              (replace-match
+               (concat (match-string 1 format-string)
+                       (number-to-string
+                        (max (string-to-number (match-string 2 format-string))
+                             precision))
+                       (match-string 3 format-string))
+               t t format-string)
+            format-string)))
+    (string-trim (format format-string value))))
+
 (defun financial-chart--axis-label-values (min max count)
-  "Return COUNT scale-space values evenly spaced from MIN to MAX inclusive."
-  (if (<= count 1)
+  "Return nice 1-2-5 tick values within MIN..MAX, up to COUNT labels."
+  (if (or (<= count 1) (<= max min))
       (list min)
-    (let ((step (/ (- max min) (float (1- count)))))
-      (mapcar (lambda (i) (+ min (* i step))) (number-sequence 0 (1- count))))))
+    (let* ((step (financial-chart--axis-step min max count))
+           (first (ceiling (/ min step)))
+           (last (floor (/ max step))))
+      (if (<= first last)
+          (cl-loop for index from first to last
+                   collect (* index step))
+        (list (/ (+ min max) 2.0))))))
+
+(defun financial-chart-svg--label-interval (x text anchor)
+  "Approximate TEXT's horizontal pixel interval at X with ANCHOR."
+  (let* ((width (+ 2 (* (string-width text)
+                        financial-chart-svg-font-size 0.62)))
+         (left (cond ((equal anchor "start") x)
+                     ((equal anchor "end") (- x width))
+                     (t (- x (/ width 2.0)))))
+         (right (+ left width)))
+    (cons left right)))
+
+(defun financial-chart-svg--nonoverlapping-label-indices (entries left right)
+  "Return indexes of nonduplicate, nonoverlapping (X TEXT ANCHOR) ENTRIES.
+Labels are estimated from the configured monospace font and must fit
+between LEFT and RIGHT."
+  (let ((previous-right (- left 4))
+        seen
+        visible)
+    (cl-loop for (x text anchor) in entries
+             for index from 0
+             for interval = (and (stringp text)
+                                 (financial-chart-svg--label-interval x text anchor))
+             do (when (and interval
+                           (not (member text seen))
+                           (>= (car interval) left)
+                           (<= (cdr interval) right)
+                           (>= (car interval) (+ previous-right 4)))
+                  (push text seen)
+                  (setq previous-right (cdr interval))
+                  (push index visible)))
+    (nreverse visible)))
 
 (defun financial-chart--svg-x (index)
   "Pixel X of bar INDEX's left edge in the SVG renderer."
   (+ financial-chart-svg-margin-left
-     (* index (+ financial-chart-svg-candle-width financial-chart-svg-candle-gap))))
+     (cond
+      ((and financial-chart-svg--candle-step financial-chart-svg--candle-count)
+       (if (= financial-chart-svg--candle-count 1)
+           (/ (- financial-chart-svg--plot-area-width
+                 financial-chart-svg-candle-width)
+              2.0)
+         (* index financial-chart-svg--candle-step)))
+      (t (* index (+ financial-chart-svg-candle-width
+                      financial-chart-svg-candle-gap))))))
 
 (defun financial-chart--svg-y (value min max panel-y panel-height)
   "Map scale-space VALUE in [MIN,MAX] to a pixel Y within a panel
@@ -211,9 +312,12 @@ overlays) into SVG."
   (financial-chart-svg--horizontal-ticks
    svg (mapcar (lambda (value)
                  (list (financial-chart--svg-y value min max panel-y panel-h)
-                       (string-trim
-                        (format financial-chart-axis-format
-                                (financial-chart--from-scale value)))))
+                       (financial-chart--axis-format-value
+                        (financial-chart--from-scale value)
+                        (financial-chart--from-scale min)
+                        (financial-chart--from-scale max)
+                        financial-chart-axis-label-count
+                        financial-chart-axis-format)))
    (financial-chart--axis-label-values
                 min max financial-chart-axis-label-count))
    financial-chart-svg-margin-left
@@ -280,7 +384,9 @@ overlays) into SVG."
     (financial-chart-svg--horizontal-ticks
      svg (mapcar (lambda (value)
                    (list (financial-chart--svg-y value 0.0 max-vol panel-y panel-h)
-                         (string-trim (format financial-chart-volume-axis-format value))))
+                         (financial-chart--axis-format-value
+                          value 0.0 max-vol financial-chart-volume-axis-label-count
+                          financial-chart-volume-axis-format)))
      (financial-chart--axis-label-values
                   0.0 max-vol financial-chart-volume-axis-label-count))
      financial-chart-svg-margin-left
@@ -346,18 +452,34 @@ overlays) into SVG."
   "Draw evenly-spaced date/time labels into SVG below the chart."
   (let* ((n (length bars))
          (rows
-          (financial-chart--axis-label-rows n financial-chart-x-axis-label-count)))
-    (dolist (i rows)
-      (let ((time (plist-get (nth i bars) :time)))
-        (when time
-          (svg-line svg (financial-chart--svg-x i) axis-y
-                    (financial-chart--svg-x i) (+ axis-y 5)
-                    :stroke (financial-chart-svg--color 'grid))
-          (financial-chart-svg--text
-           svg (format-time-string financial-chart-x-axis-format (/ time 1000.0))
-           (financial-chart--svg-x i) (+ axis-y 15)
-           (if (= i 0) "start"
-             (if (= i (1- n)) "end" "middle")) text-color))))))
+          (financial-chart--axis-label-rows n financial-chart-x-axis-label-count))
+         (labels
+          (cl-loop for index in rows
+                   for time = (plist-get (nth index bars) :time)
+                   when time
+                   collect (list index
+                                 (format-time-string financial-chart-x-axis-format
+                                                    (/ time 1000.0))
+                                 (if (= index 0) "start"
+                                   (if (= index (1- n)) "end" "middle")))))
+         (entries
+          (mapcar (lambda (label)
+                    (list (financial-chart--svg-x (car label))
+                          (cadr label) (nth 2 label)))
+                  labels))
+         (visible (financial-chart-svg--nonoverlapping-label-indices
+                   entries financial-chart-svg-margin-left
+                   (+ financial-chart-svg-margin-left
+                      (or financial-chart-svg--plot-area-width 0)))))
+    (cl-loop for label in labels
+             for entry in entries
+             for index from 0
+             for x = (car entry)
+             do (svg-line svg x axis-y x (+ axis-y 5)
+                          :stroke (financial-chart-svg--color 'grid))
+             when (memq index visible)
+             do (financial-chart-svg--text svg (cadr label) x (+ axis-y 15)
+                                           (nth 2 label) text-color))))
 
 ;;;###autoload
 (defun financial-chart-render-svg (bars &optional title font-family)
@@ -376,6 +498,21 @@ overrides `financial-chart-svg-font-family' for this call only."
          (range (financial-chart--bars-range bars))
          (min (car range))
          (max (if (= (car range) (cdr range)) (+ (cdr range) 0.0001) (cdr range)))
+         (base-candle-step (+ financial-chart-svg-candle-width
+                              financial-chart-svg-candle-gap))
+         (plot-area-width
+          (max financial-chart-svg--ohlc-min-plot-width (* n base-candle-step)))
+         (body-width
+          (min financial-chart-svg--ohlc-max-body-width
+               (max financial-chart-svg-candle-width
+                    (floor (* 0.7 (/ plot-area-width (float (max 1 n))))))))
+         (financial-chart-svg-candle-width body-width)
+         (financial-chart-svg--candle-step
+          (if (> n 1)
+              (/ (- plot-area-width body-width) (float (1- n)))
+            0.0))
+         (financial-chart-svg--candle-count n)
+         (financial-chart-svg--plot-area-width plot-area-width)
          (show-volume
           (and financial-chart-show-volume
                (cl-some (lambda (b) (plist-get b :volume)) bars)))
@@ -385,7 +522,7 @@ overrides `financial-chart-svg-font-family' for this call only."
                (cl-some (lambda (b) (plist-get b :time)) bars)))
          (plot-width
           (+ financial-chart-svg-margin-left financial-chart-svg-margin-right
-             (* n (+ financial-chart-svg-candle-width financial-chart-svg-candle-gap))))
+             plot-area-width))
          (price-y financial-chart-svg-margin-top)
          (price-h financial-chart-svg-price-height)
          (oscillator-y (+ price-y price-h 10))
@@ -641,18 +778,30 @@ A missing key falls back to the matching financial-chart face, then to
 
 (defun financial-chart-svg--vertical-ticks (svg ticks x0 y0 width height)
   "Draw normalized X TICKS (POSITION LABEL) along an SVG plot."
-  (dolist (tick ticks)
-    (let* ((position (car tick))
-           (x (+ x0 (* width position)))
-           (anchor (cond ((<= position 0) "start")
-                         ((>= position 1) "end")
-                         (t "middle"))))
-      (svg-line svg x y0 x (+ y0 height)
-                :stroke (financial-chart-svg--color 'grid)
-                :stroke-width 0.5 :stroke-opacity 0.25)
-      (svg-line svg x (+ y0 height) x (+ y0 height 5)
-                :stroke (financial-chart-svg--color 'grid) :stroke-width 0.6)
-      (financial-chart-svg--text svg (cadr tick) x (+ y0 height 17) anchor))))
+  (let* ((entries
+          (mapcar (lambda (tick)
+                    (let* ((position (car tick))
+                           (x (+ x0 (* width position)))
+                           (anchor (cond ((<= position 0) "start")
+                                         ((>= position 1) "end")
+                                         (t "middle"))))
+                      (list x (cadr tick) anchor)))
+                  ticks))
+         (visible (financial-chart-svg--nonoverlapping-label-indices
+                   entries x0 (+ x0 width))))
+    (cl-loop for tick in ticks
+             for entry in entries
+             for index from 0
+             for x = (car entry)
+             for anchor = (nth 2 entry)
+             do (svg-line svg x y0 x (+ y0 height)
+                          :stroke (financial-chart-svg--color 'grid)
+                          :stroke-width 0.5 :stroke-opacity 0.25)
+             do (svg-line svg x (+ y0 height) x (+ y0 height 5)
+                          :stroke (financial-chart-svg--color 'grid) :stroke-width 0.6)
+             when (memq index visible)
+             do (financial-chart-svg--text svg (cadr tick) x
+                                           (+ y0 height 17) anchor))))
 
 (defun financial-chart-svg--series-x-ticks (series width)
   "Return date or coordinate ticks for SERIES across plot WIDTH."
@@ -702,6 +851,8 @@ A missing key falls back to the matching financial-chart face, then to
                               series (max 2 (floor w 2))))
                    (range-values
                     (if (financial-chart-series-x-aware-p series) values raw-cols))
+                   (`(,raw-lo . ,raw-hi)
+                    (financial-chart-range range-values))
                    (cols (mapcar (lambda (value)
                                    (financial-chart-series-scale-value value scale))
                                  raw-cols))
@@ -728,12 +879,15 @@ A missing key falls back to the matching financial-chart face, then to
                                     (+ y0 (* h (- 1 (/ (- value lo) span))))))))
                    (y-ticks
                     (mapcar (lambda (value)
-                              (list (+ y0 (* h (- 1 (/ (- value lo) span))))
-                                    (concat
-                                     (financial-chart-fmt
-                                      (financial-chart-series-unscale-value value scale))
-                                     unit)))
-                            (financial-chart--axis-label-values lo hi 3)))
+                              (let ((scaled (financial-chart-series-scale-value
+                                             value scale)))
+                                (list (+ y0 (* h (- 1 (/ (- scaled lo) span))))
+                                      (concat
+                                       (financial-chart--axis-tick-label
+                                        value raw-lo raw-hi 3)
+                                       unit)
+                                      unit)))
+                            (financial-chart--axis-label-values raw-lo raw-hi 3)))
                    (svg (financial-chart-svg--canvas width height title)))
         (financial-chart-svg--horizontal-ticks svg y-ticks x0 (+ x0 w))
         (when (eq style 'area)

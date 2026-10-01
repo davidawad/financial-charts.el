@@ -53,6 +53,47 @@ unicode text -- so the same call looks right in a GUI and a terminal."
 
 (declare-function market-data-validate-bars "market-data" (bars))
 
+(defconst financial-chart--example-price-changes
+  [0.36 -0.18 0.12 -0.31 0.48 -0.09 0.22 -0.42 0.29 0.07 -0.16 0.34]
+  "Small deterministic daily changes used to build realistic chart examples.")
+
+(defun financial-chart--example-series (start &optional count changes)
+  "Build COUNT deterministic price points beginning near START.
+CHANGES is a vector of repeating daily moves, defaulting to
+`financial-chart--example-price-changes'."
+  (let ((price start)
+        (count (or count 48))
+        (changes (or changes financial-chart--example-price-changes)))
+    (cl-loop for index from 0 below count
+             do (setq price (+ price (aref changes (% index (length changes)))))
+             collect (list (1+ index)
+                           (/ (float (round (* price 100))) 100.0)))))
+
+(defun financial-chart--example-payoff ()
+  "Build a deterministic 21-point long-straddle payoff example."
+  (cl-loop for price from 80 to 120 by 2
+           collect (list price (- (abs (- price 100)) 8))))
+
+(defun financial-chart--example-ohlc ()
+  "Build 48 deterministic OHLCV bars with daily timestamps."
+  (let ((points (financial-chart--example-series 100.0))
+        (open 99.8)
+        bars)
+    (cl-loop for point in points
+             for close = (cadr point)
+             for index from 0
+             for spread = (aref [0.22 0.31 0.18 0.27 0.36 0.2] (% index 6))
+             do (progn
+                  (push (list :open open
+                              :high (+ (max open close) spread)
+                              :low (- (min open close) spread)
+                              :close close
+                              :volume (+ 9000 (* 375 (% (* index 7) 24)))
+                              :time (+ 1700000000000 (* index 86400000)))
+                        bars)
+                  (setq open close)))
+    (nreverse bars)))
+
 (defvar financial-chart-shapes
   '((series
      :doc "Numbers, (X Y) lists or (X . Y) conses, oldest first.  A nil Y is skipped."
@@ -78,6 +119,16 @@ Validated by market-data.el when loaded, else by the same required-key rule here
 :values (DATA PROPS -> numbers) feeds explain and SVG provenance;
 :from-json (parsed JSON DATA -> Lisp DATA) is used by the CLI.  Both are
 optional, so a module adding a shape never edits this file.")
+
+(setf (plist-get (alist-get 'series financial-chart-shapes) :example)
+      (financial-chart--example-series 100.0)
+      (plist-get (alist-get 'payoff financial-chart-shapes) :example)
+      (financial-chart--example-payoff)
+      (plist-get (alist-get 'labeled financial-chart-shapes) :example)
+      '(("AAPL" . 1200) ("VTI" . 8000) ("QQQ" . 2650) ("TLT" . -720)
+        ("GLD" . 430) ("MSFT" . 980) ("NVDA" . 1540) ("CASH" . 2100))
+      (plist-get (alist-get 'ohlc financial-chart-shapes) :example)
+      (financial-chart--example-ohlc))
 
 (defvar financial-chart-kinds
   '((area :shape series :text financial-chart-text-area :svg financial-chart-svg-area

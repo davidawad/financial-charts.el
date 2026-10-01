@@ -152,7 +152,7 @@
     (should c)
     (should (eq (get-text-property p 'face chart) 'financial-chart-accent))
     (should (eq (get-text-property c 'face chart) 'financial-chart-down))
-    (should (string-match "P = point of control" chart))))
+    (should (string-match "◀ POC = point of control" chart))))
 
 (ert-deftest financial-chart-matrix-test-volume-profile-rejects-invalid-bin-count ()
   (should-error

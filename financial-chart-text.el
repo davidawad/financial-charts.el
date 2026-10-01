@@ -331,20 +331,47 @@ When WICK is non-nil, use only the left dot column for a narrower wick."
     (let* ((label-width (length (format financial-chart-axis-format 0.0)))
            (cell-width (+ financial-chart-candle-width financial-chart-candle-gap))
            (n (length bars))
-           (line-length (max label-width (+ label-width (* n cell-width))))
-           (line (make-string line-length ?\s))
+           (max-date-label-width
+            (cl-loop for bar in bars
+                     for time = (plist-get bar :time)
+                     when time
+                     maximize (length (format-time-string
+                                       financial-chart-x-axis-format
+                                       (/ time 1000.0)))
+                     into max-width
+                     finally return (or max-width 1)))
+           (label-count
+            (max 1
+                 (min financial-chart-x-axis-label-count
+                      (1+ (floor (/ (* (max 0 (1- n)) cell-width)
+                                    (float max-date-label-width)))))))
            (rows
-            (financial-chart--axis-label-rows n financial-chart-x-axis-label-count)))
-      (dolist (idx rows)
-        (let ((time (plist-get (nth idx bars) :time)))
-          (when time
-            (let* ((label
-                    (format-time-string financial-chart-x-axis-format
-                                        (/ time 1000.0)))
-                   (start (+ label-width (* idx cell-width)))
-                   (end (min line-length (+ start (length label)))))
-              (when (< start line-length)
-                (store-substring line start (substring label 0 (- end start))))))))
+            (financial-chart--axis-label-rows n label-count))
+           (labels
+            (cl-loop for idx in rows
+                     for time = (plist-get (nth idx bars) :time)
+                     when time
+                     collect (cons idx
+                                   (format-time-string
+                                    financial-chart-x-axis-format
+                                    (/ time 1000.0)))))
+           (max-label-end
+            (if labels
+                (apply #'max (mapcar (lambda (entry)
+                                       (+ label-width
+                                          (* (car entry) cell-width)
+                                          (length (cdr entry))))
+                                     labels))
+              label-width))
+           (line-length
+            (max label-width (+ label-width (* n cell-width))
+                 max-label-end))
+           (line (make-string line-length ?\s)))
+      (dolist (entry labels)
+        (let* ((idx (car entry))
+               (label (cdr entry))
+               (start (+ label-width (* idx cell-width))))
+          (store-substring line start label)))
       line)))
 
 ;; -----------------------------------------------------------------------

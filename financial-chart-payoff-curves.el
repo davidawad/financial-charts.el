@@ -270,6 +270,20 @@ CURVE-COLORS overrides the default ten-color palette."
   "JSON-parsed DATA ([LABEL, PAYOFF] pairs) as (LABEL . PAYOFF) curves."
   (mapcar (lambda (curve) (cons (car curve) (cdr curve))) data))
 
+(defun financial-chart-payoff-curves--example ()
+  "Build three deterministic option payoff curves on 21 prices."
+  (let ((prices (number-sequence 80 120 2))
+        (curves
+         `(("Long straddle" . ,(lambda (price) (- (abs (- price 100)) 8)))
+           ("Call spread" . ,(lambda (price) (- (min 24 (max 0 (- price 100))) 6)))
+           ("Put spread" . ,(lambda (price) (- (min 16 (max 0 (- 100 price))) 5))))))
+    (mapcar (lambda (curve)
+              (cons (car curve)
+                    (mapcar (lambda (price)
+                              (list price (funcall (cdr curve) price)))
+                            prices)))
+            curves)))
+
 (add-to-list 'financial-chart-shapes
              '(payoff-curves
                :doc "String-labeled (LABEL . PAYOFF) curves over one ascending price grid."
@@ -279,6 +293,9 @@ CURVE-COLORS overrides the default ten-color palette."
                :validator financial-chart-payoff-curves--validate
                :values financial-chart-payoff-curves--values
                :from-json financial-chart-payoff-curves--from-json))
+
+(setf (plist-get (alist-get 'payoff-curves financial-chart-shapes) :example)
+      (financial-chart-payoff-curves--example))
 
 (financial-chart-register-kind
  'payoff-curves

@@ -86,13 +86,17 @@
         (match-string 1 text)
       text)))
 
-(defun financial-chart-depth--price (price unit)
-  "PRICE prefixed by UNIT, if present; discard control characters."
-  (let ((prefix (or unit "")))
+(defun financial-chart-depth--price (price unit &optional precision)
+  "PRICE prefixed by UNIT, if present; discard control characters.
+When PRECISION is non-nil, format PRICE with that many decimals."
+  (let ((prefix (or unit ""))
+        (price (if precision
+                   (format (format "%%.%df" precision) price)
+                 (financial-chart-depth--number price))))
     (concat (if (stringp prefix)
                 (replace-regexp-in-string "[[:cntrl:]]" "" prefix)
               prefix)
-            (financial-chart-depth--number price))))
+            price)))
 
 (defun financial-chart-depth--summary (book unit)
   "Mid-price or one-sided quote and spread label plist for BOOK."
@@ -314,9 +318,9 @@ the down color.  The annotation reports the mid price and spread."
              (frame (financial-chart-svg--frame width height title))
              (x0 (max (nth 0 frame)
                       (+ 12 (* axis-label-width (* 0.6 financial-chart-svg-font-size)))))
-             (y0 (nth 1 frame))
+             (y0 (+ (nth 1 frame) 18))
              (plot-width (max 2 (- width x0 financial-chart-svg-margin-right)))
-             (plot-height (max 20 (- (nth 3 frame) 30)))
+             (plot-height (max 20 (- (nth 3 frame) 48)))
              (center-x (+ x0 (/ plot-width 2.0)))
              (center-y (+ y0 (* plot-height
                                 (- 1.0 (/ (- reference price-low) price-span)))))
@@ -332,6 +336,8 @@ the down color.  The annotation reports the mid price and spread."
                           max-cumulative price-y))
              (svg (financial-chart-svg--canvas width height title))
              (bottom (+ y0 plot-height))
+             (tick-precision (financial-chart--axis-label-precision
+                              price-low price-high 5))
              (bid-color (financial-chart-svg--color 'up))
              (ask-color (financial-chart-svg--color 'down))
              (grid-color (financial-chart-svg--color 'grid)))
@@ -343,7 +349,8 @@ the down color.  The annotation reports the mid price and spread."
         (financial-chart-svg--horizontal-ticks
          svg (mapcar (lambda (price)
                        (list (funcall price-y price)
-                             (financial-chart-depth--price price unit)))
+                             (financial-chart-depth--price
+                              price unit tick-precision)))
                      (financial-chart--axis-label-values price-low price-high 5))
          x0 (+ x0 plot-width))
         (financial-chart-svg--vertical-ticks
@@ -404,8 +411,12 @@ the down color.  The annotation reports the mid price and spread."
 (add-to-list 'financial-chart-shapes
              '(order-book
                :doc "Plist (:bids ((PRICE SIZE) ...) :asks ((PRICE SIZE) ...)); positive levels, with best bid no higher than best ask when both exist.  JSON: {\"bids\": [[price, size], ...], \"asks\": [...]}."
-               :example (:bids ((100.0 2.0) (99.5 4.0) (99.0 6.0))
-                        :asks ((100.5 1.0) (101.0 3.0) (101.5 5.0)))
+               :example (:bids ((100.9375 2.0) (100.875 4.0) (100.8125 3.0)
+                                (100.75 5.0) (100.6875 2.5) (100.625 6.0)
+                                (100.5625 3.5) (100.5 7.0))
+                        :asks ((101.0625 1.5) (101.125 3.0) (101.1875 2.5)
+                               (101.25 4.5) (101.3125 3.0) (101.375 5.5)
+                               (101.4375 2.0) (101.5 6.0)))
                :validator financial-chart-depth--validate-order-book
                :values financial-chart-depth--values
                :from-json financial-chart-depth--from-json

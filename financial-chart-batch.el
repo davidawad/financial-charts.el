@@ -57,6 +57,14 @@
                             (cons (symbol-name (car p)) (cdr p))
                           (cons (car p) (cadr p))))
                       data))
+    ('multi-series
+     (if (listp data)
+         (mapcar (lambda (p)
+                   (if (and (listp p) (= (length p) 2))
+                       (cons (car p) (cadr p))
+                     p))
+                 data)
+       data))
     (_ data)))
 
 (defun financial-chart-batch-spec (json)
@@ -113,6 +121,24 @@
                                                   collect (cons (substring (symbol-name k) 1) v)))
                                        ex))
                         ('labeled (mapcar (lambda (p) (vector (car p) (cdr p))) ex))
+                        ('multi-series
+                         (mapcar (lambda (entry)
+                                   (let ((series (cdr entry)))
+                                     (vector
+                                      (car entry)
+                                      (apply #'vector
+                                             (mapcar
+                                              (lambda (point)
+                                                (if (consp point)
+                                                    (vector (car point)
+                                                            (if (consp (cdr point))
+                                                                (cadr point)
+                                                              (cdr point)))
+                                                  point))
+                                              (if (and (vectorp series) (not (stringp series)))
+                                                  (append series nil)
+                                                series))))))
+                                 ex))
                         (_ (mapcar (lambda (p) (if (consp p) (apply #'vector p) p)) ex)))))
       (backend . "text"))))
 

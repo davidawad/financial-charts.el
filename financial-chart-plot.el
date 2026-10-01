@@ -211,14 +211,25 @@ BACKEND nil means `financial-chart-backend'."
 
 ;; -- explain: the pure plan --
 
-(defun financial-chart--data-summary (shape data)
-  "Point count and value range of DATA in SHAPE, for explain and provenance."
-  (let ((ys (pcase shape
-              ('labeled (mapcar #'cdr data))
-              ('ohlc (append (delq nil (mapcar (lambda (b) (plist-get b :low)) data))
-                             (delq nil (mapcar (lambda (b) (plist-get b :high)) data))))
-              (_ (financial-chart-series-values data)))))
-    (append (list :points (length data))
+(defun financial-chart--data-summary (shape data &optional normalize)
+  "Point count and value range of DATA in SHAPE, for explain and provenance.
+For `multi-series', NORMALIZE rebases each series before summarizing."
+  (let* ((ys (pcase shape
+               ('labeled (mapcar #'cdr data))
+               ('multi-series
+                (cl-loop for entry in data
+                         for values = (financial-chart-series-values (cdr entry))
+                         for base = (car values)
+                         append (if (and (numberp normalize) values (not (zerop base)))
+                                    (mapcar (lambda (value)
+                                              (* normalize (/ (float value) base)))
+                                            values)
+                                  values)))
+               ('ohlc (append (delq nil (mapcar (lambda (b) (plist-get b :low)) data))
+                              (delq nil (mapcar (lambda (b) (plist-get b :high)) data))))
+               (_ (financial-chart-series-values data))))
+         (points (if (eq shape 'multi-series) (length ys) (length data))))
+    (append (list :points points)
             (when ys (list :min (apply #'min ys) :max (apply #'max ys))))))
 
 ;;;###autoload
@@ -230,14 +241,21 @@ A plist: :kind :shape :valid (t, or the error message) :backend and
   (let* ((entry (financial-chart--kind kind))
          (shape (plist-get entry :shape))
          (decision (financial-chart--backend-decision (plist-get props :backend)))
-         (valid (condition-case err (financial-chart-validate kind data)
+         (valid (condition-case err
+                    (progn
+                      (financial-chart-validate kind data)
+                      (when (eq shape 'multi-series)
+                        (financial-chart-multi--prepare
+                         data (plist-get props :normalize)))
+                      t)
                   (error (error-message-string err)))))
     (append
      (list :kind kind :shape shape :valid valid
            :backend (car decision) :backend-reason (cdr decision)
            :renderer (plist-get entry (if (eq (car decision) 'svg) :svg :text))
            :args (financial-chart--renderer-args (car decision) props))
-     (when (eq valid t) (financial-chart--data-summary shape data)))))
+     (when (eq valid t)
+       (financial-chart--data-summary shape data (plist-get props :normalize))))))
 
 ;; -- render --
 
@@ -245,7 +263,8 @@ A plist: :kind :shape :valid (t, or the error message) :backend and
   "SVG with a <title> and <desc> naming KIND, the data and PROPS' :title.
 An agent reading the file alone knows what it shows."
   (let* ((summary (financial-chart--data-summary
-                   (plist-get (financial-chart--kind kind) :shape) data))
+                   (plist-get (financial-chart--kind kind) :shape) data
+                   (plist-get props :normalize)))
          (title (or (plist-get props :title) (format "%s chart" kind)))
          (desc (format "financial-chart %s: %d points%s" kind (plist-get summary :points)
                        (if (plist-get summary :min)

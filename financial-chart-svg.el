@@ -53,6 +53,11 @@
   :type 'integer
   :group 'financial-chart)
 
+(defcustom financial-chart-svg-oscillator-height 100
+  "Pixel height of the oscillator panel in the SVG renderer."
+  :type 'integer
+  :group 'financial-chart)
+
 (defcustom financial-chart-svg-margin-left 55
   "Left margin (pixels) reserved for price/volume axis labels."
   :type 'integer
@@ -287,6 +292,40 @@ overlays) into SVG."
             (h (max 1.0 (- (+ panel-y panel-h) y))))
        (svg-rectangle svg x y financial-chart-svg-candle-width h :fill color)))))
 
+(defun financial-chart--svg-oscillator-panel
+    (svg panel-y panel-h plot-width series-list text-color)
+  "Draw fixed 0-100 oscillator series and 30/70 guides into SVG."
+  (let ((guide-color (financial-chart--face-color financial-chart-axis-face))
+        (axis-values '(100 70 30 0))
+        (x1 financial-chart-svg-margin-left)
+        (x2 (- plot-width financial-chart-svg-margin-right)))
+    (dolist (value axis-values)
+      (let ((y (financial-chart--svg-y value 0.0 100.0 panel-y panel-h)))
+        (when (memq value '(70 30))
+          (svg-line svg x1 y x2 y :stroke guide-color :stroke-width 0.7
+                    :stroke-dasharray "3 3"))
+        (svg-text svg (number-to-string value) :x 5 :y (+ y 4)
+                 :fill text-color
+                 :font-family financial-chart-svg-font-family
+                 :font-size financial-chart-svg-font-size)))
+    (dolist (spec series-list)
+      (let ((points
+             (cl-loop
+              for i from 0
+              for value in (plist-get spec :series)
+              when (numberp value)
+              collect
+              (cons (+ (financial-chart--svg-x i)
+                       (/ financial-chart-svg-candle-width 2.0))
+                    (financial-chart--svg-y
+                     (max 0.0 (min 100.0 (float value)))
+                     0.0 100.0 panel-y panel-h)))))
+        (when (>= (length points) 2)
+          (svg-polyline svg points
+                        :stroke (financial-chart--face-color
+                                 (plist-get spec :face))
+                        :fill "none" :stroke-width 1.5))))))
+
 (defun financial-chart--svg-x-axis (svg bars axis-y text-color)
   "Draw evenly-spaced date/time labels into SVG below the chart."
   (let* ((n (length bars))
@@ -305,7 +344,8 @@ overlays) into SVG."
 (defun financial-chart-render-svg (bars &optional title font-family)
   "Render BARS as a real vector SVG candlestick chart, returned as an
 XML string. Shares `financial-chart-render''s configuration surface
-\(bar windowing, colors, scale, volume panel, X-axis, indicators) plus
+\(bar windowing, colors, scale, oscillator and volume panels, X-axis,
+indicators) plus
 its own `financial-chart-svg-*' size/margin/color knobs. FONT-FAMILY
 overrides `financial-chart-svg-font-family' for this call only."
   (unless bars
@@ -320,6 +360,7 @@ overrides `financial-chart-svg-font-family' for this call only."
          (show-volume
           (and financial-chart-show-volume
                (cl-some (lambda (b) (plist-get b :volume)) bars)))
+         (show-oscillators (and financial-chart-oscillators t))
          (show-x-axis
           (and financial-chart-show-x-axis
                (cl-some (lambda (b) (plist-get b :time)) bars)))
@@ -328,7 +369,11 @@ overrides `financial-chart-svg-font-family' for this call only."
              (* n (+ financial-chart-svg-candle-width financial-chart-svg-candle-gap))))
          (price-y financial-chart-svg-margin-top)
          (price-h financial-chart-svg-price-height)
-         (volume-y (+ price-y price-h 10))
+         (oscillator-y (+ price-y price-h 10))
+         (oscillator-h (if show-oscillators
+                           financial-chart-svg-oscillator-height 0))
+         (volume-y (+ price-y price-h 10
+                      (if show-oscillators (+ oscillator-h 10) 0)))
          (volume-h (if show-volume financial-chart-svg-volume-height 0))
          (xaxis-y (+ volume-y volume-h (if show-volume 10 0)))
          (total-height
@@ -341,6 +386,7 @@ overrides `financial-chart-svg-font-family' for this call only."
                    (financial-chart--face-color financial-chart-axis-face))
               (financial-chart--face-color 'default :foreground)))
          (indicator-series (financial-chart--compute-indicator-series bars))
+         (oscillator-series (financial-chart--compute-oscillator-series bars))
          (svg (svg-create plot-width total-height)))
     (svg-rectangle svg 0 0 plot-width total-height :fill bg)
     (when title
@@ -351,6 +397,9 @@ overrides `financial-chart-svg-font-family' for this call only."
                :font-weight "bold"))
     (financial-chart--svg-price-panel
      svg bars min max price-y price-h text-color indicator-series)
+    (when show-oscillators
+      (financial-chart--svg-oscillator-panel
+       svg oscillator-y oscillator-h plot-width oscillator-series text-color))
     (when show-volume
       (financial-chart--svg-volume-panel svg bars volume-y volume-h text-color))
     (when show-x-axis

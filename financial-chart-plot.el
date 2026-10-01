@@ -340,20 +340,67 @@ one-line note instead of failing."
 (defvar-local financial-chart-plot--spec nil
   "(KIND DATA PROPS) of the chart shown in this `financial-chart-plot-mode' buffer.")
 
+(defvar-local financial-chart-plot--refresh-timer nil
+  "Buffer-local repeating timer for live plot refresh.")
+
+(defvar-local financial-chart-plot--refresh-enabled nil
+  "Non-nil when live refresh is enabled for this plot buffer.")
+
+(defvar-local financial-chart-plot--zoom-window nil
+  "Visible series index range as a cons (START . END), or nil for all data.")
+
+(defvar-local financial-chart-plot--last-inspected-point nil
+  "Last point shown in the echo area, to avoid redundant messages.")
+
+(defun financial-chart-plot--stop-refresh ()
+  "Cancel this buffer's live refresh timer."
+  (when (timerp financial-chart-plot--refresh-timer)
+    (cancel-timer financial-chart-plot--refresh-timer))
+  (setq financial-chart-plot--refresh-timer nil
+        financial-chart-plot--refresh-enabled nil))
+
+(defun financial-chart-plot--timer-refresh (buffer)
+  "Refresh BUFFER if it is live, visible, and still has refresh enabled."
+  (when (and (buffer-live-p buffer) (get-buffer-window buffer t))
+    (with-current-buffer buffer
+      (when financial-chart-plot--refresh-enabled
+        (financial-chart-plot-refresh-data)))))
+
+(defun financial-chart-plot--start-refresh ()
+  "Start this buffer's configured repeating refresh timer."
+  (let* ((props (nth 2 financial-chart-plot--spec))
+         (refresh-fn (plist-get props :refresh-fn))
+         (interval (plist-get props :refresh-interval)))
+    (when (and (functionp refresh-fn) (numberp interval) (> interval 0))
+      (setq financial-chart-plot--refresh-timer
+            (run-at-time interval interval #'financial-chart-plot--timer-refresh
+                         (current-buffer))
+            financial-chart-plot--refresh-enabled t))))
+
 (defvar financial-chart-plot-mode-map
   (let ((m (make-sparse-keymap)))
     (define-key m (kbd "g") #'financial-chart-plot-refresh)
     (define-key m (kbd "t") #'financial-chart-plot-toggle-backend)
+    (define-key m (kbd "r") #'financial-chart-plot-toggle-refresh)
+    (define-key m (kbd "+") #'financial-chart-plot-zoom-in)
+    (define-key m (kbd "-") #'financial-chart-plot-zoom-out)
+    (define-key m (kbd "0") #'financial-chart-plot-zoom-reset)
     m)
   "Keymap for `financial-chart-plot-mode'.")
 
 (define-derived-mode financial-chart-plot-mode special-mode "Finchart"
   "Major mode for a buffer showing one financial-chart chart.
 \\<financial-chart-plot-mode-map>\\[financial-chart-plot-refresh] re-renders to the window size; \
-\\[financial-chart-plot-toggle-backend] flips text/SVG.")
+\\[financial-chart-plot-toggle-backend] flips text/SVG; \\
+\\[financial-chart-plot-toggle-refresh] toggles live refresh; \\
+\\[financial-chart-plot-zoom-in]/\\[financial-chart-plot-zoom-out] zoom the series around point or latest data; \\
+\\[financial-chart-plot-zoom-reset] shows all data.  Point on a text chart column to inspect X/Y."
+  (add-hook 'post-command-hook #'financial-chart-plot--inspect-point nil t)
+  (add-hook 'kill-buffer-hook #'financial-chart-plot--stop-refresh nil t))
 
 (defun financial-chart-plot--fit-props (props)
   "PROPS with :width/:height filled in from the selected window if absent."
+  (setq props (financial-chart-plot--plist-drop props :refresh-fn :refresh-interval))
   (let* ((win (get-buffer-window (current-buffer) t))
          (cols (if win (window-body-width win) 80))
          (rows (if win (window-body-height win) 24)))
@@ -365,16 +412,230 @@ one-line note instead of failing."
             (unless (plist-member props :pixel-width)
               (list :pixel-width (if win (window-body-width win t) 600))))))
 
-(defun financial-chart-plot-refresh ()
-  "Re-render this buffer's chart to fit its window."
-  (interactive)
-  (pcase-let ((`(,kind ,data ,props) financial-chart-plot--spec))
+(defun financial-chart-plot--series-points (data base-index)
+  "Return DATA as point plists, preserving each source index from BASE-INDEX."
+  (let ((index base-index) points)
+    (dolist (point (append data nil))
+      (let ((y (financial-chart-series--point-y point)))
+        (when y
+          (push (list :x (or (financial-chart-series--point-x point) index)
+                      :y y :index index)
+                points)))
+      (cl-incf index))
+    (nreverse points)))
+
+(defun financial-chart-plot--merge-points (points)
+  "Combine resampled POINTS as one visible column's X, Y, and source index."
+  (let ((xs (mapcar (lambda (point) (plist-get point :x)) points))
+        (ys (mapcar (lambda (point) (plist-get point :y)) points))
+        (indices (mapcar (lambda (point) (plist-get point :index)) points)))
+    (list :x (if (cl-every #'numberp xs)
+                 (/ (apply #'+ xs) (float (length xs)))
+               (nth (/ (length xs) 2) xs))
+          :y (/ (apply #'+ ys) (float (length ys)))
+          :index (round (/ (apply #'+ indices) (float (length indices)))))))
+
+(defun financial-chart-plot--series-columns (data width base-index)
+  "Resample DATA into WIDTH metadata columns, matching text renderer buckets."
+  (let* ((points (financial-chart-plot--series-points data base-index))
+         (n (length points))
+         (width (max 1 (or width n 1)))
+         (per (max 1 (/ (float n) width))))
+    (cl-loop for column from 0 below (min width n)
+             for start = (floor (* column per))
+             for end = (max (1+ start) (floor (* (1+ column) per)))
+             for group = (cl-subseq points (min start (1- n)) (min end n))
+             collect (financial-chart-plot--merge-points group))))
+
+(defun financial-chart-plot--line-columns (data width base-index)
+  "Return braille line columns for DATA, matching its two samples per cell."
+  (let ((samples (financial-chart-plot--series-columns data (* 2 width) base-index))
+        columns)
+    (while samples
+      (push (if (cdr samples)
+                (financial-chart-plot--merge-points (list (car samples) (cadr samples)))
+              (car samples))
+            columns)
+      (setq samples (cddr samples)))
+    (nreverse columns)))
+
+(defun financial-chart-plot--annotate-row (text row-start offset columns)
+  "Add X/Y properties for COLUMNS after OFFSET characters from ROW-START."
+  (let ((start (+ row-start offset)))
+    (cl-loop for point in columns for column from 0
+             for pos = (+ start column)
+             while (< pos (length text))
+             do (put-text-property pos (1+ pos) 'financial-chart-point point text))))
+
+(defun financial-chart-plot--annotate-series (kind data props text base-index)
+  "Add `financial-chart-point' properties to text chart columns in TEXT."
+  (when (and (stringp text) (not (equal text "")))
+    (let* ((width (or (plist-get props :width) 60))
+           (height (or (plist-get props :height) financial-chart-plot-height))
+           (columns (pcase kind
+                      ('area (financial-chart-plot--series-columns data width base-index))
+                      ('line (financial-chart-plot--line-columns data width base-index))
+                      ('sparkline (financial-chart-plot--series-columns data width base-index)))))
+      (if (eq kind 'sparkline)
+          (financial-chart-plot--annotate-row text 0 0 columns)
+        (let ((row-start 0))
+          (dotimes (_ height)
+            (when-let ((newline (string-match "\n" text row-start)))
+              (financial-chart-plot--annotate-row
+               text row-start (- (- newline row-start) (length columns)) columns)
+              (setq row-start (1+ newline))))))))
+  text)
+
+(defun financial-chart-plot--visible-window (length)
+  "Return this buffer's clamped visible series range within LENGTH."
+  (if (<= length 0)
+      (cons 0 0)
+    (let* ((window (or financial-chart-plot--zoom-window (cons 0 length)))
+           (start (max 0 (min (car window) (1- length))))
+           (end (max (1+ start) (min (cdr window) length))))
+      (cons start end))))
+
+(defun financial-chart-plot--visible-data (kind data)
+  "Return KIND's current visible data slice and its starting index."
+  (if (eq (plist-get (financial-chart--kind kind) :shape) 'series)
+      (let* ((items (append data nil))
+             (window (financial-chart-plot--visible-window (length items))))
+        (when financial-chart-plot--zoom-window
+          (setq financial-chart-plot--zoom-window window))
+        (cons (cl-subseq items (car window) (cdr window)) (car window)))
+    (cons data 0)))
+
+(defun financial-chart-plot--series-view-p ()
+  "Return non-nil when the current plot is a registered series kind."
+  (and financial-chart-plot--spec
+       (eq (plist-get (financial-chart--kind (car financial-chart-plot--spec)) :shape)
+           'series)))
+
+(defun financial-chart-plot--point-at-point ()
+  "Return point metadata under point, or nil."
+  (and (< (point) (point-max))
+       (get-text-property (point) 'financial-chart-point)))
+
+(defun financial-chart-plot--inspect-point ()
+  "Show the X and Y at point when point is on a text chart column."
+  (let ((point-data (financial-chart-plot--point-at-point)))
+    (unless (equal point-data financial-chart-plot--last-inspected-point)
+      (setq financial-chart-plot--last-inspected-point point-data)
+      (if point-data
+          (let ((x (plist-get point-data :x)))
+            (message "X: %s  Y: %s"
+                     (if (numberp x) (financial-chart-fmt x) x)
+                     (financial-chart-fmt (plist-get point-data :y))))
+        (message nil)))))
+
+(defun financial-chart-plot--render ()
+  "Render this plot buffer's current data and visible series slice."
+  (pcase-let* ((`(,kind ,data ,props) financial-chart-plot--spec)
+               (`(,visible-data . ,base-index) (financial-chart-plot--visible-data kind data))
+               (render-props (financial-chart-plot--fit-props props))
+               (requested (financial-chart-plot--resolve-backend (plist-get props :backend)))
+               (backend (if (and (eq requested 'svg) (not (image-type-available-p 'svg)))
+                            'text requested))
+               (out (apply #'financial-chart-plot kind visible-data :backend backend render-props)))
+    (when financial-chart-plot--last-inspected-point
+      (message nil))
+    (setq financial-chart-plot--last-inspected-point nil)
     (let ((inhibit-read-only t))
       (erase-buffer)
       (when-let* ((title (plist-get props :title)))
         (insert (propertize title 'face 'bold) "\n\n"))
-      (apply #'financial-chart-plot-insert kind data (financial-chart-plot--fit-props props)))
-    (goto-char (point-min))))
+      (when (and (not (eq backend requested)) (eq backend 'text))
+        (insert (propertize "(this Emacs cannot display SVG; showing text)\n"
+                            'face 'financial-chart-dim)))
+      (cond
+       ((or (null out) (equal out ""))
+        (insert (propertize financial-chart-empty-text 'face 'financial-chart-dim)))
+       ((eq backend 'svg)
+        (insert-image (create-image out 'svg t :ascent 'center) "[chart]"))
+       (t
+        (when (eq (plist-get (financial-chart--kind kind) :shape) 'series)
+          (setq out (financial-chart-plot--annotate-series
+                     kind visible-data render-props out base-index)))
+        (insert out)))
+      (goto-char (point-min)))))
+
+(defun financial-chart-plot-refresh ()
+  "Re-render this buffer's chart to fit its window."
+  (interactive)
+  (financial-chart-plot--render))
+
+(defun financial-chart-plot-refresh-data ()
+  "Call this plot's `:refresh-fn' once, store its DATA, and redraw.
+Returns the fresh data.  Call this directly in tests instead of waiting
+for a real timer."
+  (interactive)
+  (let* ((kind (car financial-chart-plot--spec))
+         (props (nth 2 financial-chart-plot--spec))
+         (refresh-fn (plist-get props :refresh-fn)))
+    (when (functionp refresh-fn)
+      (let ((data (funcall refresh-fn)))
+        (financial-chart-validate kind data)
+        (setf (nth 1 financial-chart-plot--spec) data)
+        (financial-chart-plot--render)
+        data))))
+
+(defun financial-chart-plot-toggle-refresh ()
+  "Toggle this plot buffer's configured live refresh timer."
+  (interactive)
+  (if financial-chart-plot--refresh-enabled
+      (progn
+        (financial-chart-plot--stop-refresh)
+        (message "Live refresh stopped"))
+    (if (and (functionp (plist-get (nth 2 financial-chart-plot--spec) :refresh-fn))
+             (numberp (plist-get (nth 2 financial-chart-plot--spec) :refresh-interval))
+             (> (plist-get (nth 2 financial-chart-plot--spec) :refresh-interval) 0))
+        (progn
+          (financial-chart-plot--start-refresh)
+          (message "Live refresh started"))
+      (message "No live refresh function and positive interval configured"))))
+
+(defun financial-chart-plot--zoom (direction)
+  "Change the visible series range in DIRECTION (-1 zoom in, 1 zoom out)."
+  (if (not (financial-chart-plot--series-view-p))
+      (message "Zoom is available for series charts")
+    (let* ((data (append (nth 1 financial-chart-plot--spec) nil))
+           (length (length data))
+           (window (financial-chart-plot--visible-window length))
+           (start (car window))
+           (end (cdr window))
+           (span (- end start))
+           (point-data (financial-chart-plot--point-at-point))
+           (anchor (or (and point-data (plist-get point-data :index))
+                       (1- end)))
+           (new-span (if (< direction 0)
+                         (max 1 (floor (* span 0.8)))
+                       (min length (max (1+ span) (ceiling (* span 1.25)))))))
+      (setq anchor (max 0 (min anchor (1- length)))
+            start (max 0 (- anchor (/ (1- new-span) 2)))
+            end (+ start new-span))
+      (when (> end length)
+        (setq end length start (max 0 (- end new-span))))
+      (setq financial-chart-plot--zoom-window (cons start end))
+      (financial-chart-plot--render))))
+
+(defun financial-chart-plot-zoom-in ()
+  "Narrow the visible series range around point or the latest data."
+  (interactive)
+  (financial-chart-plot--zoom -1))
+
+(defun financial-chart-plot-zoom-out ()
+  "Widen the visible series range around point or the latest data."
+  (interactive)
+  (financial-chart-plot--zoom 1))
+
+(defun financial-chart-plot-zoom-reset ()
+  "Show the full series in this plot buffer."
+  (interactive)
+  (if (financial-chart-plot--series-view-p)
+      (progn
+        (setq financial-chart-plot--zoom-window nil)
+        (financial-chart-plot--render))
+    (message "Zoom is available for series charts")))
 
 (defun financial-chart-plot-toggle-backend ()
   "Flip this buffer's chart between text and SVG."
@@ -389,14 +650,29 @@ one-line note instead of failing."
 (defun financial-chart-plot-view (kind data &rest props)
   "Show DATA as a KIND chart in a `financial-chart-plot-mode' buffer.
 Return the buffer.  PROPS as in `financial-chart-plot', plus :buffer
-(name, default \"*financial-chart*\")."
-  (let ((buf (get-buffer-create (or (plist-get props :buffer) "*financial-chart*"))))
-    (with-current-buffer buf
-      (financial-chart-plot-mode)
-      (setq financial-chart-plot--spec (list kind data (financial-chart-plot--plist-drop props :buffer))))
-    (unless noninteractive (pop-to-buffer buf))
-    (with-current-buffer buf (financial-chart-plot-refresh))
-    buf))
+(name, default \"*financial-chart*\"), :refresh-fn (function returning
+fresh DATA), and :refresh-interval (positive timer interval in seconds).
+A configured timer starts automatically and refreshes while visible."
+  (let ((refresh-fn (plist-get props :refresh-fn))
+        (refresh-interval (plist-get props :refresh-interval)))
+    (when (or refresh-fn refresh-interval)
+      (unless (and (functionp refresh-fn) (numberp refresh-interval) (> refresh-interval 0))
+        (signal 'financial-chart-error
+                (list ":refresh-fn and a positive :refresh-interval must be supplied together"
+                      :code "invalid_refresh"))))
+    (let ((buf (get-buffer-create (or (plist-get props :buffer) "*financial-chart*"))))
+      (with-current-buffer buf
+        (financial-chart-plot--stop-refresh)
+        (financial-chart-plot-mode)
+        (setq financial-chart-plot--spec
+              (list kind data (financial-chart-plot--plist-drop props :buffer)))
+        (setq financial-chart-plot--zoom-window nil
+              financial-chart-plot--last-inspected-point nil))
+      (unless noninteractive (pop-to-buffer buf))
+      (with-current-buffer buf
+        (financial-chart-plot-refresh)
+        (financial-chart-plot--start-refresh))
+      buf)))
 
 ;;;###autoload
 (defun financial-chart-demo ()

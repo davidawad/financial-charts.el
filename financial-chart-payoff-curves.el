@@ -251,13 +251,24 @@ CURVE-COLORS overrides the default ten-color palette."
                                      x1 (+ y1 15) "end")
           (financial-chart-svg--string svg))))))
 
+(defun financial-chart-payoff-curves--values (data _props)
+  "Every P/L value across the curves in DATA, for summaries."
+  (apply #'append
+         (mapcar (lambda (curve) (financial-chart-series-values (cdr curve))) data)))
+
+(defun financial-chart-payoff-curves--from-json (data)
+  "JSON-parsed DATA ([LABEL, PAYOFF] pairs) as (LABEL . PAYOFF) curves."
+  (mapcar (lambda (curve) (cons (car curve) (cdr curve))) data))
+
 (add-to-list 'financial-chart-shapes
              '(payoff-curves
                :doc "String-labeled (LABEL . PAYOFF) curves over one ascending price grid."
                :example (("T+0" . ((90 30) (100 -20) (110 30)))
                          ("T+15" . ((90 20) (100 -5) (110 40)))
                          ("T+30" . ((90 10) (100 10) (110 20))))
-               :validator financial-chart-payoff-curves--validate))
+               :validator financial-chart-payoff-curves--validate
+               :values financial-chart-payoff-curves--values
+               :from-json financial-chart-payoff-curves--from-json))
 
 (financial-chart-register-kind
  'payoff-curves

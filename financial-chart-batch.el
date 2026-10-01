@@ -46,7 +46,14 @@
   (intern (concat ":" (symbol-name key))))
 
 (defun financial-chart-batch--data (shape data)
-  "JSON-parsed DATA converted to SHAPE's Lisp form."
+  "JSON-parsed DATA converted to SHAPE's Lisp form.
+A shape with :from-json in `financial-chart-shapes' converts itself."
+  (if-let* ((fn (plist-get (alist-get shape financial-chart-shapes) :from-json)))
+      (funcall fn data)
+    (financial-chart-batch--data-builtin shape data)))
+
+(defun financial-chart-batch--data-builtin (shape data)
+  "JSON-parsed DATA converted to built-in SHAPE's Lisp form."
   (pcase shape
     ('ohlc (mapcar (lambda (bar)
                      (cl-loop for (k . v) in bar
@@ -57,9 +64,6 @@
                             (cons (symbol-name (car p)) (cdr p))
                           (cons (car p) (cadr p))))
                       data))
-    ('payoff-curves (mapcar (lambda (curve)
-                              (cons (car curve) (cdr curve)))
-                            data))
     (_ data)))
 
 (defun financial-chart-batch-spec (json)

@@ -73,7 +73,11 @@ is loaded (it owns the shape), else by the same required-key rule here."
      :example ((:open 100 :high 103 :low 99 :close 102 :volume 12000 :time 1700000000000)
                (:open 102 :high 104 :low 101 :close 101.5 :volume 9500 :time 1700086400000))
      :validator financial-chart--validate-ohlc))
-  "Data shapes chart kinds accept: (SHAPE :doc :example :validator).")
+  "Data shapes chart kinds accept: (SHAPE :doc :example :validator
+[:values FN] [:from-json FN]).
+:values (DATA PROPS -> numbers) feeds explain and SVG provenance;
+:from-json (parsed JSON DATA -> Lisp DATA) is used by the CLI.  Both are
+optional, so a module adding a shape never edits this file.")
 
 (defvar financial-chart-kinds
   '((area :shape series :text financial-chart-text-area :svg financial-chart-svg-area
@@ -211,21 +215,20 @@ BACKEND nil means `financial-chart-backend'."
 
 ;; -- explain: the pure plan --
 
-(defun financial-chart--data-summary (shape data)
-  "Point count and value range of DATA in SHAPE, for explain and provenance."
-  (let* ((ys (pcase shape
-               ('labeled (mapcar #'cdr data))
-               ('payoff-curves
-                (apply #'append
-                       (mapcar (lambda (curve)
-                                 (financial-chart-series-values (cdr curve)))
-                               data)))
-               ('ohlc (append (delq nil (mapcar (lambda (b) (plist-get b :low)) data))
-                              (delq nil (mapcar (lambda (b) (plist-get b :high)) data))))
-               (_ (financial-chart-series-values data))))
-         (points (if (eq shape 'payoff-curves)
-                     (apply #'+ (mapcar (lambda (curve) (length (cdr curve))) data))
-                   (length data))))
+(defun financial-chart--data-summary (shape data &optional props)
+  "Point count and value range of DATA in SHAPE, for explain and provenance.
+A shape whose `financial-chart-shapes' entry has :values (a function of
+DATA and PROPS returning the plotted numbers) is summarized from those;
+the built-in shapes are handled here."
+  (let* ((values-fn (plist-get (alist-get shape financial-chart-shapes) :values))
+         (ys (if values-fn
+                 (funcall values-fn data props)
+               (pcase shape
+                 ('labeled (mapcar #'cdr data))
+                 ('ohlc (append (delq nil (mapcar (lambda (b) (plist-get b :low)) data))
+                                (delq nil (mapcar (lambda (b) (plist-get b :high)) data))))
+                 (_ (financial-chart-series-values data)))))
+         (points (if values-fn (length ys) (length data))))
     (append (list :points points)
             (when ys (list :min (apply #'min ys) :max (apply #'max ys))))))
 
@@ -245,7 +248,7 @@ A plist: :kind :shape :valid (t, or the error message) :backend and
            :backend (car decision) :backend-reason (cdr decision)
            :renderer (plist-get entry (if (eq (car decision) 'svg) :svg :text))
            :args (financial-chart--renderer-args (car decision) props))
-     (when (eq valid t) (financial-chart--data-summary shape data)))))
+     (when (eq valid t) (financial-chart--data-summary shape data props)))))
 
 ;; -- render --
 
@@ -253,7 +256,7 @@ A plist: :kind :shape :valid (t, or the error message) :backend and
   "SVG with a <title> and <desc> naming KIND, the data and PROPS' :title.
 An agent reading the file alone knows what it shows."
   (let* ((summary (financial-chart--data-summary
-                   (plist-get (financial-chart--kind kind) :shape) data))
+                   (plist-get (financial-chart--kind kind) :shape) data props))
          (title (or (plist-get props :title) (format "%s chart" kind)))
          (desc (format "financial-chart %s: %d points%s" kind (plist-get summary :points)
                        (if (plist-get summary :min)

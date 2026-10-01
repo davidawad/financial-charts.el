@@ -117,9 +117,11 @@
                (financial-chart-plot kind series :backend 'svg :scale 'log))))))
 
 (ert-deftest financial-chart-series-x-log-scale-preserves-narrow-ranges ()
-  (let ((svg (financial-chart-svg-area '(100.0 100.01)
-                                       :width 300 :height 120 :scale 'log)))
-    (should (string-match-p "290\\.0 10\\.0" svg))))
+  (let* ((frame (financial-chart-svg--frame 300 120 nil))
+         (right (+ (nth 0 frame) (nth 2 frame)))
+         (svg (financial-chart-svg-area '(100.0 100.01)
+                                        :width 300 :height 120 :scale 'log)))
+    (should (string-match-p (format "%.1f 10\\.0" right) svg))))
 
 (ert-deftest financial-chart-series-x-log-scale-rejects-nonpositive-values ()
   (dolist (kind '(area line))

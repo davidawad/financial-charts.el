@@ -175,11 +175,6 @@ braille character columns and rows."
                       "no breakeven")
                     'face accent-face))))))))
 
-(defconst financial-chart-payoff-curves--svg-colors
-  '("#1f77b4" "#d62728" "#2ca02c" "#9467bd" "#ff7f0e"
-    "#17becf" "#8c564b" "#e377c2" "#7f7f7f" "#bcbd22")
-  "Distinct SVG stroke colors for payoff curves, reused after ten curves.")
-
 (defun financial-chart-payoff-curves--svg-x (x x0 width minimum span)
   "Map price X using plot origin X0, WIDTH, MINIMUM and SPAN."
   (financial-chart-svg--n (+ x0 (* width (/ (- x minimum) span)))))
@@ -206,24 +201,35 @@ CURVE-COLORS overrides the default ten-color palette."
            (flat (= lo hi))
            (lo (if flat -0.001 lo))
            (hi (if flat 0.001 hi))
-           (palette (or curve-colors financial-chart-payoff-curves--svg-colors)))
+           (palette
+            (or curve-colors
+                (cl-loop for index below (length curves)
+                         collect (financial-chart-svg--series-color index)))))
       (when (and xs (cdr xs))
-        (let* ((x0 60)
-               (y0 (if title 28 18))
-               (w (- width 70))
-               (h (max 1 (- height y0 55)))
+        (let* ((frame (financial-chart-svg--frame width height title))
+               (x0 (nth 0 frame))
+               (y0 (nth 1 frame))
+               (w (nth 2 frame))
+               (h (max 1 (- (nth 3 frame) 52)))
                (x1 (+ x0 w))
                (y1 (+ y0 h))
                (span-x (float (max 0.001 (- (car (last xs)) (car xs)))))
                (span-y (float (max 0.001 (- hi lo))))
                (zy (financial-chart-payoff-curves--svg-y 0 y0 h lo span-y))
+               (y-ticks (mapcar (lambda (value)
+                                  (list (financial-chart-payoff-curves--svg-y
+                                         value y0 h lo span-y)
+                                        (financial-chart-fmt-money value unit)))
+                                (list hi 0 lo)))
+               (x-ticks `((0 ,(concat unit (financial-chart-fmt (car xs))))
+                          (0.5 ,(concat unit
+                                        (financial-chart-fmt
+                                         (/ (+ (car xs) (car (last xs))) 2.0))))
+                          (1 ,(concat unit (financial-chart-fmt (car (last xs)))))))
                (svg (financial-chart-svg--canvas width height title))
                (legend-x x0))
-          (financial-chart-svg--text svg (financial-chart-fmt-money hi unit)
-                                     (- x0 6) (+ y0 4) "end")
-          (financial-chart-svg--text svg "0" (- x0 6) (+ zy 4) "end")
-          (financial-chart-svg--text svg (financial-chart-fmt-money lo unit)
-                                     (- x0 6) y1 "end")
+          (financial-chart-svg--horizontal-ticks svg y-ticks x0 x1)
+          (financial-chart-svg--vertical-ticks svg x-ticks x0 y0 w h)
           (svg-line svg x0 zy x1 zy :stroke (financial-chart-svg--color 'grid)
                     :stroke-dasharray "4 3")
           (cl-loop for curve in curves for i from 0
@@ -238,17 +244,21 @@ CURVE-COLORS overrides the default ten-color palette."
                                            curve-xs curve-ys)
                    do (svg-polyline svg points :fill "none" :stroke color
                                     :stroke-width 2)
+                   (cl-loop for x in curve-xs for y in curve-ys
+                            do (financial-chart-svg--point-target
+                                svg
+                                (financial-chart-payoff-curves--svg-x
+                                 x x0 w (car xs) span-x)
+                                (financial-chart-payoff-curves--svg-y y y0 h lo span-y)
+                                (format "%s: price %s, P/L %s"
+                                        (car curve) (financial-chart-fmt x)
+                                        (financial-chart-fmt-money y unit))))
                    (svg-line svg legend-x (+ y1 29) (+ legend-x 14) (+ y1 29)
                              :stroke color :stroke-width 2)
                    (financial-chart-svg--text svg (format "%s" (car curve))
                                               (+ legend-x 19) (+ y1 33) "start" color)
                    (setq legend-x (+ legend-x 34
                                      (* 7 (string-width (format "%s" (car curve)))))))
-          (financial-chart-svg--text svg (concat unit (financial-chart-fmt (car xs)))
-                                     x0 (+ y1 15) "start")
-          (financial-chart-svg--text svg
-                                     (concat unit (financial-chart-fmt (car (last xs))))
-                                     x1 (+ y1 15) "end")
           (financial-chart-svg--string svg))))))
 
 (defun financial-chart-payoff-curves--values (data _props)

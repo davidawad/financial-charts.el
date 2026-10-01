@@ -63,6 +63,13 @@ bar given, however wide that makes the chart)."
   :type 'face
   :group 'financial-chart)
 
+(defcustom financial-chart-color-palette 'default
+  "Semantic palette: `default' follows faces; `colorblind-safe' uses blue/orange.
+Select a palette for one `financial-chart-plot' call with :palette."
+  :type '(choice (const :tag "Theme faces" default)
+                 (const :tag "Colorblind-safe blue/orange" colorblind-safe))
+  :group 'financial-chart)
+
 (defcustom financial-chart-wick-face nil
   "Face used for wick-only rows, or nil to reuse the candle's own
 up/down face."

@@ -80,7 +80,7 @@
                3))
     (dolist (label '("T+0" "T+15" "T+30"))
       (should (string-match-p (regexp-quote label) svg)))
-    (dolist (color '("#1f77b4" "#d62728" "#2ca02c"))
+    (dolist (color '("#2e7d32" "#c62828" "#1565c0"))
       (should (string-match-p (regexp-quote color) svg)))
     (when (fboundp 'libxml-parse-xml-region)
       (with-temp-buffer

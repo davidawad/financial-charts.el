@@ -41,12 +41,12 @@ and not others; text fixtures stay byte-exact."
     s))
 
 (defconst financial-chart-plot-test--series
-  '((1 40.0) (2 45.0) (3 50.0) (4 42.0) (5 47.5) (6 39.0) (7 41.0))
-  "The tradeboard chart fixture shape: (TS VALUE) pairs.")
+  '(40.0 45.0 50.0 42.0 47.5 39.0 41.0)
+  "The legacy text/SVG golden fixture as plain values without X.")
 
 (defconst financial-chart-plot-test--wave
-  (cl-loop for i from 0 below 200 collect (list i (+ 50 (* 10 (sin (/ i 7.0))))))
-  "A longer series that forces resampling.")
+  (cl-loop for i from 0 below 200 collect (+ 50 (* 10 (sin (/ i 7.0)))))
+  "A longer X-less series that forces resampling.")
 
 (defconst financial-chart-plot-test--payoff
   (cl-loop for p from 90 to 110 collect (list p (- (* 10 (max 0 (- p 100))) 25)))

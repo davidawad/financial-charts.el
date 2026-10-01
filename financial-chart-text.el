@@ -227,36 +227,70 @@ other aspect of rendering is configured."
                          unit n)
                  'face dim-face))))
 
+(defun financial-chart-text--series-x-axis (series width face &optional offset)
+  "Date labels for SERIES below WIDTH plot columns, or nil without epoch X.
+OFFSET is the number of leading columns before the plot begins."
+  (let ((ticks (financial-chart-series-x-axis-labels series width)))
+    (when ticks
+      (let* ((offset (or offset 0))
+             (line-width
+              (max (+ offset width)
+                   (cl-loop for (position label) in ticks
+                            maximize (+ offset
+                                        (round (* position (max 0 (1- width))))
+                                        (length label)))))
+             (line (make-string line-width ?\s)))
+        (dolist (tick ticks)
+          (let ((start (+ offset
+                          (round (* (car tick) (max 0 (1- width)))))))
+            (store-substring line start (cadr tick))))
+        (propertize line 'face face)))))
+
 ;; --- area ---------------------------------------------------------------------
 
 (cl-defun financial-chart-text-area
     (series &key (width 60) (height financial-chart-plot-height) (unit "") (label-width 6)
+            (scale 'linear)
             (up-face 'financial-chart-up) (down-face 'financial-chart-down)
             (dim-face 'financial-chart-dim) (accent-face 'financial-chart-accent)
             (footer t) &allow-other-keys)
   "Render SERIES as an eighth-block area chart string.
 WIDTH/HEIGHT are the plot size in columns/rows (labels excluded); UNIT
-suffixes the axis and footer numbers.  The fill is UP-FACE when the
-series ends at or above where it started, else DOWN-FACE.  FOOTER nil
-omits the trailing last/range/points line.  Returns nil for no data."
+suffixes the axis and footer numbers.  :SCALE is `linear' or `log'; log
+requires every Y value to be positive.  Epoch-millisecond X coordinates
+add date labels below the plot.  The fill is UP-FACE when the series ends
+at or above where it started, else DOWN-FACE.  FOOTER nil omits the
+trailing last/range/points line.  Returns nil for no data."
   (when-let* ((values (financial-chart-series-values series)))
-    (let* ((cols (financial-chart-resample values width))
-           (range (financial-chart-range cols))
+    (financial-chart-series-validate-scale series scale)
+    (let* ((raw-cols (financial-chart-series-resample series width))
+           (range-values (if (financial-chart-series-x-aware-p series) values raw-cols))
+           (cols (mapcar (lambda (value)
+                           (financial-chart-series-scale-value value scale))
+                         raw-cols))
+           (range (financial-chart-range
+                   (mapcar (lambda (value)
+                             (financial-chart-series-scale-value value scale))
+                           range-values)))
            (lo (car range))
            (hi (cdr range))
-           (span (max 0.001 (- hi lo)))
+           (display-lo (financial-chart-series-unscale-value lo scale))
+           (display-hi (financial-chart-series-unscale-value hi scale))
+           (span (financial-chart-series-scale-span lo hi scale))
            (cells (* height 8))
            (levels (mapcar (lambda (v) (max 1 (round (* cells (/ (- v lo) span)))))
                            cols))
-           (face (financial-chart-direction-face cols up-face down-face))
+           (face (financial-chart-direction-face raw-cols up-face down-face))
+           (x-axis (financial-chart-text--series-x-axis
+                    series (length cols) dim-face (1+ label-width)))
            (rows
             (cl-loop
              for row from (1- height) downto 0
              for floor-cells = (* row 8)
              collect
              (concat
-              (financial-chart-text--label (cond ((= row (1- height)) (concat (financial-chart-fmt hi) unit))
-                                     ((= row 0) (concat (financial-chart-fmt lo) unit))
+              (financial-chart-text--label (cond ((= row (1- height)) (concat (financial-chart-fmt display-hi) unit))
+                                     ((= row 0) (concat (financial-chart-fmt display-lo) unit))
                                      (t ""))
                                label-width dim-face)
               (propertize
@@ -266,10 +300,15 @@ omits the trailing last/range/points line.  Returns nil for no data."
                           levels "")
                'face face)
               "\n"))))
-      (concat (apply #'concat rows)
-              (when footer
-                (concat "\n" (financial-chart-text--footer cols (length values) unit label-width
-                                               accent-face dim-face)))))))
+      (let ((chart (apply #'concat rows))
+            (footer-text
+             (when footer
+               (financial-chart-text--footer range-values (length values) unit label-width
+                                             accent-face dim-face))))
+        (concat chart
+                (when x-axis (concat x-axis (when footer-text "\n\n")))
+                (when (and footer-text (not x-axis)) "\n")
+                footer-text)))))
 
 ;; --- braille line ---------------------------------------------------------------
 
@@ -278,23 +317,37 @@ omits the trailing last/range/points line.  Returns nil for no data."
 
 (cl-defun financial-chart-text-line
     (series &key (width 60) (height financial-chart-plot-height) (unit "") (label-width 6)
+            (scale 'linear)
             (up-face 'financial-chart-up) (down-face 'financial-chart-down)
             (dim-face 'financial-chart-dim) (accent-face 'financial-chart-accent)
             (footer t) &allow-other-keys)
   "Render SERIES as a braille line chart string (2x4 dots per cell).
 Twice the horizontal and four times the vertical resolution of a block
 chart, for terminals whose font carries the braille block.  Keywords as
-in `financial-chart-text-area'.  Returns nil for no data."
+in `financial-chart-text-area'.  :SCALE is `linear' or `log'; log
+requires positive Y values.  Returns nil for no data."
   (when-let* ((values (financial-chart-series-values series)))
-    (let* ((pts (financial-chart-resample values (* 2 width)))
-           (range (financial-chart-range pts))
+    (financial-chart-series-validate-scale series scale)
+    (let* ((raw-pts (financial-chart-series-resample series (* 2 width)))
+           (range-values (if (financial-chart-series-x-aware-p series) values raw-pts))
+           (pts (mapcar (lambda (value)
+                          (financial-chart-series-scale-value value scale))
+                        raw-pts))
+           (range (financial-chart-range
+                   (mapcar (lambda (value)
+                             (financial-chart-series-scale-value value scale))
+                           range-values)))
            (lo (car range))
-           (span (max 0.001 (- (cdr range) lo)))
+           (span (financial-chart-series-scale-span lo (cdr range) scale))
+           (display-lo (financial-chart-series-unscale-value lo scale))
+           (display-hi (financial-chart-series-unscale-value (cdr range) scale))
            (dots (* height 4))
            (ys (mapcar (lambda (v) (- dots 1 (round (* (1- dots) (/ (- v lo) span))))) pts))
            (ncols (/ (1+ (length pts)) 2))
            (grid (make-vector (* height ncols) 0))
-           (face (financial-chart-direction-face pts up-face down-face)))
+           (face (financial-chart-direction-face raw-pts up-face down-face))
+           (x-axis (financial-chart-text--series-x-axis
+                    series ncols dim-face (1+ label-width))))
       (cl-flet ((dot (x y)
                   (let ((cell (+ (* (/ y 4) ncols) (/ x 2))))
                     (aset grid cell (logior (aref grid cell)
@@ -309,8 +362,8 @@ in `financial-chart-text-area'.  Returns nil for no data."
        (mapconcat
         (lambda (row)
           (concat
-           (financial-chart-text--label (cond ((= row 0) (concat (financial-chart-fmt (cdr range)) unit))
-                                  ((= row (1- height)) (concat (financial-chart-fmt lo) unit))
+           (financial-chart-text--label (cond ((= row 0) (concat (financial-chart-fmt display-hi) unit))
+                                  ((= row (1- height)) (concat (financial-chart-fmt display-lo) unit))
                                   (t ""))
                             label-width dim-face)
            (propertize
@@ -319,8 +372,9 @@ in `financial-chart-text-area'.  Returns nil for no data."
             'face face)
            "\n"))
         (number-sequence 0 (1- height)) "")
+       (when x-axis (concat x-axis "\n"))
        (when footer
-         (concat "\n" (financial-chart-text--footer pts (length values) unit label-width
+         (concat "\n" (financial-chart-text--footer range-values (length values) unit label-width
                                         accent-face dim-face)))))))
 
 ;; --- sparkline ------------------------------------------------------------------
@@ -329,21 +383,27 @@ in `financial-chart-text-area'.  Returns nil for no data."
     (series &key width face (up-face 'financial-chart-up) (down-face 'financial-chart-down)
             &allow-other-keys)
   "One-row sparkline of SERIES resampled to WIDTH columns.
-WIDTH defaults to one column per value.  FACE overrides the up/down
-direction colouring.  Returns \"\" for no data."
+WIDTH defaults to one column per value.  Epoch-millisecond X coordinates
+add date labels below it.  FACE overrides the up/down direction colouring.
+Returns \"\" for no data."
   (let ((values (financial-chart-series-values series)))
     (if (null values)
         ""
-      (let* ((cols (financial-chart-resample values (or width (length values))))
+      (let* ((sample-width (or width (length values)))
+             (cols (financial-chart-series-resample series sample-width))
              (range (financial-chart-range cols))
-             (span (- (cdr range) (car range))))
-        (propertize
-         (mapconcat (lambda (v)
-                      (string (aref financial-chart-blocks
-                                    (if (zerop span) 4
-                                      (1+ (round (* 7 (/ (- v (car range)) span))))))))
-                    cols "")
-         'face (or face (financial-chart-direction-face cols up-face down-face)))))))
+             (span (- (cdr range) (car range)))
+             (sparkline
+              (propertize
+               (mapconcat (lambda (v)
+                            (string (aref financial-chart-blocks
+                                          (if (zerop span) 4
+                                            (1+ (round (* 7 (/ (- v (car range)) span))))))))
+                          cols "")
+               'face (or face (financial-chart-direction-face cols up-face down-face))))
+             (x-axis (financial-chart-text--series-x-axis series (length cols)
+                                                         'financial-chart-dim)))
+        (if x-axis (concat sparkline "\n" x-axis) sparkline)))))
 
 ;; --- payoff ---------------------------------------------------------------------
 

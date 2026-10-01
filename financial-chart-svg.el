@@ -473,15 +473,47 @@ A missing key falls back to the matching financial-chart face, then to
   (let ((top (if title 28 10)))
     (list 60 top (- width 70) (- height top 26))))
 
+(defun financial-chart-svg--series-x-axis (svg ticks x0 y0 width height text-color)
+  "Draw date TICKS below an SVG series plot."
+  (dolist (tick ticks)
+    (let* ((position (car tick))
+           (x (+ x0 (* width position)))
+           (anchor (cond ((= position 0) "start")
+                         ((= position 1) "end")
+                         (t "middle"))))
+      (svg-line svg x (+ y0 height) x (+ y0 height 5)
+                :stroke (financial-chart-svg--color 'grid))
+      (financial-chart-svg--text svg (cadr tick) x (+ y0 height 17)
+                                 anchor text-color))))
+
 (cl-defun financial-chart-svg-area
-    (series &key (width 600) (height 240) (unit "") title &allow-other-keys)
-  "SVG string of SERIES as a filled line chart, WIDTH x HEIGHT px, with TITLE."
+    (series &key (width 600) (height 240) (unit "") title (scale 'linear)
+            &allow-other-keys)
+  "SVG of SERIES as a filled line chart, WIDTH x HEIGHT px, with TITLE.
+:SCALE is `linear' or `log'; log requires every Y value to be positive.
+Epoch-millisecond X coordinates add date ticks below the plot."
   (let ((values (financial-chart-series-values series)))
     (when values
-      (pcase-let* ((`(,x0 ,y0 ,w ,h) (financial-chart-svg--frame width height title))
-                   (cols (financial-chart-resample values (max 2 (floor w 2))))
-                   (`(,lo . ,hi) (financial-chart-range cols))
-                   (span (max 0.001 (- hi lo)))
+      (financial-chart-series-validate-scale series scale)
+      (let ((text-color (financial-chart-svg--color 'text)))
+        (pcase-let* ((`(,x0 ,y0 ,w ,frame-h) (financial-chart-svg--frame width height title))
+                   (ticks (financial-chart-series-x-axis-labels
+                           series
+                           (1+ (/ w (* financial-chart-svg-font-size 1.2)))))
+                   (h (if ticks (max 1 (- frame-h 18)) frame-h))
+                   (raw-cols (financial-chart-series-resample
+                              series (max 2 (floor w 2))))
+                   (range-values
+                    (if (financial-chart-series-x-aware-p series) values raw-cols))
+                   (cols (mapcar (lambda (value)
+                                   (financial-chart-series-scale-value value scale))
+                                 raw-cols))
+                   (`(,lo . ,hi)
+                    (financial-chart-range
+                     (mapcar (lambda (value)
+                               (financial-chart-series-scale-value value scale))
+                             range-values)))
+                   (span (financial-chart-series-scale-span lo hi scale))
                    (n (max 1 (1- (length cols))))
                    (color (financial-chart-svg--color
                            (if (eq (financial-chart-direction-face cols 'up 'down) 'up) 'up 'down)))
@@ -493,12 +525,24 @@ A missing key falls back to the matching financial-chart face, then to
                                            (cons (car (car pts)) (+ y0 h))))
                      :fill color :fill-opacity 0.15 :stroke "none")
         (svg-polyline svg pts :fill "none" :stroke color :stroke-width 1.5)
-        (financial-chart-svg--text svg (concat (financial-chart-fmt hi) unit) (- x0 6) (+ y0 4) "end")
-        (financial-chart-svg--text svg (concat (financial-chart-fmt lo) unit) (- x0 6) (+ y0 h) "end")
-        (financial-chart-svg--text svg (format "last %s%s   %d pts"
-                                        (financial-chart-fmt (car (last cols))) unit (length values))
-                            (+ x0 w) (+ y0 h 18) "end")
-        (financial-chart-svg--string svg)))))
+        (financial-chart-svg--text svg
+                                   (concat (financial-chart-fmt
+                                            (financial-chart-series-unscale-value hi scale)) unit)
+                                   (- x0 6) (+ y0 4) "end")
+        (financial-chart-svg--text svg
+                                   (concat (financial-chart-fmt
+                                            (financial-chart-series-unscale-value lo scale)) unit)
+                                   (- x0 6) (+ y0 h) "end")
+        (when ticks
+          (financial-chart-svg--series-x-axis svg ticks x0 y0 w h text-color))
+        (financial-chart-svg--text svg
+                                   (format "last %s%s   %d pts"
+                                           (financial-chart-fmt
+                                            (financial-chart-series-unscale-value
+                                             (car (last cols)) scale))
+                                           unit (length values))
+                                   (+ x0 w) (+ y0 h (if ticks 34 18)) "end")
+        (financial-chart-svg--string svg))))))
 
 (cl-defun financial-chart-svg-payoff
     (payoff &key (width 600) (height 260) (unit "$") title &allow-other-keys)

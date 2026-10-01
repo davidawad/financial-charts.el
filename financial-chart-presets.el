@@ -22,20 +22,19 @@
 
 (declare-function market-data-bars "market-data")
 
-;; Chart presets -- named full-config bundles (L5 of the financial data
-;; abstraction tower, dot-financial-abstraction-tower-s15we.5)
+;; Chart presets -- named full-config bundles
 ;;
 ;; A preset is DATA: one `financial-chart-presets' entry names a full
 ;; render+fetch+cohort bundle, so `M-x financial-chart-view-preset AAPL
 ;; swing' replaces a page of `let'-bindings. `financial-chart-resolve-preset'
-;; is the tower's pure inspect-before-execute artifact (Law 3): one call
-;; expands the merged render config (with per-key provenance), the resolved
-;; cohort overlays (via `financial-chart-resolve-cohort', L4), and the
-;; provider decision (via `market-data-explain', L1) with ZERO network.
+;; is the pure inspect-before-execute plan: one call expands the merged
+;; render config (with per-key provenance), the resolved cohort overlays
+;; (via `financial-chart-resolve-cohort'), and the provider decision (via
+;; `market-data-explain') with zero network.
 ;; -----------------------------------------------------------------------
 
 (define-error 'financial-chart-unresolvable-preset
-  "financial-chart: preset cannot be resolved" 'error)
+  "financial-chart: preset cannot be resolved" 'financial-chart-error)
 
 (defcustom financial-chart-presets
   '((daytrade
@@ -111,17 +110,17 @@ defcustom's current value)."
 (defun financial-chart-resolve-preset (name symbol &rest keys)
   "Return the fully-expanded plan for viewing SYMBOL with preset NAME.
 PURE: performs ZERO network I/O (`market-data-explain' is a no-fetch
-planner; `financial-chart-resolve-cohort' is pure).  This is the tower's
-inspect-before-execute artifact -- one call shows everything a render
+planner; `financial-chart-resolve-cohort' is pure).  This is the
+inspect-before-execute plan -- one call shows everything a render
 would do.  KEYS may supply :provider to override the preset's provider.
 
 Returns a plist: (:preset NAME :symbol SYMBOL :render RENDER :cohort
 SPECS :cohort-name COHORT :fetch FETCH :market-data PLAN), where RENDER is
 `financial-chart--preset-render-config' output, SPECS is the resolved
-overlay list, and PLAN is `market-data-explain' output (nil when L1 is
-absent).  Signals `financial-chart-unresolvable-preset' -- naming the
-preset (and, for a bad :cohort, the cohort and the fix) -- when the
-preset or its cohort cannot be resolved."
+overlay list, and PLAN is `market-data-explain' output (nil when
+market-data is not loaded).  Signals `financial-chart-unresolvable-preset'
+-- naming the preset (and, for a bad :cohort, the cohort and the fix) --
+when the preset or its cohort cannot be resolved."
   (let ((preset (financial-chart--preset name)))
     (unless preset
       (signal 'financial-chart-unresolvable-preset
@@ -200,7 +199,7 @@ exactly which values will apply and why.  Signals
                        :error (error-message-string err)))))))))
 
 (defun financial-chart--preset-title (name symbol plan bar-count fetched-at)
-  "Law-7 provenance title with preset NAME prepended to the .2 title.
+  "Provenance title with preset NAME prepended to the symbol title.
 Reuses `financial-chart--symbol-title' (symbol · provider · period/
 frequency · bars · fetched-at) so the preset render's provenance never
 drifts from a plain symbol render's."
@@ -213,7 +212,7 @@ drifts from a plain symbol render's."
 call RENDER-FN with (BARS TITLE) under the preset's render defcustoms
 \(bound dynamically via `cl-progv', restored afterwards) and its resolved
 cohort overlays (`financial-chart-indicators').  KEYS may override
-:provider.  market-data's typed errors propagate untouched (Law 4)."
+:provider.  market-data's typed errors propagate untouched."
   (financial-chart--require-market-data)
   (let* ((plan (apply #'financial-chart-resolve-preset name symbol keys))
          (md (plist-get plan :market-data))
@@ -237,7 +236,7 @@ cohort overlays (`financial-chart-indicators').  KEYS may override
 (defun financial-chart-view-preset (symbol name &rest keys)
   "View SYMBOL with the named chart preset NAME (a `financial-chart-presets'
 key).  Fetches via market-data, applies the preset's render config +
-cohort overlays, and headers the buffer with the Law-7 provenance title
+cohort overlays, and headers the buffer with the provenance title
 \(preset · symbol · provider · period/frequency · bars · fetched-at).
 KEYS may override :provider."
   (interactive
@@ -290,9 +289,8 @@ defaults to SYMBOL-chart.png under `financial-chart-export-directory'."
      file)))
 
 (defun financial-chart-preset-doctor-checks ()
-  "Doctor probe for the preset layer (L5), consumed by the tower doctor
-\(dot-financial-abstraction-tower-s15we.7).  Returns one plist per preset:
-\(:layer \"L5\" :name NAME :status pass|fail :detail D :remediation R).
+  "Doctor rows for the presets, one per preset:
+\(:name NAME :status pass|fail :detail D :remediation R).
 PASS iff the preset resolves against a sentinel symbol (its :cohort
 resolves) without a `financial-chart-unresolvable-preset' error."
   (mapcar
@@ -301,12 +299,12 @@ resolves) without a `financial-chart-unresolvable-preset' error."
        (condition-case err
            (progn
              (financial-chart-resolve-preset name "AAPL")
-             (list :layer "L5" :name (format "preset:%s" name) :status 'pass
+             (list :name (format "preset:%s" name) :status 'pass
                    :detail (format "resolves (cohort %s)"
                                    (plist-get (cdr entry) :cohort))
-                   :remediation ""))
+                   :remediation nil))
          (financial-chart-unresolvable-preset
-          (list :layer "L5" :name (format "preset:%s" name) :status 'fail
+          (list :name (format "preset:%s" name) :status 'fail
                 :detail (error-message-string err)
                 :remediation "fix the preset's :cohort or add the missing \
 `financial-chart-recipe-evaluators' entry")))))

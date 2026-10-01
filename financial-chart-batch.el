@@ -31,7 +31,7 @@
 ;; [{"open":..,"high":..,"low":..,"close":..,"volume":..,"time":..},...].
 ;;
 ;; Failures print {"ok":false,"error":{"code","message"}} on stdout and
-;; exit 1 -- the same envelope the tower's other CLIs use.
+;; exit 1.
 
 ;;; Code:
 

@@ -40,7 +40,6 @@ unicode text -- so the same call looks right in a GUI and a terminal."
 ;; the message names the fix and the plist carries :code plus locators.
 ;; -----------------------------------------------------------------------
 
-(define-error 'financial-chart-error "financial-chart error")
 (define-error 'financial-chart-unknown-kind
   "financial-chart: unknown chart kind" 'financial-chart-error)
 (define-error 'financial-chart-invalid-data

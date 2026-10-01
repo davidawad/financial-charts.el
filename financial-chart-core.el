@@ -17,6 +17,8 @@
 
 (require 'cl-lib)
 
+(define-error 'financial-chart-error "financial-chart error")
+
 (defgroup financial-chart nil
   "OHLC candlestick chart rendering."
   :group 'tools)

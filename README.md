@@ -256,8 +256,33 @@ picks the provider; nothing here names a broker.
 Presets (`financial-chart-presets`) and cohorts
 (`financial-chart-indicator-cohorts`) are data: add an entry to add
 one. Titles of symbol charts state the symbol, provider, period, bar
-count and fetch time. `financial-chart-schwab-view` and friends remain
-as obsolete wrappers over the symbol functions.
+count and fetch time. Cohort members may name recipes in an external
+indicator catalog; set `financial-chart-indicator-catalog-function` to
+a lookup function and `financial-chart-describe-cohort` will check them
+against it.
+
+## Bringing data from other packages
+
+This package draws; it never fetches or talks to a broker. The
+boundary is the data shapes above, so anything that produces them can
+be charted:
+
+- **OHLC bars** are the bar/v1 plist `(:open :high :low :close
+  [:volume] [:time])`, `:time` in epoch milliseconds. market-data.el
+  defines that shape and converts broker responses into it; when
+  market-data is loaded, `financial-chart-validate` uses its validator,
+  so the two packages cannot disagree about what a bar is.
+- **By ticker**, `financial-chart-view-symbol` and the presets ask
+  market-data for bars. Provider choice, request defaults
+  (`market-data-default-period` etc.) and authentication belong to
+  market-data and the broker packages, and none of them are duplicated
+  here.
+- **Anything else** (positions, P/L, payoff curves, a CSV, a CLI's
+  JSON) needs only a small converter in the package that owns that data,
+  producing a series, payoff or labeled list for `financial-chart-plot`.
+  From outside Emacs, emit a JSON spec for `bin/financial-chart`.
+- **New chart types** register with `financial-chart-register-kind`; the
+  doctor, `describe` and the CLI pick them up.
 
 ## Layout
 

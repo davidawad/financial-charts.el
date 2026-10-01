@@ -14,6 +14,8 @@
 
 ;;; Code:
 
+(require 'financial-chart-series)
+(require 'subr-x)
 (require 'financial-chart-core)
 (require 'financial-chart-indicators)
 
@@ -204,6 +206,283 @@ other aspect of rendering is configured."
       (goto-char (point-min))
       (special-mode))
     (pop-to-buffer buffer)))
+
+;; -----------------------------------------------------------------------
+;; Generic chart kinds (area, line, sparkline, payoff, bars, depth)
+;; -----------------------------------------------------------------------
+
+(defun financial-chart-text--label (text label-width face)
+  "TEXT right-aligned in LABEL-WIDTH columns plus a space, in FACE."
+  (propertize (format (format "%%%ds " label-width) text) 'face face))
+
+(defun financial-chart-text--footer (values n unit label-width accent-face dim-face)
+  "The \"last / range / N pts\" footer line for column VALUES over N points."
+  (let ((r (financial-chart-range values)))
+    (concat
+     (financial-chart-text--label "" label-width dim-face)
+     (propertize (format "last %s%s" (financial-chart-fmt (car (last values))) unit)
+                 'face accent-face)
+     (propertize (format "   range %s–%s%s   %d pts"
+                         (financial-chart-fmt (car r)) (financial-chart-fmt (cdr r))
+                         unit n)
+                 'face dim-face))))
+
+;; --- area ---------------------------------------------------------------------
+
+(cl-defun financial-chart-text-area
+    (series &key (width 60) (height financial-chart-plot-height) (unit "") (label-width 6)
+            (up-face 'financial-chart-up) (down-face 'financial-chart-down)
+            (dim-face 'financial-chart-dim) (accent-face 'financial-chart-accent)
+            (footer t) &allow-other-keys)
+  "Render SERIES as an eighth-block area chart string.
+WIDTH/HEIGHT are the plot size in columns/rows (labels excluded); UNIT
+suffixes the axis and footer numbers.  The fill is UP-FACE when the
+series ends at or above where it started, else DOWN-FACE.  FOOTER nil
+omits the trailing last/range/points line.  Returns nil for no data."
+  (when-let* ((values (financial-chart-series-values series)))
+    (let* ((cols (financial-chart-resample values width))
+           (range (financial-chart-range cols))
+           (lo (car range))
+           (hi (cdr range))
+           (span (max 0.001 (- hi lo)))
+           (cells (* height 8))
+           (levels (mapcar (lambda (v) (max 1 (round (* cells (/ (- v lo) span)))))
+                           cols))
+           (face (financial-chart-direction-face cols up-face down-face))
+           (rows
+            (cl-loop
+             for row from (1- height) downto 0
+             for floor-cells = (* row 8)
+             collect
+             (concat
+              (financial-chart-text--label (cond ((= row (1- height)) (concat (financial-chart-fmt hi) unit))
+                                     ((= row 0) (concat (financial-chart-fmt lo) unit))
+                                     (t ""))
+                               label-width dim-face)
+              (propertize
+               (mapconcat (lambda (lvl)
+                            (string (aref financial-chart-blocks
+                                          (max 0 (min 8 (- lvl floor-cells))))))
+                          levels "")
+               'face face)
+              "\n"))))
+      (concat (apply #'concat rows)
+              (when footer
+                (concat "\n" (financial-chart-text--footer cols (length values) unit label-width
+                                               accent-face dim-face)))))))
+
+;; --- braille line ---------------------------------------------------------------
+
+(defconst financial-chart-text--braille-bits [[#x01 #x08] [#x02 #x10] [#x04 #x20] [#x40 #x80]]
+  "Braille dot bit for [ROW-IN-CELL][COL-IN-CELL], row 0 at the top.")
+
+(cl-defun financial-chart-text-line
+    (series &key (width 60) (height financial-chart-plot-height) (unit "") (label-width 6)
+            (up-face 'financial-chart-up) (down-face 'financial-chart-down)
+            (dim-face 'financial-chart-dim) (accent-face 'financial-chart-accent)
+            (footer t) &allow-other-keys)
+  "Render SERIES as a braille line chart string (2x4 dots per cell).
+Twice the horizontal and four times the vertical resolution of a block
+chart, for terminals whose font carries the braille block.  Keywords as
+in `financial-chart-text-area'.  Returns nil for no data."
+  (when-let* ((values (financial-chart-series-values series)))
+    (let* ((pts (financial-chart-resample values (* 2 width)))
+           (range (financial-chart-range pts))
+           (lo (car range))
+           (span (max 0.001 (- (cdr range) lo)))
+           (dots (* height 4))
+           (ys (mapcar (lambda (v) (- dots 1 (round (* (1- dots) (/ (- v lo) span))))) pts))
+           (ncols (/ (1+ (length pts)) 2))
+           (grid (make-vector (* height ncols) 0))
+           (face (financial-chart-direction-face pts up-face down-face)))
+      (cl-flet ((dot (x y)
+                  (let ((cell (+ (* (/ y 4) ncols) (/ x 2))))
+                    (aset grid cell (logior (aref grid cell)
+                                            (aref (aref financial-chart-text--braille-bits (% y 4))
+                                                  (% x 2)))))))
+        (cl-loop for (y0 y1) on ys
+                 for x from 0
+                 do (dot x y0)
+                 when y1 do (cl-loop for y from (min y0 y1) to (max y0 y1)
+                                     do (dot (if (< y (/ (+ y0 y1) 2.0)) x (1+ x)) y))))
+      (concat
+       (mapconcat
+        (lambda (row)
+          (concat
+           (financial-chart-text--label (cond ((= row 0) (concat (financial-chart-fmt (cdr range)) unit))
+                                  ((= row (1- height)) (concat (financial-chart-fmt lo) unit))
+                                  (t ""))
+                            label-width dim-face)
+           (propertize
+            (apply #'string (cl-loop for c from 0 below ncols
+                                     collect (+ #x2800 (aref grid (+ (* row ncols) c)))))
+            'face face)
+           "\n"))
+        (number-sequence 0 (1- height)) "")
+       (when footer
+         (concat "\n" (financial-chart-text--footer pts (length values) unit label-width
+                                        accent-face dim-face)))))))
+
+;; --- sparkline ------------------------------------------------------------------
+
+(cl-defun financial-chart-text-sparkline
+    (series &key width face (up-face 'financial-chart-up) (down-face 'financial-chart-down)
+            &allow-other-keys)
+  "One-row sparkline of SERIES resampled to WIDTH columns.
+WIDTH defaults to one column per value.  FACE overrides the up/down
+direction colouring.  Returns \"\" for no data."
+  (let ((values (financial-chart-series-values series)))
+    (if (null values)
+        ""
+      (let* ((cols (financial-chart-resample values (or width (length values))))
+             (range (financial-chart-range cols))
+             (span (- (cdr range) (car range))))
+        (propertize
+         (mapconcat (lambda (v)
+                      (string (aref financial-chart-blocks
+                                    (if (zerop span) 4
+                                      (1+ (round (* 7 (/ (- v (car range)) span))))))))
+                    cols "")
+         'face (or face (financial-chart-direction-face cols up-face down-face)))))))
+
+;; --- payoff ---------------------------------------------------------------------
+
+(defun financial-chart-text--signed-glyph (a b c0)
+  "Glyph for the region [A,B] (eighths) within the cell starting at C0."
+  (let ((overlap (max 0 (- (min b (+ c0 8)) (max a c0)))))
+    (cond
+     ((zerop overlap) nil)
+     ((<= a c0) (aref financial-chart-blocks overlap))
+     ((>= b (+ c0 8)) (cond ((>= overlap 6) ?█) ((>= overlap 3) ?▀) (t ?▔)))
+     (t (aref financial-chart-blocks (max 1 overlap))))))
+
+(defun financial-chart-text--zero-split (lo hi height)
+  "(NEG-ROWS . PER-ROW): rows below zero and value per row for LO..HI.
+Zero always falls on a row boundary and both signs share one scale,
+chosen as the smallest per-row value that fits LO and HI in HEIGHT rows."
+  (cond
+   ((>= lo 0) (cons 0 (/ (max 0.001 hi) (float height))))
+   ((<= hi 0) (cons height (/ (max 0.001 (- lo)) (float height))))
+   (t (let (best)
+        (dolist (rn (number-sequence 1 (1- height)) best)
+          (let ((s (max (/ (- lo) (float rn)) (/ hi (float (- height rn))))))
+            (when (or (null best) (< s (cdr best)))
+              (setq best (cons rn s)))))))))
+
+(cl-defun financial-chart-text-payoff
+    (payoff &key (width 60) (height financial-chart-plot-height) (unit "$") (label-width 7)
+            (up-face 'financial-chart-up) (down-face 'financial-chart-down)
+            (dim-face 'financial-chart-dim) (accent-face 'financial-chart-accent)
+            (footer t) &allow-other-keys)
+  "Render PAYOFF ((PRICE PNL) ...) as a zero-anchored P/L diagram string.
+Profit fills up from the zero line in UP-FACE, loss down in DOWN-FACE;
+the zero row carries a dim baseline.  The footer lists breakevens,
+max gain/loss and the price span.  Returns nil for no data."
+  (when-let* ((values (financial-chart-series-values payoff)))
+    (pcase-let* ((xs (delq nil (financial-chart-series-xs payoff)))
+                 (cols (financial-chart-interpolate payoff width))
+                 (`(,lo . ,hi) (financial-chart-range cols t))
+                 (`(,neg-rows . ,per-row) (financial-chart-text--zero-split lo hi height))
+                 (z (* 8 neg-rows))
+                 (zero-row (min (1- height) neg-rows))
+                 (levels (mapcar (lambda (v) (+ z (round (* 8 (/ v per-row))))) cols)))
+      (concat
+       (mapconcat
+        (lambda (row)
+          (let ((c0 (* row 8)))
+            (concat
+             (financial-chart-text--label (cond ((= row (1- height)) (financial-chart-fmt-money hi unit))
+                                    ((= row 0) (financial-chart-fmt-money lo unit))
+                                    ((= row zero-row) "0")
+                                    (t ""))
+                              label-width dim-face)
+             (mapconcat
+              (lambda (lvl)
+                (let ((g (financial-chart-text--signed-glyph (min z lvl) (max z lvl) c0)))
+                  (cond (g (propertize (string g) 'face (if (>= lvl z) up-face down-face)))
+                        ((= row zero-row) (propertize "─" 'face dim-face))
+                        (t " "))))
+              levels "")
+             "\n")))
+        (number-sequence (1- height) 0 -1) "")
+       (when xs
+         (let ((left (format "%s%s" unit (financial-chart-fmt (car xs))))
+               (right (format "%s%s" unit (financial-chart-fmt (car (last xs))))))
+           (concat (financial-chart-text--label "" label-width dim-face)
+                   (propertize (concat left
+                                       (make-string (max 1 (- (length cols) (length left)
+                                                              (length right)))
+                                                    ?\s)
+                                       right)
+                               'face dim-face)
+                   "\n")))
+       (when footer
+         (let ((bes (financial-chart-payoff-breakevens payoff))
+               (all (financial-chart-range values)))
+           (concat
+            "\n" (financial-chart-text--label "" label-width dim-face)
+            (propertize (if bes
+                            (format "breakeven %s"
+                                    (mapconcat (lambda (b) (concat unit (financial-chart-fmt b)))
+                                               bes ", "))
+                          "no breakeven")
+                        'face accent-face)
+            (propertize (format "   max %s / %s   %d pts"
+                                (financial-chart-fmt-money (cdr all) unit)
+                                (financial-chart-fmt-money (car all) unit)
+                                (length values))
+                        'face dim-face))))))))
+
+;; --- diverging bars ---------------------------------------------------------------
+
+(cl-defun financial-chart-text-bars
+    (bars &key (width 60) label-width (unit "")
+          (up-face 'financial-chart-up) (down-face 'financial-chart-down) (dim-face 'financial-chart-dim)
+          &allow-other-keys)
+  "Render BARS ((LABEL . VALUE) ...) as diverging horizontal bars.
+Negative values grow left of a centre axis in DOWN-FACE, positive values
+right in UP-FACE, each scaled to the largest magnitude.  WIDTH is the
+whole line: label, bars and value.  Returns nil for no data."
+  (when bars
+    (let* ((lw (or label-width
+                   (apply #'max (mapcar (lambda (b) (string-width (format "%s" (car b))))
+                                        bars))))
+           (half (max 1 (/ (- width lw 12) 2)))
+           (peak (max 1e-9 (apply #'max (mapcar (lambda (b) (abs (cdr b))) bars)))))
+      (mapconcat
+       (lambda (b)
+         (let* ((v (cdr b))
+                (n (if (zerop v) 0 (max 1 (round (* half (/ (abs v) (float peak)))))))
+                (face (if (< v 0) down-face up-face)))
+           (concat
+            (propertize (format (format "%%-%ds " lw) (car b)) 'face dim-face)
+            (make-string (if (< v 0) (- half n) half) ?\s)
+            (if (< v 0) (propertize (make-string n ?█) 'face face) "")
+            (propertize "│" 'face dim-face)
+            (if (< v 0) "" (propertize (make-string n ?█) 'face face))
+            (make-string (if (< v 0) half (- half n)) ?\s)
+            " "
+            (propertize (financial-chart-fmt-money v unit) 'face face)
+            "\n")))
+       bars ""))))
+
+;; --- OHLC ---------------------------------------------------------------------------
+
+(cl-defun financial-chart-text-ohlc
+    (bars &key (height financial-chart-plot-height) &allow-other-keys)
+  "Render OHLC BARS as text candlesticks with a HEIGHT-row price panel.
+The `ohlc' kind's adapter over `financial-chart-render'."
+  (financial-chart-render bars height))
+
+;; --- order-book depth -----------------------------------------------------------------
+
+(defun financial-chart-depth-bar (size max-size cols &optional face)
+  "A block bar for depth SIZE against MAX-SIZE over COLS columns, in FACE.
+Square-root scaled so one whale level does not flatten every other bar
+to a single block; never shorter than one block."
+  (propertize (make-string (max 1 (round (* cols (sqrt (/ (float size) (float max-size))))))
+                           ?█)
+              'face face))
 
 (provide 'financial-chart-text)
 ;;; financial-chart-text.el ends here

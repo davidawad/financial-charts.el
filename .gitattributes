@@ -1,0 +1,2 @@
+# Golden fixtures are byte-exact renderer output; trailing spaces are data.
+test/fixtures/* -whitespace -text

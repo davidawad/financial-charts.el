@@ -46,11 +46,13 @@
 ;;; Code:
 
 (require 'financial-chart-core)
+(require 'financial-chart-series)
 (require 'financial-chart-indicators)
 (require 'financial-chart-text)
 (require 'financial-chart-svg)
 (require 'financial-chart-symbol)
 (require 'financial-chart-presets)
+(require 'financial-chart-plot)
 
 (provide 'financial-chart)
 ;;; financial-chart.el ends here

@@ -14,6 +14,8 @@
 
 ;;; Code:
 
+(require 'financial-chart-series)
+(require 'subr-x)
 (require 'financial-chart-core)
 (require 'financial-chart-indicators)
 
@@ -411,6 +413,163 @@ Returns FILE."
              converter svg-file file width height)))
       (delete-file svg-file))
     file))
+
+;; -----------------------------------------------------------------------
+;; Generic chart kinds (area, payoff, bars) as SVG
+;; -----------------------------------------------------------------------
+
+(defcustom financial-chart-svg-palette nil
+  "Alist overriding SVG colours: keys up, down, text, grid, background.
+A missing key falls back to the matching financial-chart face, then to
+`financial-chart-svg--fallback-palette'."
+  :type '(alist :key-type symbol :value-type string)
+  :group 'financial-chart)
+
+(defconst financial-chart-svg--fallback-palette
+  '((up . "#2e7d32") (down . "#c62828") (text . "#333333")
+    (grid . "#9e9e9e") (background . "#ffffff"))
+  "Colours used when neither the palette nor a face resolves one.")
+
+(defconst financial-chart-svg--faces
+  '((up . financial-chart-up) (down . financial-chart-down) (text . default)
+    (grid . financial-chart-dim) (background . default))
+  "Face consulted for each palette key.")
+
+(defun financial-chart-svg--color (key)
+  "Resolve palette KEY to a colour string."
+  (or (alist-get key financial-chart-svg-palette)
+      (let* ((face (alist-get key financial-chart-svg--faces))
+             (c (and (display-graphic-p)
+                     (face-attribute face (if (eq key 'background) :background :foreground)
+                                     nil t))))
+        (and (stringp c) (not (string-prefix-p "unspecified" c)) c))
+      (alist-get key financial-chart-svg--fallback-palette)))
+
+(defun financial-chart-svg--n (x)
+  "X rounded to two decimals, for stable SVG coordinates."
+  (/ (round (* x 100)) 100.0))
+
+(defun financial-chart-svg--canvas (width height title)
+  "A background-filled WIDTH x HEIGHT svg with optional TITLE text."
+  (let ((svg (svg-create width height)))
+    (svg-rectangle svg 0 0 width height :fill (financial-chart-svg--color 'background))
+    (when title
+      (financial-chart-svg--text svg title 8 (+ 4 financial-chart-svg-font-size) "start"))
+    svg))
+
+(defun financial-chart-svg--text (svg text x y anchor &optional color)
+  "Add TEXT to SVG at X,Y with ANCHOR in COLOR (default: text colour)."
+  (svg-text svg text :x (financial-chart-svg--n x) :y (financial-chart-svg--n y)
+            :font-family financial-chart-svg-font-family
+            :font-size financial-chart-svg-font-size
+            :text-anchor anchor
+            :fill (or color (financial-chart-svg--color 'text))))
+
+(defun financial-chart-svg--string (svg)
+  "SVG serialized to a string."
+  (with-temp-buffer (svg-print svg) (buffer-string)))
+
+(defun financial-chart-svg--frame (width height title)
+  "Plot box (X0 Y0 W H) inside a WIDTH x HEIGHT canvas with TITLE."
+  (let ((top (if title 28 10)))
+    (list 60 top (- width 70) (- height top 26))))
+
+(cl-defun financial-chart-svg-area
+    (series &key (width 600) (height 240) (unit "") title &allow-other-keys)
+  "SVG string of SERIES as a filled line chart, WIDTH x HEIGHT px, with TITLE."
+  (let ((values (financial-chart-series-values series)))
+    (when values
+      (pcase-let* ((`(,x0 ,y0 ,w ,h) (financial-chart-svg--frame width height title))
+                   (cols (financial-chart-resample values (max 2 (floor w 2))))
+                   (`(,lo . ,hi) (financial-chart-range cols))
+                   (span (max 0.001 (- hi lo)))
+                   (n (max 1 (1- (length cols))))
+                   (color (financial-chart-svg--color
+                           (if (eq (financial-chart-direction-face cols 'up 'down) 'up) 'up 'down)))
+                   (pts (cl-loop for v in cols for i from 0
+                                 collect (cons (financial-chart-svg--n (+ x0 (* w (/ i (float n)))))
+                                               (financial-chart-svg--n (+ y0 (* h (- 1 (/ (- v lo) span))))))))
+                   (svg (financial-chart-svg--canvas width height title)))
+        (svg-polygon svg (append pts (list (cons (car (car (last pts))) (+ y0 h))
+                                           (cons (car (car pts)) (+ y0 h))))
+                     :fill color :fill-opacity 0.15 :stroke "none")
+        (svg-polyline svg pts :fill "none" :stroke color :stroke-width 1.5)
+        (financial-chart-svg--text svg (concat (financial-chart-fmt hi) unit) (- x0 6) (+ y0 4) "end")
+        (financial-chart-svg--text svg (concat (financial-chart-fmt lo) unit) (- x0 6) (+ y0 h) "end")
+        (financial-chart-svg--text svg (format "last %s%s   %d pts"
+                                        (financial-chart-fmt (car (last cols))) unit (length values))
+                            (+ x0 w) (+ y0 h 18) "end")
+        (financial-chart-svg--string svg)))))
+
+(cl-defun financial-chart-svg-payoff
+    (payoff &key (width 600) (height 260) (unit "$") title &allow-other-keys)
+  "SVG string of PAYOFF ((PRICE PNL) ...) against a zero line, with breakevens."
+  (let ((xs (delq nil (financial-chart-series-xs payoff)))
+        (ys (financial-chart-series-values payoff)))
+    (when (and ys (= (length xs) (length ys)) (cdr xs))
+      (pcase-let* ((`(,x0 ,y0 ,w ,h) (financial-chart-svg--frame width height title))
+                   (`(,lo . ,hi) (financial-chart-range ys t))
+                   (span (float (max 0.001 (- hi lo))))
+                   (`(,plo . ,phi) (financial-chart-range xs))
+                   (pspan (float (max 0.001 (- phi plo))))
+                   (sx (lambda (p) (financial-chart-svg--n (+ x0 (* w (/ (- p plo) pspan))))))
+                   (sy (lambda (v) (financial-chart-svg--n (+ y0 (* h (- 1 (/ (- v lo) span)))))))
+                   (zy (funcall sy 0))
+                   (svg (financial-chart-svg--canvas width height title)))
+        (cl-loop for (p0 p1) on xs for (v0 v1) on ys while p1
+                 do (let ((segs (if (< (* v0 v1) 0)
+                                    (let ((pc (+ p0 (* (- p1 p0) (/ (float (- v0)) (- v1 v0))))))
+                                      (list (list p0 v0 pc 0) (list pc 0 p1 v1)))
+                                  (list (list p0 v0 p1 v1)))))
+                      (dolist (s segs)
+                        (pcase-let ((`(,a ,va ,b ,vb) s))
+                          (svg-polygon svg (list (cons (funcall sx a) zy)
+                                                 (cons (funcall sx a) (funcall sy va))
+                                                 (cons (funcall sx b) (funcall sy vb))
+                                                 (cons (funcall sx b) zy))
+                                       :fill (financial-chart-svg--color (if (>= (+ va vb) 0) 'up 'down))
+                                       :fill-opacity 0.25 :stroke "none")))))
+        (svg-line svg x0 zy (+ x0 w) zy :stroke (financial-chart-svg--color 'grid)
+                  :stroke-dasharray "4 3")
+        (svg-polyline svg (cl-mapcar (lambda (p v) (cons (funcall sx p) (funcall sy v))) xs ys)
+                      :fill "none" :stroke (financial-chart-svg--color 'text) :stroke-width 1.5)
+        (dolist (be (financial-chart-payoff-breakevens payoff))
+          (svg-line svg (funcall sx be) y0 (funcall sx be) (+ y0 h)
+                    :stroke (financial-chart-svg--color 'grid) :stroke-dasharray "2 3")
+          (financial-chart-svg--text svg (concat unit (financial-chart-fmt be)) (funcall sx be) (+ y0 h 14)
+                              "middle"))
+        (financial-chart-svg--text svg (financial-chart-fmt-money hi unit) (- x0 6) (+ y0 4) "end")
+        (financial-chart-svg--text svg "0" (- x0 6) (+ zy 4) "end")
+        (financial-chart-svg--text svg (financial-chart-fmt-money lo unit) (- x0 6) (+ y0 h) "end")
+        (financial-chart-svg--string svg)))))
+
+(cl-defun financial-chart-svg-bars
+    (bars &key (width 600) (row-height 20) (unit "") title &allow-other-keys)
+  "SVG string of BARS ((LABEL . VALUE) ...) as diverging horizontal bars."
+  (when bars
+    (pcase-let* ((height (+ (if title 34 12) (* row-height (length bars))))
+                 (`(,x0 ,y0 ,w ,_h) (financial-chart-svg--frame width height title))
+                 (x0 (+ x0 40))
+                 (w (- w 80))
+                 (mid (+ x0 (/ w 2.0)))
+                 (peak (max 1e-9 (apply #'max (mapcar (lambda (b) (abs (cdr b))) bars))))
+                 (svg (financial-chart-svg--canvas width height title)))
+      (cl-loop for (label . v) in bars for i from 0
+               for y = (+ y0 (* i row-height))
+               for len = (financial-chart-svg--n (* (/ w 2.0) (/ (abs v) (float peak))))
+               do (svg-rectangle svg (if (< v 0) (- mid len) mid) (+ y 3) len (- row-height 6)
+                                 :fill (financial-chart-svg--color (if (< v 0) 'down 'up)))
+               (financial-chart-svg--text svg (format "%s" label) (- x0 6) (+ y (* 0.7 row-height)) "end")
+               (financial-chart-svg--text svg (financial-chart-fmt-money v unit)
+                                   (+ x0 w 6) (+ y (* 0.7 row-height)) "start"))
+      (svg-line svg mid y0 mid (+ y0 (* row-height (length bars)))
+                :stroke (financial-chart-svg--color 'grid))
+      (financial-chart-svg--string svg))))
+
+(cl-defun financial-chart-svg-ohlc (bars &key title &allow-other-keys)
+  "SVG string of OHLC BARS as candlesticks with TITLE.
+The `ohlc' kind's adapter over `financial-chart-render-svg'."
+  (financial-chart-render-svg bars title))
 
 (provide 'financial-chart-svg)
 ;;; financial-chart-svg.el ends here

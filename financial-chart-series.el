@@ -156,6 +156,109 @@ its values instead -- interpolation only ever adds resolution."
                               (* (- (aref yv (1+ i)) (aref yv i))
                                  (if (= xa xb) 0 (/ (- x xa) (float (- xb xa))))))))))))
 
+(defun financial-chart-series--interpolate-xs (xs ys width)
+  "Sample Y values evenly over numeric XS across WIDTH columns."
+  (let* ((xv (vconcat xs))
+         (yv (vconcat ys))
+         (n (length xv))
+         (width (max 1 width))
+         (x0 (aref xv 0))
+         (x1 (aref xv (1- n)))
+         (ascending (< x0 x1))
+         (step (if (= width 1) 0 (/ (float (- x1 x0)) (1- width))))
+         (i 0))
+    (cl-loop for c from 0 below width
+             for x = (if (= width 1) (/ (+ x0 x1) 2.0) (+ x0 (* c step)))
+             do (while (and (< i (- n 2))
+                            (if ascending (> x (aref xv (1+ i)))
+                              (< x (aref xv (1+ i)))))
+                  (cl-incf i))
+             collect
+             (let ((xa (aref xv i))
+                   (xb (aref xv (1+ i))))
+               (+ (aref yv i)
+                  (* (- (aref yv (1+ i)) (aref yv i))
+                     (if (= xa xb) 0 (/ (- x xa) (float (- xb xa))))))))))
+
+(defun financial-chart-series-x-aware-p (series)
+  "Whether SERIES has distinct numeric X coordinates worth projecting."
+  (let ((xs (financial-chart-series-xs series)))
+    (and (>= (length xs) 2)
+         (cl-every #'numberp xs)
+         (/= (car xs) (car (last xs))))))
+
+(defun financial-chart-series-resample (series width)
+  "Sample SERIES into WIDTH columns, respecting numeric X coordinates.
+Plain values retain `financial-chart-resample''s existing output.  Numeric
+X is linearly interpolated over its full span so wider X gaps occupy more
+columns."
+  (let* ((xs (financial-chart-series-xs series))
+         (ys (financial-chart-series-values series))
+         (width (max 1 width)))
+    (if (financial-chart-series-x-aware-p series)
+        (financial-chart-series--interpolate-xs xs ys width)
+      (financial-chart-resample ys width))))
+
+(defun financial-chart-series-x-axis-labels (series &optional width)
+  "Return (POSITION LABEL) ticks for epoch-millisecond X in SERIES, or nil.
+POSITION is a fraction from 0 to 1.  There are 2 to 4 evenly-spaced
+labels, formatted with `financial-chart-x-axis-format'.  WIDTH limits
+the label count when the text labels would otherwise overlap."
+  (let ((xs (financial-chart-series-xs series)))
+    (when (and (>= (length xs) 2)
+               (cl-every (lambda (x) (and (numberp x) (> x 1e11))) xs)
+               (/= (apply #'min xs) (apply #'max xs)))
+      (let* ((x0 (car xs))
+             (x1 (car (last xs)))
+             (limit (min 4 (length xs) (max 2 financial-chart-x-axis-label-count)))
+             (width (max 1 (or width 60)))
+             (count limit)
+             labels)
+        (while (and (> count 2)
+                    (< (/ (float (1- width)) (1- count))
+                    (length (format-time-string financial-chart-x-axis-format
+                                                   (/ x0 1000.0)))))
+          (cl-decf count))
+        (setq labels
+              (cl-loop for i from 0 below count
+                       for position = (/ (float i) (1- count))
+                       for time = (+ x0 (* position (- x1 x0)))
+                       collect
+                       (list position
+                             (format-time-string financial-chart-x-axis-format
+                                                 (/ time 1000.0)))))
+        labels))))
+
+(defun financial-chart-series-validate-scale (series scale)
+  "Validate SCALE for SERIES, signaling for non-positive log values."
+  (unless (memq scale '(linear log))
+    (error "financial-chart: scale must be `linear' or `log', got %S" scale))
+  (when (eq scale 'log)
+    (let ((index 0))
+      (seq-doseq (point series)
+        (let ((value (financial-chart-series--point-y point)))
+          (when (and value (<= value 0))
+            (signal 'financial-chart-invalid-data
+                    (list (format "element %d: log scale requires positive values; use :scale 'linear or provide a positive Y" index)
+                          :code "invalid_data" :index index))))
+        (cl-incf index)))))
+
+(defun financial-chart-series-scale-value (value scale)
+  "Convert VALUE into SCALE space for `linear' or `log'."
+  (if (eq scale 'log) (log value) value))
+
+(defun financial-chart-series-unscale-value (value scale)
+  "Convert SCALE-space VALUE back into data space."
+  (if (eq scale 'log) (exp value) value))
+
+(defun financial-chart-series-scale-span (lo hi scale)
+  "Range span for scaled values LO and HI under SCALE.
+Preserve narrow nonzero log ranges; retain the linear renderer's floor."
+  (let ((span (- hi lo)))
+    (if (eq scale 'log)
+        (if (zerop span) 0.001 span)
+      (max 0.001 span))))
+
 (defun financial-chart-ohlc-closes (bars)
   "The :close of every OHLC plist in BARS, as a SERIES of (TIME CLOSE)."
   (mapcar (lambda (b) (list (plist-get b :time) (plist-get b :close))) bars))

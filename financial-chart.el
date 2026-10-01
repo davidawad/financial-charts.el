@@ -57,6 +57,7 @@
 (require 'financial-chart-symbol)
 (require 'financial-chart-presets)
 (require 'financial-chart-plot)
+(require 'financial-chart-payoff-curves)
 
 (defconst financial-chart-version "0.2.0"
   "Version of the financial-chart package.")

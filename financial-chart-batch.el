@@ -57,6 +57,9 @@
                             (cons (symbol-name (car p)) (cdr p))
                           (cons (car p) (cadr p))))
                       data))
+    ('payoff-curves (mapcar (lambda (curve)
+                              (cons (car curve) (cdr curve)))
+                            data))
     (_ data)))
 
 (defun financial-chart-batch-spec (json)

@@ -49,6 +49,15 @@ bar given, however wide that makes the chart)."
   :type 'integer
   :group 'financial-chart)
 
+(defcustom financial-chart-candle-style 'block
+  "Text candle glyph style: `block', `braille', or `eighths'.
+`block' preserves the traditional half-block rendering. `braille' uses
+four vertical samples per character cell; `eighths' uses eight and
+encodes them with Unicode block elements, keeping full-height wicks
+thin."
+  :type '(choice (const block) (const braille) (const eighths))
+  :group 'financial-chart)
+
 ;; -----------------------------------------------------------------------
 ;; Colors
 ;; -----------------------------------------------------------------------

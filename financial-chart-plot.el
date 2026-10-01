@@ -268,7 +268,8 @@ KIND is a key of `financial-chart-kinds' (`financial-chart-list-kinds');
 DATA must fit its shape (`financial-chart-validate').  PROPS: :backend
 \(text, svg or auto -- see `financial-chart-backend'), :width/:height
 \(text columns/rows), :pixel-width/:pixel-height (SVG), :unit, :title,
-and per-renderer options such as :up-face/:down-face.  With `svg' the
+per-renderer options such as :up-face/:down-face, and :scale `linear' or
+`log' for area/line series.  With `svg' the
 string is an SVG document carrying a <title>/<desc> provenance block;
 with `text' it is propertized unicode.  Returns nil when DATA is empty
 \(sparkline: \"\").  `financial-chart-explain' shows the plan first."

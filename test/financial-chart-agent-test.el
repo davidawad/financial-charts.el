@@ -12,7 +12,8 @@
 
 (ert-deftest financial-chart-agent-test-list-kinds-matches-registry ()
   (let ((kinds (mapcar #'car (financial-chart-list-kinds))))
-    (should (equal kinds '(payoff-curves area line sparkline payoff bars ohlc)))
+    ;; core kinds, in order; modules register more kinds in front of them
+    (should (equal (last kinds 6) '(area line sparkline payoff bars ohlc)))
     (dolist (k kinds)
       (should (plist-get (cdr (assq k (financial-chart-list-kinds))) :doc)))))
 

@@ -80,7 +80,15 @@
 (defun financial-chart-batch--read (file)
   "Parse the JSON in FILE (\"-\" or nil = stdin)."
   (with-temp-buffer
-    (insert-file-contents (if (or (null file) (equal file "-")) "/dev/stdin" file))
+    (if (or (null file) (equal file "-"))
+        ;; Not `insert-file-contents' on /dev/stdin: Emacs 29.1 rejects a
+        ;; pipe there ("Maximum buffer size exceeded").  In batch mode
+        ;; `read-from-minibuffer' reads one stdin line, nil-ish at EOF.
+        (let (line)
+          (while (setq line (ignore-errors (read-from-minibuffer "")))
+            (insert line "\n"))
+          (goto-char (point-min)))
+      (insert-file-contents file))
     (json-parse-buffer :object-type 'alist :array-type 'list
                        :null-object nil :false-object :json-false)))
 

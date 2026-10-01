@@ -563,7 +563,7 @@ one-line note instead of failing."
           (financial-chart-plot--annotate-row text 0 0 columns)
         (let ((row-start 0))
           (dotimes (_ height)
-            (when-let ((newline (string-match "\n" text row-start)))
+            (when-let* ((newline (string-match "\n" text row-start)))
               (financial-chart-plot--annotate-row
                text row-start (- (- newline row-start) (length columns)) columns)
               (setq row-start (1+ newline))))))))

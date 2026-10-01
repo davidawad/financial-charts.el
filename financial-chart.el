@@ -17,9 +17,10 @@
 ;;; Commentary:
 
 ;; Plain Lisp data in, chart out.  One call draws any chart kind --
-;; candlesticks, area, braille line, sparkline, option payoff, diverging
-;; P/L bars -- as propertized unicode text in a terminal frame or an SVG
-;; image in a GUI frame.  No external process except optional PNG export.
+;; candlesticks, area, braille line, sparkline, multi-series comparisons,
+;; option payoff, diverging P/L bars -- as propertized unicode text in a
+;; terminal frame or an SVG image in a GUI frame.  No external process
+;; except optional PNG export.
 ;;
 ;; The central object is a CHART SPEC, a plist that round-trips JSON:
 ;;
@@ -43,8 +44,8 @@
 ;;
 ;; Non-Emacs callers use bin/financial-chart, which reads a spec as JSON.
 ;; Modules: -core (config), -series (shapes), -indicators (+ cohorts),
-;; -text, -svg, -plot (kinds), -symbol (market-data bridge), -presets,
-;; -batch (CLI).
+;; -text, -svg, -plot (kinds), -multi (multi-series kind), -symbol
+;; (market-data bridge), -presets, -batch (CLI).
 
 ;;; Code:
 
@@ -57,6 +58,7 @@
 (require 'financial-chart-symbol)
 (require 'financial-chart-presets)
 (require 'financial-chart-plot)
+(require 'financial-chart-multi)
 
 (defconst financial-chart-version "0.2.0"
   "Version of the financial-chart package.")

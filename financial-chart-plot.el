@@ -319,9 +319,17 @@ whether both renderers are defined right now."
 (defun financial-chart-plot-insert (kind data &rest props)
   "Insert DATA as a KIND chart at point: an SVG image or unicode text.
 PROPS as in `financial-chart-plot'.
-Inserts `financial-chart-empty-text' for no data."
-  (let* ((backend (financial-chart-plot--resolve-backend (plist-get props :backend)))
+Inserts `financial-chart-empty-text' for no data.  When SVG is requested
+but this Emacs cannot display SVG images, inserts the text chart with a
+one-line note instead of failing."
+  (let* ((requested (financial-chart-plot--resolve-backend (plist-get props :backend)))
+         (backend (if (and (eq requested 'svg) (not (image-type-available-p 'svg)))
+                      'text
+                    requested))
          (out (apply #'financial-chart-plot kind data :backend backend props)))
+    (unless (eq backend requested)
+      (insert (propertize "(this Emacs cannot display SVG; showing text)\n"
+                          'face 'financial-chart-dim)))
     (cond
      ((or (null out) (equal out "")) (insert (propertize financial-chart-empty-text 'face 'financial-chart-dim)))
      ((eq backend 'svg) (insert-image (create-image out 'svg t :ascent 'center) "[chart]"))

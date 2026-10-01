@@ -441,7 +441,7 @@ max gain/loss and the price span.  Returns nil for no data."
   (when-let* ((values (financial-chart-series-values payoff)))
     (pcase-let* ((xs (delq nil (financial-chart-series-xs payoff)))
                  (cols (financial-chart-interpolate payoff width))
-                 (`(,lo . ,hi) (financial-chart-range cols t))
+                 (`(,lo . ,hi) (financial-chart-payoff-range payoff))
                  (`(,neg-rows . ,per-row) (financial-chart-text--zero-split lo hi height))
                  (z (* 8 neg-rows))
                  (zero-row (min (1- height) neg-rows))

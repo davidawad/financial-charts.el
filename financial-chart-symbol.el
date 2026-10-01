@@ -217,55 +217,45 @@ KEYS are forwarded verbatim (period/frequency fetch keys)."
                              financial-chart-export-directory))))
   (apply #'financial-chart-export-symbol-png symbol file :provider 'schwab keys))
 
-;; -- doctor hook (consumed by the tower doctor, child .7) --
+;; -- doctor rows (eager; assembled by `financial-chart-doctor-checks') --
 
-(defun financial-chart-doctor-checks ()
-  "Return a list of (LABEL . CHECK-FN) probes for `financial-tower-doctor' (.7).
-Each CHECK-FN tolerates optional keyword args and returns a plist
-(:ok BOOL :detail STRING :remediation STRING-or-nil); no network calls."
-  (list
-   (cons
-    "financial-chart package loadable"
-    (lambda (&rest _)
-      (if (featurep 'financial-chart)
-          (list :ok t :detail "financial-chart loaded")
-        (list :ok nil :detail "financial-chart not loaded"
-              :remediation "(require 'financial-chart)"))))
-   (cons
-    "financial-chart bridge resolves a provider via market-data"
-    (lambda (&rest _)
-      (if (not (fboundp 'market-data-capabilities))
-          (list :ok nil :detail "market-data (L1) not loaded"
-                :remediation "(require 'market-data), then load a broker package")
-        (let ((loaded (cl-remove-if-not
-                       (lambda (cell) (plist-get (cdr cell) :loaded))
-                       (market-data-capabilities))))
-          (if loaded
-              (list :ok t :detail (format "market-data provider(s) available: %s"
-                                          (mapcar #'car loaded)))
-            (list :ok nil :detail "no market-data provider loaded"
-                  :remediation "load schwab-broker or alpaca-broker-data, then authenticate"))))))
-   (cons
-    "financial-chart export directory writable"
-    (lambda (&rest _)
-      (let* ((dir (expand-file-name financial-chart-export-directory))
-             (probe (if (file-directory-p dir)
-                        dir
-                      (file-name-directory (directory-file-name dir)))))
-        (if (file-writable-p probe)
-            (list :ok t :detail (format "%s writable" dir))
-          (list :ok nil :detail (format "%s not writable" dir)
-                :remediation "set financial-chart-export-directory to a writable path")))))
-   (cons
-    "financial-chart PNG converter available"
-    (lambda (&rest _)
-      (let ((conv (or financial-chart-png-converter
-                      (cl-find-if (lambda (name) (executable-find (symbol-name name)))
-                                  '(rsvg-convert convert magick)))))
-        (if conv
-            (list :ok t :detail (format "PNG converter: %s" conv))
-          (list :ok nil :detail "no SVG->PNG converter found"
-                :remediation "install rsvg-convert or ImageMagick (brew install librsvg), or set financial-chart-png-converter")))))))
+(defun financial-chart-symbol-doctor-checks ()
+  "Eager doctor rows for symbol charting and export; no network.
+Each row is (:name :status pass|fail|skip :detail :remediation).
+market-data.el is optional, so its absence is a skip, not a failure."
+  (let* ((dir (expand-file-name financial-chart-export-directory))
+         (probe (if (file-directory-p dir) dir
+                  (file-name-directory (directory-file-name dir))))
+         (conv (or financial-chart-png-converter
+                   (cl-find-if (lambda (name) (executable-find (symbol-name name)))
+                               '(rsvg-convert convert magick))))
+         (providers (and (fboundp 'market-data-capabilities)
+                         (cl-remove-if-not (lambda (cell) (plist-get (cdr cell) :loaded))
+                                           (market-data-capabilities)))))
+    (list
+     (cond
+      ((not (fboundp 'market-data-capabilities))
+       (list :name "symbol charts: market-data provider" :status 'skip
+             :detail "market-data.el not loaded; symbol/preset charts unavailable, plain-data charts unaffected"
+             :remediation "(require 'market-data), then load a broker package"))
+      (providers
+       (list :name "symbol charts: market-data provider" :status 'pass
+             :detail (format "providers loaded: %s" (mapcar #'car providers))
+             :remediation nil))
+      (t
+       (list :name "symbol charts: market-data provider" :status 'fail
+             :detail "market-data loaded but no provider is"
+             :remediation "load schwab-broker or alpaca-broker-data, then authenticate")))
+     (list :name "export directory writable"
+           :status (if (file-writable-p probe) 'pass 'fail)
+           :detail (format "%s %s" dir (if (file-writable-p probe) "writable" "not writable"))
+           :remediation (unless (file-writable-p probe)
+                          "set financial-chart-export-directory to a writable path"))
+     (list :name "PNG converter"
+           :status (if conv 'pass 'fail)
+           :detail (if conv (format "PNG converter: %s" conv) "no SVG->PNG converter found")
+           :remediation (unless conv
+                          "install rsvg-convert or ImageMagick (brew install librsvg), or set financial-chart-png-converter")))))
 
 ;; -----------------------------------------------------------------------
 

@@ -217,7 +217,7 @@
   (financial-chart-plot-test--svg-env
    (should (string-prefix-p "<svg width=\"320\""
                             (financial-chart-plot 'area '(1 2 3) :backend 'svg :pixel-width 320))))
-  (should-error (financial-chart-plot 'pie '(1 2)) :type 'error))
+  (should-error (financial-chart-plot 'pie '(1 2)) :type 'financial-chart-unknown-kind))
 
 (ert-deftest financial-chart-plot-test-insert-auto-is-text-without-images ()
   (unless (display-images-p)
@@ -251,8 +251,8 @@
 
 (ert-deftest financial-chart-plot-test-doctor-checks-pass ()
   (dolist (c (financial-chart-plot-doctor-checks))
-    (should (stringp (car c)))
-    (should (plist-get (funcall (cdr c)) :ok))))
+    (should (stringp (plist-get c :name)))
+    (should (memq (plist-get c :status) '(pass skip)))))
 
 (provide 'financial-chart-plot-test)
 ;;; financial-chart-plot-test.el ends here

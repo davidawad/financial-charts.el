@@ -213,12 +213,20 @@ BACKEND nil means `financial-chart-backend'."
 
 (defun financial-chart--data-summary (shape data)
   "Point count and value range of DATA in SHAPE, for explain and provenance."
-  (let ((ys (pcase shape
-              ('labeled (mapcar #'cdr data))
-              ('ohlc (append (delq nil (mapcar (lambda (b) (plist-get b :low)) data))
-                             (delq nil (mapcar (lambda (b) (plist-get b :high)) data))))
-              (_ (financial-chart-series-values data)))))
-    (append (list :points (length data))
+  (let* ((ys (pcase shape
+               ('labeled (mapcar #'cdr data))
+               ('payoff-curves
+                (apply #'append
+                       (mapcar (lambda (curve)
+                                 (financial-chart-series-values (cdr curve)))
+                               data)))
+               ('ohlc (append (delq nil (mapcar (lambda (b) (plist-get b :low)) data))
+                              (delq nil (mapcar (lambda (b) (plist-get b :high)) data))))
+               (_ (financial-chart-series-values data))))
+         (points (if (eq shape 'payoff-curves)
+                     (apply #'+ (mapcar (lambda (curve) (length (cdr curve))) data))
+                   (length data))))
+    (append (list :points points)
             (when ys (list :min (apply #'min ys) :max (apply #'max ys))))))
 
 ;;;###autoload

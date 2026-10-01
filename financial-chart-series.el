@@ -105,6 +105,13 @@ Fewer values than WIDTH are returned unchanged (one column each)."
         (cons (min lo 0) (max hi 0))
       (cons lo hi))))
 
+(defun financial-chart-payoff-range (payoff)
+  "Return PAYOFF's (MIN . MAX) P/L range, including zero.
+Use the original payoff points so renderer sampling cannot hide an
+extreme.  Return nil when PAYOFF has no values."
+  (let ((values (financial-chart-series-values payoff)))
+    (when values (financial-chart-range values t))))
+
 (defun financial-chart-fmt (v)
   "V to at most one decimal, no trailing zeros: 89.3333 -> \"89.3\"."
   (format "%g" (/ (round (* v 10)) 10.0)))

@@ -3,7 +3,7 @@
 ;; Copyright (C) 2026 David Awad
 
 ;; Author: David Awad <davidawad@protonmail.com>
-;; URL: https://github.com/davidawad/financial-chart.el
+;; URL: https://github.com/davidawad/financial-charts.el
 
 ;; This file is not part of GNU Emacs.
 

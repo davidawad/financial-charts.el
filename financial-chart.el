@@ -7,7 +7,7 @@
 ;; Version: 0.2.0
 ;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: data, finance, tools
-;; URL: https://github.com/davidawad/financial-chart.el
+;; URL: https://github.com/davidawad/financial-charts.el
 
 ;; This file is not part of GNU Emacs.
 

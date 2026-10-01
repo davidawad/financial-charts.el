@@ -134,6 +134,73 @@
        "\n"))))
 
 ;; -----------------------------------------------------------------------
+;; Oscillator panel
+;; -----------------------------------------------------------------------
+
+(defun financial-chart--oscillator-row (value height)
+  "Map oscillator VALUE in [0,100] to a bottom-based row in HEIGHT."
+  (round (* (1- height)
+            (/ (max 0.0 (min 100.0 (float value))) 100.0))))
+
+(defun financial-chart--oscillator-axis-label (height row)
+  "Return the oscillator's fixed-scale label for ROW, or blank padding."
+  (let* ((label-width (length (format financial-chart-axis-format 0.0)))
+         (guide-70 (financial-chart--oscillator-row 70 height))
+         (guide-30 (financial-chart--oscillator-row 30 height))
+         (value (cond ((= row (1- height)) 100)
+                      ((= row guide-70) 70)
+                      ((= row 0) 0)
+                      ((= row guide-30) 30))))
+    (if value
+        (let* ((text (format (format "%%%dd " (max 1 (1- label-width))) value)))
+          (if financial-chart-axis-face
+              (propertize text 'face financial-chart-axis-face)
+            text))
+      (make-string label-width ?\s))))
+
+(defun financial-chart--oscillator-overlay (row index series-list height)
+  "Return (TEXT . FACE) for the last oscillator at ROW and bar INDEX."
+  (let (result)
+    (dolist (spec series-list)
+      (let ((value (nth index (plist-get spec :series))))
+        (when (and (numberp value)
+                   (= row (financial-chart--oscillator-row value height)))
+          (setq result
+                (cons (financial-chart--cell-string
+                       (or (plist-get spec :glyph)
+                           financial-chart-glyph-indicator)
+                       financial-chart-candle-width nil)
+                      (or (plist-get spec :face) 'default))))))
+    result))
+
+(defun financial-chart--render-oscillator-panel (bars series-list)
+  "Render the 0-100 oscillator panel, including 30/70 guide rows."
+  (let* ((height financial-chart-oscillator-height)
+         (n (length bars))
+         (gap (make-string financial-chart-candle-gap ?\s))
+         (guide-face (or financial-chart-axis-face 'shadow))
+         (guide-70 (financial-chart--oscillator-row 70 height))
+         (guide-30 (financial-chart--oscillator-row 30 height)))
+    (mapconcat
+     (lambda (row)
+       (concat
+        (financial-chart--oscillator-axis-label height row)
+        (mapconcat
+         (lambda (idx)
+           (let ((cell (financial-chart--oscillator-overlay
+                        row idx series-list height)))
+             (if cell
+                 (propertize (car cell) 'face (cdr cell))
+               (propertize
+                (financial-chart--cell-string
+                 (if (memq row (list guide-70 guide-30)) ?─ ?\s)
+                 financial-chart-candle-width nil)
+                'face (and (memq row (list guide-70 guide-30)) guide-face)))))
+         (number-sequence 0 (1- n)) gap)))
+     (number-sequence (1- height) 0 -1)
+     "\n")))
+
+;; -----------------------------------------------------------------------
 ;; X-axis
 ;; -----------------------------------------------------------------------
 
@@ -173,7 +240,9 @@ aspect of rendering (bar-count window, candle width/gap, colors,
 glyphs, scale, axis label counts/formats, the volume panel, the
 X-axis, and overlay indicators) is controlled by the corresponding
 `financial-chart-*' custom variable -- `let'-bind one for a one-off
-override rather than passing it positionally."
+override rather than passing it positionally. Configured
+`financial-chart-oscillators' render in a separate fixed 0-100 panel
+between prices and volume."
   (unless bars
     (user-error "financial-chart-render: no bars to render"))
   (let* ((bars (financial-chart--window-bars bars))
@@ -184,11 +253,15 @@ override rather than passing it positionally."
          (indicator-series (financial-chart--compute-indicator-series bars))
          (price (financial-chart--render-price-panel bars min max height
                                                       indicator-series))
+         (oscillator-series (financial-chart--compute-oscillator-series bars))
+         (oscillator (and financial-chart-oscillators
+                          (financial-chart--render-oscillator-panel
+                           bars oscillator-series)))
          (volume (and financial-chart-show-volume
                       (financial-chart--render-volume-panel bars)))
          (x-axis (and financial-chart-show-x-axis
                       (financial-chart--render-x-axis bars))))
-    (mapconcat #'identity (delq nil (list price volume x-axis)) "\n")))
+    (mapconcat #'identity (delq nil (list price oscillator volume x-axis)) "\n")))
 
 ;;;###autoload
 (defun financial-chart-view (bars &optional title height)

@@ -28,7 +28,8 @@
 ;; the colon ("backend": "text", "width": 60, "unit": "$", "title": ...).
 ;; Data per shape: series [1,2,3] or [[x,y],...]; payoff [[price,pnl],...];
 ;; labeled [["AAPL",1200],...] or {"AAPL":1200}; ohlc
-;; [{"open":..,"high":..,"low":..,"close":..,"volume":..,"time":..},...].
+;; [{"open":..,"high":..,"low":..,"close":..,"volume":..,"time":..},...];
+;; order-book {"bids":[[price,size],...],"asks":[[price,size],...]}.
 ;;
 ;; Failures print {"ok":false,"error":{"code","message"}} on stdout and
 ;; exit 1.
@@ -38,7 +39,7 @@
 (require 'json)
 (require 'financial-chart)
 
-(defconst financial-chart-batch--symbol-props '(:backend)
+(defconst financial-chart-batch--symbol-props '(:backend :style)
   "Props whose JSON string value is a Lisp symbol.")
 
 (defun financial-chart-batch--keyword (key)
@@ -52,6 +53,10 @@
                      (cl-loop for (k . v) in bar
                               append (list (financial-chart-batch--keyword k) v)))
                    data))
+    ('order-book (append (when (assq 'bids data)
+                           (list :bids (alist-get 'bids data)))
+                         (when (assq 'asks data)
+                           (list :asks (alist-get 'asks data)))))
     ('labeled (mapcar (lambda (p)
                         (if (and (consp p) (symbolp (car p)) (not (listp (cdr p))))
                             (cons (symbol-name (car p)) (cdr p))
@@ -104,16 +109,26 @@
 (defun financial-chart-batch--example (kind)
   "A SPEC for KIND built from its shape's example, as a JSON-able alist."
   (let* ((d (financial-chart-describe-kind kind))
+         (shape (plist-get d :shape))
          (ex (plist-get d :example)))
     `((kind . ,(symbol-name kind))
-      (data . ,(apply #'vector
-                      (pcase (plist-get d :shape)
-                        ('ohlc (mapcar (lambda (b)
-                                         (cl-loop for (k v) on b by #'cddr
-                                                  collect (cons (substring (symbol-name k) 1) v)))
-                                       ex))
-                        ('labeled (mapcar (lambda (p) (vector (car p) (cdr p))) ex))
-                        (_ (mapcar (lambda (p) (if (consp p) (apply #'vector p) p)) ex)))))
+      (data . ,(if (eq shape 'order-book)
+                   (list (cons 'bids
+                               (apply #'vector
+                                      (mapcar (lambda (level) (apply #'vector level))
+                                              (plist-get ex :bids))))
+                         (cons 'asks
+                               (apply #'vector
+                                      (mapcar (lambda (level) (apply #'vector level))
+                                              (plist-get ex :asks)))))
+                 (apply #'vector
+                        (pcase shape
+                          ('ohlc (mapcar (lambda (b)
+                                           (cl-loop for (k v) on b by #'cddr
+                                                    collect (cons (substring (symbol-name k) 1) v)))
+                                         ex))
+                          ('labeled (mapcar (lambda (p) (vector (car p) (cdr p))) ex))
+                          (_ (mapcar (lambda (p) (if (consp p) (apply #'vector p) p)) ex))))))
       (backend . "text"))))
 
 (defun financial-chart-batch--error-code (err)

@@ -105,8 +105,7 @@ for one call."
   :group 'financial-chart)
 
 (defcustom financial-chart-export-directory "~/Desktop"
-  "Default directory the `financial-chart-schwab-export-*' commands
-suggest/save into."
+  "Default directory the interactive export commands suggest."
   :type 'directory
   :group 'financial-chart)
 

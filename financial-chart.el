@@ -112,11 +112,13 @@ entry points.  Lists are vectors, so the result round-trips `json-encode'."
 
 ;;;###autoload
 (defun financial-chart-doctor-checks ()
-  "Every package health row, eager: (:layer \"L2\" :name :status :detail
-:remediation) with :status pass, fail or skip.  No network."
-  (mapcar (lambda (row) (append (list :layer "L2") row))
-          (append (financial-chart-plot-doctor-checks)
-                  (financial-chart-symbol-doctor-checks))))
+  "Every package health row: (:name :status :detail :remediation), :status
+pass, fail or skip.  Covers chart kinds, symbol charting and export,
+cohorts and presets.  No network."
+  (append (financial-chart-plot-doctor-checks)
+          (financial-chart-symbol-doctor-checks)
+          (financial-chart-cohort-doctor-checks)
+          (financial-chart-preset-doctor-checks)))
 
 ;;;###autoload
 (defun financial-chart-doctor ()

@@ -289,7 +289,7 @@ standard value, so tests don't leak customizations across each other."
           (rendered (financial-chart-render bars 10)))
      (should-not (string-match-p "X" rendered)))))
 
-;; -- provider-agnostic bridge (L2, all data via market-data.el) --
+;; -- provider-agnostic bridge (all data via market-data.el) --
 
 (defvar financial-chart-test--md-bars-called nil
   "Set non-nil by the mock `market-data-bars' when it is invoked.")
@@ -333,7 +333,7 @@ returns two synthetic bar/v1 plists and records its call + received
     (financial-chart-view-symbol "aapl")
     (with-current-buffer "*financial-chart*"
       (let ((s (buffer-string)))
-        ;; Law 7 title block: symbol · provider · period/frequency · bars · fetched-at
+        ;; provenance title: symbol · provider · period/frequency · bars · fetched-at
         (should (string-match-p "AAPL" s))
         (should (string-match-p "schwab" s))
         (should (string-match-p "month" s))
@@ -354,7 +354,7 @@ returns two synthetic bar/v1 plists and records its call + received
   (financial-chart-test--with-defaults
    (financial-chart-test--with-mock-market-data
     (let ((plan (financial-chart-explain-symbol "aapl" :provider 'schwab)))
-      ;; Law 3: explain performs NO fetch (mock bars asserted uncalled)
+      ;; explain performs NO fetch (mock bars asserted uncalled)
       (should-not financial-chart-test--md-bars-called)
       (should (eq (plist-get plan :provider) 'schwab))
       ;; merged render config present + reflects the effective defcustom
@@ -363,23 +363,14 @@ returns two synthetic bar/v1 plists and records its call + received
                  financial-chart-height))))))
 
 (ert-deftest financial-chart-view-symbol-errors-without-market-data ()
-  ;; market-data (L1) not loaded -> typed user-error naming the fix (Law 4)
+  ;; market-data not loaded -> typed error naming the fix
   (should-not (fboundp 'market-data-bars))
-  (should-error (financial-chart-view-symbol "AAPL") :type 'user-error))
-
-(ert-deftest financial-chart-schwab-view-is-obsolete-alias-forwarding-schwab ()
-  ;; deprecation, not deletion: still fbound, obsolete-marked, forwards :provider 'schwab
-  (should (fboundp 'financial-chart-schwab-view))
-  (should (get 'financial-chart-schwab-view 'byte-obsolete-info))
-  (financial-chart-test--with-defaults
-   (financial-chart-test--with-mock-market-data
-    (financial-chart-schwab-view "aapl")
-    (should (eq financial-chart-test--md-bars-provider 'schwab))
-    (with-current-buffer "*financial-chart*"
-      (should (string-match-p "schwab" (buffer-string)))))))
+  (let ((err (should-error (financial-chart-view-symbol "AAPL")
+                           :type 'financial-chart-error)))
+    (should (equal (plist-get (cddr err) :code) "market_data_missing"))))
 
 (ert-deftest financial-chart-view-symbol-propagates-market-data-typed-errors ()
-  ;; Law 4: a fetch-time typed error propagates UNTOUCHED -- financial-chart
+  ;; a fetch-time typed error propagates UNTOUCHED -- financial-chart
   ;; must not swallow it into a (message ...)+nil.
   (define-error 'market-data-error "market-data error")
   (define-error 'market-data-auth-required "not authenticated" 'market-data-error)
@@ -616,7 +607,7 @@ returns two synthetic bar/v1 plists and records its call + received
 (ert-deftest financial-chart-export-symbol-svg-errors-without-market-data ()
   (should-not (fboundp 'market-data-bars))
   (should-error (financial-chart-export-symbol-svg "AAPL" "/tmp/x.svg")
-                :type 'user-error))
+                :type 'financial-chart-error))
 
 (ert-deftest financial-chart-export-symbol-svg-writes-file-with-provenance-title ()
   (financial-chart-test--with-defaults
@@ -635,19 +626,11 @@ returns two synthetic bar/v1 plists and records its call + received
                 (should (string-match-p "schwab" s)))))
         (delete-file file))))))
 
-(ert-deftest financial-chart-schwab-export-fns-are-obsolete-aliases ()
-  ;; deprecation, not deletion: both export wrappers still fbound + obsolete-marked
-  (should (fboundp 'financial-chart-schwab-export-svg))
-  (should (get 'financial-chart-schwab-export-svg 'byte-obsolete-info))
-  (should (fboundp 'financial-chart-schwab-export-png))
-  (should (get 'financial-chart-schwab-export-png 'byte-obsolete-info)))
-
 (ert-deftest financial-chart-doctor-checks-shape-and-loadable ()
   (financial-chart-test--with-defaults
    (let ((checks (financial-chart-doctor-checks)))
-     ;; every row is the tower's eager shape, tagged L2
+     ;; every row is the eager doctor shape
      (dolist (c checks)
-       (should (equal (plist-get c :layer) "L2"))
        (should (stringp (plist-get c :name)))
        (should (memq (plist-get c :status) '(pass fail skip)))
        (should (stringp (plist-get c :detail))))
@@ -749,7 +732,7 @@ returns two synthetic bar/v1 plists and records its call + received
           (svg (financial-chart-render-svg bars)))
      (should (string-match-p "<polyline" svg)))))
 
-;; -- indicator cohorts (L4) --
+;; -- indicator cohorts --
 
 (defconst financial-chart-test--rsi-record
   '((ref . ((kind . "indicator") (id . "finance.market.rsi-14")))
@@ -760,7 +743,7 @@ returns two synthetic bar/v1 plists and records its call + received
         (value . ((type . "array") (unit . "1") (nullable . t)
                   (item_type . "number") (scale . "linear")
                   (bounds . ((min . 0) (max . 100))))))))
-  "Mock `david-core-resource-get' record for a bounded (oscillator) indicator.")
+  "Mock catalog record for a bounded (oscillator) indicator.")
 
 (defconst financial-chart-test--sma-record
   '((ref . ((kind . "indicator") (id . "finance.market.sma")))
@@ -770,13 +753,13 @@ returns two synthetic bar/v1 plists and records its call + received
      . ((description . "SMA")
         (value . ((type . "array") (unit . "usd/share") (nullable . t)
                   (item_type . "number") (scale . "linear"))))))
-  "Mock `david-core-resource-get' record for a price-scale indicator.")
+  "Mock catalog record for a price-scale indicator.")
 
 (ert-deftest financial-chart-cohort-builtin-only-resolves-without-catalog ()
-  "A builtin-only cohort resolves purely, never touching the .3 bridge."
+  "A builtin-only cohort resolves purely, never touching the catalog."
   (let ((called nil))
-    (cl-letf (((symbol-function 'david-core-resource-get)
-               (lambda (&rest _) (setq called t) nil)))
+    (let ((financial-chart-indicator-catalog-function
+           (lambda (&rest _) (setq called t) nil)))
       (let ((specs (financial-chart-resolve-cohort 'trend-following)))
         (should (= (length specs) 3))
         (should (cl-every (lambda (s) (functionp (plist-get s :fn))) specs))
@@ -851,7 +834,7 @@ not an error)."
   (let ((financial-chart-indicator-cohorts
          '((c :doc "d"
               :members ((:indicator "finance.market.rsi-14" :params (:period 14)))))))
-    (cl-letf (((symbol-function 'david-core-resource-get)
+    (let ((financial-chart-indicator-catalog-function
                (lambda (&rest _) financial-chart-test--rsi-record)))
       (let* ((desc (financial-chart-describe-cohort 'c))
              (m (car (plist-get desc :members))))
@@ -859,13 +842,12 @@ not an error)."
         (should (eq (plist-get m :probed-oscillator) t))))))
 
 (ert-deftest financial-chart-cohort-describe-soft-fails-without-bridge ()
-  "Describe of a catalog member downgrades to :unknown when the .3 bridge
-is absent (fboundp soft-fail), never erroring."
+  "Describe of a catalog member downgrades to :unknown when no catalog
+function is configured, never erroring."
   (let ((financial-chart-indicator-cohorts
          '((c :doc "d"
               :members ((:indicator "finance.market.sma" :params (:window 20)))))))
-    (cl-letf (((symbol-function 'david-core-resource-get) nil))
-      (fmakunbound 'david-core-resource-get)
+    (let ((financial-chart-indicator-catalog-function nil))
       (let* ((desc (financial-chart-describe-cohort 'c))
              (m (car (plist-get desc :members))))
         (should (eq (plist-get m :catalog-live) :unknown))))))
@@ -883,11 +865,11 @@ is absent (fboundp soft-fail), never erroring."
       (should (= (plist-get mr :excluded) 1)))))
 
 (ert-deftest financial-chart-cohort-doctor-checks-pass-and-fail ()
-  "The L4 doctor hook passes for resolvable cohorts and fails (with a
+  "The cohort doctor rows pass for resolvable cohorts and fails (with a
 remediation) for a broken one."
   (let ((checks (financial-chart-cohort-doctor-checks)))
     (should (cl-every (lambda (c) (eq (plist-get c :status) 'pass)) checks))
-    (should (cl-every (lambda (c) (equal (plist-get c :layer) "L4")) checks)))
+    )
   (let ((financial-chart-indicator-cohorts
          '((broken :doc "d" :members ((:indicator "nope.no.eval" :params nil))))))
     (let ((c (car (financial-chart-cohort-doctor-checks))))
@@ -895,7 +877,7 @@ remediation) for a broken one."
       (should (string-match-p "nope.no.eval" (plist-get c :detail)))
       (should (> (length (plist-get c :remediation)) 0)))))
 
-;; -- chart presets (L5) --
+;; -- chart presets --
 
 (ert-deftest financial-chart-preset-resolve-merges-render-with-source-tags ()
   "resolve-preset merges preset-set render keys over inherited defcustoms,
@@ -939,7 +921,7 @@ naming BOTH the preset and the cohort."
                 :type 'financial-chart-unresolvable-preset))
 
 (ert-deftest financial-chart-view-preset-renders-with-preset-title ()
-  "view-preset renders end-to-end and headers with the Law-7 title:
+  "view-preset renders end-to-end and headers with the provenance title:
 preset · symbol · provider · timeframe · bars · fetched-at."
   (financial-chart-test--with-defaults
    (financial-chart-test--with-mock-market-data
@@ -983,11 +965,11 @@ provenance and fetch params."
         (should (eq (plist-get r :valid) t))))))
 
 (ert-deftest financial-chart-preset-doctor-checks-pass-and-fail ()
-  "The L5 preset doctor hook passes for resolvable presets and fails
+  "The preset doctor rows pass for resolvable presets and fails
 \(with a remediation) for a broken one."
   (let ((checks (financial-chart-preset-doctor-checks)))
     (should (cl-every (lambda (c) (eq (plist-get c :status) 'pass)) checks))
-    (should (cl-every (lambda (c) (equal (plist-get c :layer) "L5")) checks)))
+    )
   (let ((financial-chart-presets '((broken :doc "d" :cohort nope))))
     (let ((c (car (financial-chart-preset-doctor-checks))))
       (should (eq (plist-get c :status) 'fail))

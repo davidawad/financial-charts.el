@@ -22,7 +22,7 @@ Ask the package; don't read source to learn its state.
 5. Render: `financial-chart-plot` / `-plot-spec`. Prefer `:backend 'text`
    to read a chart yourself; the text renderers are deterministic.
 6. Health: `(financial-chart-doctor-checks)` — eager rows
-   `(:layer "L2" :name :status pass|fail|skip :detail :remediation)`.
+   `(:name :status pass|fail|skip :detail :remediation)`.
 
 ## Changing it
 

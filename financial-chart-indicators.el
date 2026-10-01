@@ -159,28 +159,30 @@ list the same length as BARS; nil for any bar with no :volume."
      bars)))
 
 ;; -----------------------------------------------------------------------
-;; Indicator cohorts -- named, reusable indicator sets (L4 of the
-;; financial data abstraction tower, dot-financial-abstraction-tower-s15we.4)
+;; Indicator cohorts -- named, reusable indicator sets
 ;;
 ;; A cohort is DATA: a `financial-chart-indicator-cohorts' entry names a
 ;; reusable set of members, each either a built-in overlay fn or a
-;; core-resource catalog recipe id. Adding a cohort or a member is a data
+;; catalog recipe id. Adding a cohort or a member is a data
 ;; edit -- no new code. `financial-chart-resolve-cohort' turns a cohort
 ;; into concrete `financial-chart-indicators' :fn specs (pure, no I/O);
 ;; `financial-chart-describe-cohort' explains every member's disposition
 ;; (resolved / needs-oscillator-panel / unresolvable) with provenance and,
-;; for catalog members, a live probe of the .3 indicator catalog.
+;; for catalog members, a probe of the configured indicator catalog.
 ;; -----------------------------------------------------------------------
 
-;; Soft dependency on the L3 core-resource Emacs bridge (dotfiles
-;; core-resources.el, dot-financial-abstraction-tower-s15we.3): called only
-;; under `fboundp' in `financial-chart--probe-catalog-member', never
-;; hard-required, so this file stays a standalone package.
-(declare-function david-core-resource-get "core-resources"
-                  (kind id &optional scope))
+(defcustom financial-chart-indicator-catalog-function nil
+  "Function of one RECIPE-ID returning that indicator's catalog record,
+or nil when there is no catalog.  The record is an alist whose
+`attributes' -> `value' alist may carry `unit', `scale' and `bounds';
+`financial-chart-describe-cohort' uses it to confirm a catalog member
+exists and whether it is a 0-100 oscillator.  Without a catalog,
+catalog members are classified from `financial-chart-recipe-evaluators'."
+  :type '(choice (const :tag "No catalog" nil) function)
+  :group 'financial-chart)
 
 (define-error 'financial-chart-unresolvable-cohort
-  "financial-chart: cohort member cannot be resolved" 'error)
+  "financial-chart: cohort member cannot be resolved" 'financial-chart-error)
 
 (defcustom financial-chart-indicator-cohorts
   '((trend-following
@@ -338,23 +340,22 @@ not the live catalog."
 (defun financial-chart--catalog-value-oscillator-p (value)
   "Non-nil when a catalog record's VALUE alist describes a bounded
 oscillator (RSI-style 0-100) rather than a price-scale series.  Probes
-`bounds'/`unit' (Law 5: overlay-safety is probed from the live record,
-not asserted from a hardcoded symbol list)."
+`bounds'/`unit', so overlay safety comes from the record itself."
   (or (and (alist-get 'bounds value) t)
       (and (member (alist-get 'unit value) '("1" "index" "score" "percent")) t)))
 
 (defun financial-chart--probe-catalog-member (id)
-  "Probe the live indicator catalog for ID through the core-resource
-bridge, returning (:catalog-live LIVE :probed-oscillator OSC
-:catalog-detail STR).  Soft: when `david-core-resource-get' is unbound
-\(the .3 bridge is not loaded) LIVE/OSC are `:unknown' and callers fall
-back to the static `financial-chart-recipe-evaluators' classification
-\(Law 5 soft-fail; builtin-only cohorts never reach here)."
-  (if (not (fboundp 'david-core-resource-get))
+  "Probe the indicator catalog for ID via
+`financial-chart-indicator-catalog-function', returning (:catalog-live
+LIVE :probed-oscillator OSC :catalog-detail STR).  With no catalog
+function LIVE/OSC are `:unknown' and callers fall back to the static
+`financial-chart-recipe-evaluators' classification."
+  (if (not financial-chart-indicator-catalog-function)
       (list :catalog-live :unknown :probed-oscillator :unknown
-            :catalog-detail "core-resource indicator bridge not loaded; \
+            :catalog-detail "no indicator catalog configured; \
 using static classification")
-    (let ((record (ignore-errors (david-core-resource-get "indicator" id))))
+    (let ((record (ignore-errors
+                    (funcall financial-chart-indicator-catalog-function id))))
       (if (not record)
           (list :catalog-live :false :probed-oscillator :unknown
                 :catalog-detail (format "indicator `%s' not found in the live \
@@ -391,8 +392,8 @@ live probe from `financial-chart--probe-catalog-member'."
   "Describe cohort NAME: provenance plus each member's disposition.
 Returns (:name NAME :doc DOC :provenance PROV :members (MDESC...)); each
 MDESC is a `financial-chart--describe-member' plist.  For catalog members
-this MAY call `david-core-resource-get' (the only I/O in this layer,
-read-only, soft -- an absent bridge downgrades to static classification)
+this MAY call `financial-chart-indicator-catalog-function' (the only
+I/O in this layer, read-only; with none set, static classification)
 to confirm live catalog validity and PROBE overlay-safety from the
 record's value.  Signals `financial-chart-unresolvable-cohort' when NAME
 is undefined."
@@ -412,9 +413,8 @@ is undefined."
                   (plist-get cohort :members)))))
 
 (defun financial-chart-cohort-doctor-checks ()
-  "Doctor probe for the cohort layer (L4), consumed by the tower doctor
-\(dot-financial-abstraction-tower-s15we.7).  Returns one plist per cohort:
-\(:layer \"L4\" :name NAME :status pass|fail :detail D :remediation R).
+  "Doctor rows for the cohorts, one per cohort:
+\(:name NAME :status pass|fail :detail D :remediation R).
 PASS iff the cohort resolves without a `financial-chart-unresolvable-cohort'
 error (oscillator exclusions are expected, not failures)."
   (mapcar
@@ -422,12 +422,12 @@ error (oscillator exclusions are expected, not failures)."
      (let ((name (car entry)))
        (condition-case err
            (let ((specs (financial-chart-resolve-cohort name)))
-             (list :layer "L4" :name (format "cohort:%s" name) :status 'pass
+             (list :name (format "cohort:%s" name) :status 'pass
                    :detail (format "resolves to %d price-overlay spec(s)"
                                    (length specs))
-                   :remediation ""))
+                   :remediation nil))
          (financial-chart-unresolvable-cohort
-          (list :layer "L4" :name (format "cohort:%s" name) :status 'fail
+          (list :name (format "cohort:%s" name) :status 'fail
                 :detail (error-message-string err)
                 :remediation "fix the cohort member or add a \
 `financial-chart-recipe-evaluators' entry")))))

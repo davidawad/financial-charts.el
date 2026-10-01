@@ -19,45 +19,14 @@
 (require 'financial-chart-svg)
 
 ;; -----------------------------------------------------------------------
-;; Schwab bridge defaults
+;; Provider-agnostic bridge -- all market data flows through market-data.el,
+;; which owns provider selection, request defaults and the bar/v1 shape;
+;; this file never calls a broker. market-data.el is soft-wired via
+;; `fboundp', so the package still loads and renders bars from any other
+;; source (a broker package's own normalizer, a CSV import, test data).
 ;; -----------------------------------------------------------------------
 
-(defcustom financial-chart-schwab-default-period-type "month"
-  "Default `:period-type' passed to `schwab-broker-price-history-sync'
-by `financial-chart-schwab-view' when the caller doesn't supply one."
-  :type 'string
-  :group 'financial-chart)
-
-(defcustom financial-chart-schwab-default-period 1
-  "Default `:period' passed to `schwab-broker-price-history-sync'
-by `financial-chart-schwab-view' when the caller doesn't supply one."
-  :type 'integer
-  :group 'financial-chart)
-
-(defcustom financial-chart-schwab-default-frequency-type "daily"
-  "Default `:frequency-type' passed to `schwab-broker-price-history-sync'
-by `financial-chart-schwab-view' when the caller doesn't supply one."
-  :type 'string
-  :group 'financial-chart)
-
-(defcustom financial-chart-schwab-default-frequency 1
-  "Default `:frequency' passed to `schwab-broker-price-history-sync'
-by `financial-chart-schwab-view' when the caller doesn't supply one."
-  :type 'integer
-  :group 'financial-chart)
-
-
-;; -----------------------------------------------------------------------
-;; Provider-agnostic bridge (L2 of the financial data abstraction tower)
-;; -- all market data flows through market-data.el (L1); this file never
-;; calls a broker function directly. market-data.el is soft-wired via
-;; `fboundp', so financial-chart.el still loads (and renders any bar
-;; source: Alpaca, a CSV import, synthetic test data) on a machine that
-;; lacks it. The schwab-specific entry points below survive as thin,
-;; obsolete-marked wrappers with :provider 'schwab.
-;; -----------------------------------------------------------------------
-
-;; Soft-dependency declarations: market-data.el (L1) is never hard-required
+;; Soft-dependency declarations: market-data.el is never hard-required
 ;; (see the comment above); these keep the byte-compiler quiet about the
 ;; fboundp-guarded calls below without creating a load-time dependency.
 (declare-function market-data-bars "market-data")
@@ -66,10 +35,11 @@ by `financial-chart-schwab-view' when the caller doesn't supply one."
 (declare-function market-data-capabilities "market-data")
 
 (defun financial-chart--require-market-data ()
-  "Signal a clear `user-error' unless market-data.el (L1) is loaded."
+  "Signal `financial-chart-error' unless market-data.el is loaded."
   (unless (fboundp 'market-data-bars)
-    (user-error
-     "market-data not loaded -- financial-chart's provider-agnostic bridge needs market-data.el (L1); (require 'market-data)")))
+    (signal 'financial-chart-error
+            (list "charting by symbol needs market-data.el: (require 'market-data) and a broker package, or pass bars to `financial-chart-plot' directly"
+                  :code "market_data_missing"))))
 
 (defun financial-chart--symbol-md-keys (keys)
   "Return the market-data fetch keys present in KEYS (a flat plist).
@@ -82,7 +52,7 @@ forwarded; render options are `let'-bound defcustoms, never passed here."
     out))
 
 (defun financial-chart--symbol-title (symbol plan bar-count fetched-at)
-  "Compose the Law-7 provenance title for SYMBOL.
+  "Compose the provenance title for SYMBOL.
 PLAN is a `market-data-explain' plist. The title names the symbol, the
 provider actually used, the period/frequency, the bar count, and the
 fetch time, so an agent reading any rendered output (buffer, SVG, PNG)
@@ -99,12 +69,12 @@ knows exactly what it is looking at without re-deriving it."
             bar-count fetched-at)))
 
 (defun financial-chart--symbol-bars-and-title (symbol keys)
-  "Fetch SYMBOL's bars via market-data and build a Law-7 title.
+  "Fetch SYMBOL's bars via market-data and build a provenance title.
 Returns (BARS . TITLE). KEYS is a flat plist of market-data fetch keys
 (see `financial-chart--symbol-md-keys'). The provider is resolved once
 via `market-data-explain' and forced on the fetch, so the title's
 provider is always the provider actually used. market-data's typed
-errors propagate untouched (Law 4)."
+errors propagate untouched."
   (financial-chart--require-market-data)
   (let* ((md-keys (financial-chart--symbol-md-keys keys))
          (plan (apply #'market-data-explain symbol md-keys))
@@ -121,7 +91,7 @@ errors propagate untouched (Law 4)."
 KEYS are market-data fetch keys -- :period-type :period :frequency-type
 :frequency :provider :fields -- forwarded to `market-data-bars'. Every
 render knob remains a `let'-bindable defcustom as elsewhere in this file.
-The buffer header is the Law-7 provenance title (symbol, provider
+The buffer header is the provenance title (symbol, provider
 actually used, period/frequency, bar count, fetched-at)."
   (interactive (list (read-string "Symbol: ")))
   (let ((bt (financial-chart--symbol-bars-and-title symbol keys)))
@@ -159,7 +129,7 @@ defaults to SYMBOL-chart.png under `financial-chart-export-directory'."
 
 ;;;###autoload
 (defun financial-chart-explain-symbol (symbol &rest keys)
-  "Return the expanded plan for a `financial-chart-view-symbol' call (Law 3).
+  "Return the expanded plan for a `financial-chart-view-symbol' call.
 Performs ZERO I/O. Merges `market-data-explain' (chosen provider + why +
 normalized fetch params) with the effective render configuration (each
 render defcustom's current value, under `:render'). Never fetches; agents
@@ -177,45 +147,6 @@ inspect the plan, then execute."
                  :show-x-axis financial-chart-show-x-axis
                  :export-directory financial-chart-export-directory
                  :png-converter financial-chart-png-converter)))))
-
-;; -- deprecated schwab-specific entry points (dot-financial-abstraction-
-;; tower-s15we.2): thin wrappers over the provider-agnostic fns with
-;; :provider 'schwab. Kept working, not deleted, so existing callers and
-;; muscle memory don't break; obsolete-marked so the byte-compiler points
-;; callers at the replacements. Data now flows through market-data.el, not
-;; schwab-broker directly, so the provenance title and typed errors come
-;; for free. (These use market-data's request defaults, not the dormant
-;; `financial-chart-schwab-default-*' customs.)
-
-;;;###autoload
-(defun financial-chart-schwab-view (symbol &rest keys)
-  "Obsolete alias: `financial-chart-view-symbol' with the schwab provider.
-KEYS are forwarded verbatim (period/frequency fetch keys)."
-  (declare (obsolete financial-chart-view-symbol "2026-09"))
-  (interactive (list (read-string "Symbol: ")))
-  (apply #'financial-chart-view-symbol symbol :provider 'schwab keys))
-
-;;;###autoload
-(defun financial-chart-schwab-export-svg (symbol file &rest keys)
-  "Obsolete alias: `financial-chart-export-symbol-svg' with the schwab provider."
-  (declare (obsolete financial-chart-export-symbol-svg "2026-09"))
-  (interactive
-   (let ((symbol (read-string "Symbol: ")))
-     (list symbol
-           (expand-file-name (format "%s-chart.svg" (upcase symbol))
-                             financial-chart-export-directory))))
-  (apply #'financial-chart-export-symbol-svg symbol file :provider 'schwab keys))
-
-;;;###autoload
-(defun financial-chart-schwab-export-png (symbol file &rest keys)
-  "Obsolete alias: `financial-chart-export-symbol-png' with the schwab provider."
-  (declare (obsolete financial-chart-export-symbol-png "2026-09"))
-  (interactive
-   (let ((symbol (read-string "Symbol: ")))
-     (list symbol
-           (expand-file-name (format "%s-chart.png" (upcase symbol))
-                             financial-chart-export-directory))))
-  (apply #'financial-chart-export-symbol-png symbol file :provider 'schwab keys))
 
 ;; -- doctor rows (eager; assembled by `financial-chart-doctor-checks') --
 

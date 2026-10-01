@@ -1,0 +1,8 @@
+ C$104.5 │██████
+  $103.5 │████████████
+P $102.5 │████████████
+  $101.5 │██████
+  $100.5 │███████████
+  $99.5  │████
+P = point of control   C = last close
+OHLCV estimate: volume is spread uniformly across each bar's low-high range

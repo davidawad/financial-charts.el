@@ -114,13 +114,17 @@ A shape with :from-json in `financial-chart-shapes' converts itself."
          (ex (plist-get d :example)))
     `((kind . ,(symbol-name kind))
       (data . ,(apply #'vector
+                      (if-let* ((to-json (plist-get (alist-get (plist-get d :shape)
+                                                              financial-chart-shapes)
+                                                   :to-json)))
+                          (funcall to-json ex)
                       (pcase (plist-get d :shape)
                         ('ohlc (mapcar (lambda (b)
                                          (cl-loop for (k v) on b by #'cddr
                                                   collect (cons (substring (symbol-name k) 1) v)))
                                        ex))
                         ('labeled (mapcar (lambda (p) (vector (car p) (cdr p))) ex))
-                        (_ (mapcar (lambda (p) (if (consp p) (apply #'vector p) p)) ex)))))
+                        (_ (mapcar (lambda (p) (if (consp p) (apply #'vector p) p)) ex))))))
       (backend . "text"))))
 
 (defun financial-chart-batch--error-code (err)

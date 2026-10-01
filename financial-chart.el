@@ -4,7 +4,7 @@
 
 ;; Author: David Awad <me@davidaw.ad>
 ;; Maintainer: David Awad <me@davidaw.ad>
-;; Version: 0.2.0
+;; Version: 0.3.0
 ;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: data, finance, tools
 ;; URL: https://github.com/davidawad/financial-charts.el
@@ -17,8 +17,10 @@
 ;;; Commentary:
 
 ;; Plain Lisp data in, chart out.  One call draws any chart kind --
-;; candlesticks, area, braille line, sparkline, multi-series comparisons,
-;; option payoff, diverging P/L bars -- as propertized unicode text in a
+;; candlesticks (with oscillator panel), area, braille line, sparkline,
+;; multi-series comparisons, option payoff and T+n payoff curves,
+;; diverging P/L bars, drawdown, returns histogram, order-book depth,
+;; heatmap, volume profile -- as propertized unicode text in a
 ;; terminal frame or an SVG image in a GUI frame.  No external process
 ;; except optional PNG export.
 ;;
@@ -64,7 +66,7 @@
 (require 'financial-chart-depth)
 (require 'financial-chart-matrix)
 
-(defconst financial-chart-version "0.2.0"
+(defconst financial-chart-version "0.3.0"
   "Version of the financial-chart package.")
 
 (defconst financial-chart-entry-points

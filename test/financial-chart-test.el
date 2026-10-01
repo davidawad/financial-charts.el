@@ -645,23 +645,23 @@ returns two synthetic bar/v1 plists and records its call + received
 (ert-deftest financial-chart-doctor-checks-shape-and-loadable ()
   (financial-chart-test--with-defaults
    (let ((checks (financial-chart-doctor-checks)))
-     ;; every entry is (LABEL . CHECK-FN)
-     (should (cl-every (lambda (c) (and (stringp (car c)) (functionp (cdr c))))
-                       checks))
-     ;; package-loadable check passes (financial-chart is required here)
-     (let ((res (funcall (cdr (assoc "financial-chart package loadable" checks)))))
-       (should (plist-get res :ok)))
-     ;; with a provider available (mocked), the bridge check passes
-     (financial-chart-test--with-mock-market-data
-      (let ((res (funcall
-                  (cdr (assoc "financial-chart bridge resolves a provider via market-data"
-                              checks)))))
-        (should (plist-get res :ok))))
-     ;; each check returns a plist carrying :ok and :detail
+     ;; every row is the tower's eager shape, tagged L2
      (dolist (c checks)
-       (let ((res (funcall (cdr c))))
-         (should (plist-member res :ok))
-         (should (stringp (plist-get res :detail))))))))
+       (should (equal (plist-get c :layer) "L2"))
+       (should (stringp (plist-get c :name)))
+       (should (memq (plist-get c :status) '(pass fail skip)))
+       (should (stringp (plist-get c :detail))))
+     ;; every registered kind renders its example
+     (should (cl-every (lambda (c) (eq (plist-get c :status) 'pass))
+                       (cl-remove-if-not
+                        (lambda (c) (string-prefix-p "kind " (plist-get c :name)))
+                        checks))))
+   ;; with a provider available (mocked), the market-data row passes
+   (financial-chart-test--with-mock-market-data
+    (let ((row (cl-find "symbol charts: market-data provider"
+                        (financial-chart-doctor-checks)
+                        :key (lambda (c) (plist-get c :name)) :test #'equal)))
+      (should (eq (plist-get row :status) 'pass))))))
 
 ;; -- built-in indicator functions --
 

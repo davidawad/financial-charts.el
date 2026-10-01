@@ -1,50 +1,54 @@
-;;; financial-chart.el --- OHLC candlestick charts, rendered in-buffer -*- lexical-binding: t; -*-
+;;; financial-chart.el --- Financial charts in Emacs: text in a terminal, SVG in a GUI -*- lexical-binding: t; -*-
 
-;; Author: David Awad
-;; Keywords: comm, tools, finance
+;; Copyright (C) 2026 David Awad
+
+;; Author: David Awad <me@davidaw.ad>
+;; Maintainer: David Awad <me@davidaw.ad>
+;; Version: 0.2.0
+;; Package-Requires: ((emacs "29.1"))
+;; Keywords: data, finance, tools
+;; URL: https://github.com/davidawad/financial-chart.el
+
+;; This file is not part of GNU Emacs.
+
+;; Permission is hereby granted, free of charge, to any person obtaining a
+;; copy of this software, to deal in it without restriction (MIT licence).
 
 ;;; Commentary:
 
-;; Pure-Elisp candlestick chart renderer, two output forms:
+;; Plain Lisp data in, chart out.  One call draws any chart kind --
+;; candlesticks, area, braille line, sparkline, option payoff, diverging
+;; P/L bars -- as propertized unicode text in a terminal frame or an SVG
+;; image in a GUI frame.  No external process except optional PNG export.
 ;;
-;; 1. `financial-chart-render'/`-view' -- a unicode candlestick chart
-;;    (with an optional volume pane and X-axis) directly in an Emacs
-;;    buffer. No gnuplot, no external process.
-;; 2. `financial-chart-render-svg'/`-export-svg' -- a real vector SVG
-;;    candlestick chart (actual rectangles/lines, not glyphs), built
-;;    with Emacs's own `svg.el' -- still no external process.
-;;    `-export-png' rasterizes that SVG to a PNG file via whichever of
-;;    rsvg-convert/ImageMagick is available -- the one place in this
-;;    file that shells out, because rasterizing vector graphics is not
-;;    something Elisp can do on its own.
+;; The central object is a CHART SPEC, a plist that round-trips JSON:
 ;;
-;; Both renderers share the same configuration surface and the same
-;; data-prep code (bar windowing, scale conversion, price range) so
-;; they can never drift out of sync with each other.
+;;   (:kind area :data ((1 40.0) (2 45.0) (3 50.0)) :unit "$" :backend text)
 ;;
-;; Every visual/behavioral knob is a `defcustom' -- height, bar-count
-;; window, candle width/gap, colors, glyph characters, linear/log price
-;; scale, axis label counts/formats, volume pane, X-axis, and overlay
-;; indicators. Nothing about the chart's appearance is hardcoded into
-;; the rendering functions; a caller who wants a one-off override
-;; `let'-binds the relevant variable(s) around a `financial-chart-render'
-;; call rather than passing a long positional argument list -- standard
-;; Emacs idiom for widely-configurable rendering code.
+;; and every entry point takes the same pieces:
 ;;
-;; Data-source agnostic: `financial-chart-render'/`financial-chart-view'
-;; take a plain list of (:open :high :low :close &optional :volume :time)
-;; plists, oldest first. :volume feeds the optional volume pane; :time
-;; (epoch milliseconds) feeds the optional X-axis; both are omittable,
-;; and the chart degrades gracefully (no volume pane without :volume
-;; data present in ANY bar; no X-axis without :time data).
+;;   discover   `financial-chart-list-kinds', `financial-chart-describe-kind',
+;;              `financial-chart-describe' (the whole package as data)
+;;   validate   `financial-chart-validate' -> t or a typed error with :index
+;;   plan       `financial-chart-explain' -> backend + why, renderer, args,
+;;              data summary; pure, never renders
+;;   render     `financial-chart-plot' (string), `-plot-insert' (at point),
+;;              `-plot-view' (buffer), `-plot-spec' (from a spec),
+;;              `financial-chart-sparkline'
+;;   candles    `financial-chart-render' / `-render-svg' / `-view', with
+;;              volume, X-axis and indicator overlays; every knob a defcustom
+;;   tickers    `financial-chart-view-symbol' and presets, through
+;;              market-data.el when it is loaded (optional)
+;;   health     `financial-chart-doctor' (M-x) / `financial-chart-doctor-checks'
 ;;
-;; The Schwab bridge at the bottom is soft-wired via `fboundp' so this
-;; file never hard-requires schwab-broker.el -- callers who never load
-;; it get a renderer that still works against any other bar source
-;; (Alpaca, a CSV import, synthetic data for testing, ...).
+;; Non-Emacs callers use bin/financial-chart, which reads a spec as JSON.
+;; Modules: -core (config), -series (shapes), -indicators (+ cohorts),
+;; -text, -svg, -plot (kinds), -symbol (market-data bridge), -presets,
+;; -batch (CLI).
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'financial-chart-core)
 (require 'financial-chart-series)
 (require 'financial-chart-indicators)
@@ -53,6 +57,84 @@
 (require 'financial-chart-symbol)
 (require 'financial-chart-presets)
 (require 'financial-chart-plot)
+
+(defconst financial-chart-version "0.2.0"
+  "Version of the financial-chart package.")
+
+(defconst financial-chart-entry-points
+  '((discover financial-chart-list-kinds financial-chart-describe-kind
+              financial-chart-describe financial-chart-list-cohorts
+              financial-chart-list-presets)
+    (validate financial-chart-validate)
+    (plan financial-chart-explain financial-chart-explain-symbol
+          financial-chart-resolve-preset financial-chart-resolve-cohort)
+    (render financial-chart-plot financial-chart-plot-spec financial-chart-plot-insert
+            financial-chart-plot-view financial-chart-sparkline financial-chart-render
+            financial-chart-render-svg financial-chart-view)
+    (export financial-chart-export-svg financial-chart-export-png
+            financial-chart-export-symbol-svg financial-chart-export-symbol-png)
+    (tickers financial-chart-view-symbol financial-chart-view-preset)
+    (extend financial-chart-register-kind financial-chart-indicator-cohorts
+            financial-chart-presets financial-chart-recipe-evaluators)
+    (health financial-chart-doctor financial-chart-doctor-checks))
+  "Public entry points grouped by what a caller is doing.")
+
+(defun financial-chart--vec (list)
+  "LIST as a vector, so `json-encode' emits an array, never an object."
+  (apply #'vector list))
+
+;;;###autoload
+(defun financial-chart-describe ()
+  "The whole package as data: version, kinds, shapes, cohorts, presets,
+entry points.  Lists are vectors, so the result round-trips `json-encode'."
+  (list :package "financial-chart" :version financial-chart-version
+        :kinds (financial-chart--vec
+                (mapcar (lambda (k)
+                          (list :kind (symbol-name (car k))
+                                :shape (symbol-name (plist-get (cdr k) :shape))
+                                :doc (plist-get (cdr k) :doc)))
+                        (financial-chart-list-kinds)))
+        :shapes (financial-chart--vec
+                 (mapcar (lambda (s) (list :shape (symbol-name (car s))
+                                           :doc (plist-get (cdr s) :doc)))
+                         financial-chart-shapes))
+        :cohorts (financial-chart--vec (mapcar (lambda (c) (symbol-name (car c)))
+                                               financial-chart-indicator-cohorts))
+        :presets (financial-chart--vec (mapcar (lambda (p) (symbol-name (car p)))
+                                               financial-chart-presets))
+        :market-data (and (fboundp 'market-data-bars) t)
+        :entry-points (financial-chart--vec
+                       (mapcar (lambda (g)
+                                 (list :verb (symbol-name (car g))
+                                       :functions (financial-chart--vec
+                                                   (mapcar #'symbol-name (cdr g)))))
+                               financial-chart-entry-points))))
+
+;;;###autoload
+(defun financial-chart-doctor-checks ()
+  "Every package health row, eager: (:layer \"L2\" :name :status :detail
+:remediation) with :status pass, fail or skip.  No network."
+  (mapcar (lambda (row) (append (list :layer "L2") row))
+          (append (financial-chart-plot-doctor-checks)
+                  (financial-chart-symbol-doctor-checks))))
+
+;;;###autoload
+(defun financial-chart-doctor ()
+  "Show `financial-chart-doctor-checks' in a buffer; return the rows."
+  (interactive)
+  (let ((rows (financial-chart-doctor-checks)))
+    (with-current-buffer (get-buffer-create "*financial-chart doctor*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "financial-chart %s\n\n" financial-chart-version))
+        (dolist (r rows)
+          (insert (format "%-5s %s -- %s\n" (upcase (symbol-name (plist-get r :status)))
+                          (plist-get r :name) (plist-get r :detail)))
+          (when (plist-get r :remediation)
+            (insert (format "      fix: %s\n" (plist-get r :remediation))))))
+      (special-mode)
+      (unless noninteractive (pop-to-buffer (current-buffer))))
+    rows))
 
 (provide 'financial-chart)
 ;;; financial-chart.el ends here

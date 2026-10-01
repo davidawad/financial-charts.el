@@ -1,4 +1,7 @@
-# financial-chart.el
+# financial-charts.el
+
+The Emacs package is `financial-chart` (files and functions are
+`financial-chart-*`); this repository is financial-charts.el.
 
 Financial charts in Emacs from plain Lisp data. One call draws any chart
 kind (candlesticks, area, braille line, sparkline, option payoff,
@@ -30,7 +33,7 @@ With Emacs 30's `use-package :vc`:
 
 ```elisp
 (use-package financial-chart
-  :vc (:url "https://github.com/davidawad/financial-chart.el"))
+  :vc (:url "https://github.com/davidawad/financial-charts.el"))
 ```
 
 or put the directory on `load-path` and `(require 'financial-chart)`.

@@ -269,8 +269,9 @@ numeric point.  UNIT suffixes the Y-axis and legend values."
     data))
 
 (defun financial-chart-multi--to-json (data)
-  "(LABEL . SERIES) entries as JSON-able [LABEL, [[X, Y] ...]] vectors."
-  (mapcar (lambda (entry)
+  "(LABEL . SERIES) entries as a JSON array of [LABEL, [[X, Y] ...]]."
+  (apply #'vector
+   (mapcar (lambda (entry)
             (vector (car entry)
                     (apply #'vector
                            (mapcar (lambda (point)
@@ -279,7 +280,7 @@ numeric point.  UNIT suffixes the Y-axis and legend values."
                                                  (if (consp (cdr point)) (cadr point) (cdr point)))
                                        point))
                                    (append (cdr entry) nil)))))
-          data))
+          data)))
 
 (unless (assq 'multi-series financial-chart-shapes)
   (push '(multi-series

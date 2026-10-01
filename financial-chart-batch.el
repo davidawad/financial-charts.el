@@ -29,6 +29,8 @@
 ;; Data per shape: series [1,2,3] or [[x,y],...]; payoff [[price,pnl],...];
 ;; labeled [["AAPL",1200],...] or {"AAPL":1200}; ohlc
 ;; [{"open":..,"high":..,"low":..,"close":..,"volume":..,"time":..},...].
+;; Shapes added by modules document their JSON form in their own
+;; `financial-chart-shapes' :doc (e.g. order-book {"bids":..,"asks":..}).
 ;;
 ;; Failures print {"ok":false,"error":{"code","message"}} on stdout and
 ;; exit 1.
@@ -38,7 +40,7 @@
 (require 'json)
 (require 'financial-chart)
 
-(defconst financial-chart-batch--symbol-props '(:backend :scale)
+(defconst financial-chart-batch--symbol-props '(:backend :scale :style)
   "Props whose JSON string value is a Lisp symbol.")
 
 (defun financial-chart-batch--keyword (key)
@@ -113,11 +115,11 @@ A shape with :from-json in `financial-chart-shapes' converts itself."
   (let* ((d (financial-chart-describe-kind kind))
          (ex (plist-get d :example)))
     `((kind . ,(symbol-name kind))
-      (data . ,(apply #'vector
-                      (if-let* ((to-json (plist-get (alist-get (plist-get d :shape)
-                                                              financial-chart-shapes)
-                                                   :to-json)))
-                          (funcall to-json ex)
+      (data . ,(if-let* ((to-json (plist-get (alist-get (plist-get d :shape)
+                                                       financial-chart-shapes)
+                                            :to-json)))
+                   (funcall to-json ex)
+                 (apply #'vector
                       (pcase (plist-get d :shape)
                         ('ohlc (mapcar (lambda (b)
                                          (cl-loop for (k v) on b by #'cddr

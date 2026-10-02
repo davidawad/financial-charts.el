@@ -433,6 +433,45 @@ returns two synthetic bar/v1 plists and records its call + received
           (svg (financial-chart-render-svg bars "TEST")))
      (should (string-match-p "font-family=\"Hack\"" svg)))))
 
+(ert-deftest financial-chart-render-svg-loads-google-font-by-name ()
+  (let* ((financial-chart-svg-google-font "Open Sans")
+         (svg (financial-chart-render-svg (financial-chart-test--bars 3) "TEST")))
+    (should (string-match-p
+             (regexp-quote
+              "@import url(\"https://fonts.googleapis.com/css2?family=Open+Sans&amp;display=swap\");")
+             svg))
+    (should (string-match-p "font-family=\"Open Sans\"" svg))))
+
+(ert-deftest financial-chart-render-svg-embeds-local-font-file ()
+  (let ((font-file (make-temp-file "financial-chart-font-" nil ".woff2")))
+    (unwind-protect
+        (progn
+          (with-temp-buffer
+            (set-buffer-multibyte nil)
+            (insert "font-data")
+            (write-region (point-min) (point-max) font-file nil 'silent))
+          (let* ((financial-chart-svg-font-file font-file)
+                 (family (file-name-base font-file))
+                 (svg (financial-chart-render-svg
+                       (financial-chart-test--bars 3) "TEST")))
+            (should (string-match-p
+                     (regexp-quote
+                      (format "@font-face{font-family:\"%s\";src:url(data:font/woff2;base64,Zm9udC1kYXRh);"
+                              family))
+                     svg))
+            (should (string-match-p
+                     (regexp-quote (format "font-family=\"%s\"" family)) svg))))
+      (delete-file font-file))))
+
+(ert-deftest financial-chart-render-svg-rejects-unsupported-font-file-type ()
+  (let ((font-file (make-temp-file "financial-chart-font-" nil ".txt")))
+    (unwind-protect
+        (let ((financial-chart-svg-font-file font-file))
+          (should-error (financial-chart-render-svg
+                         (financial-chart-test--bars 3))
+                        :type 'user-error))
+      (delete-file font-file))))
+
 ;; -- regression: integer-division truncation in the pixel-Y mapping --
 ;;
 ;; `financial-chart-test--bars' (used by nearly every test above) already

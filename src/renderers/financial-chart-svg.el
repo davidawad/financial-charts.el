@@ -28,6 +28,7 @@
 
 (require 'svg)
 (require 'color)
+(require 'url-util)
 
 (defcustom financial-chart-svg-candle-width 6
   "Pixel width of each candle's body in the SVG renderer."
@@ -128,6 +129,89 @@ financial-chart-svg-font-family \"Hack\")'), or pass FONT-FAMILY to
 for one call."
   :type 'string
   :group 'financial-chart)
+
+(defcustom financial-chart-svg-google-font nil
+  "Optional Google Fonts family name to load in SVG viewers.
+When non-nil this takes precedence over `financial-chart-svg-font-family'
+unless a per-call FONT-FAMILY override is supplied.  The generated SVG
+imports the Google Fonts stylesheet, so viewers need network access."
+  :type '(choice (const :tag "Disabled" nil) string)
+  :group 'financial-chart)
+
+(defcustom financial-chart-svg-font-file nil
+  "Optional local TTF, OTF, WOFF or WOFF2 font file to embed in SVG output.
+The file's basename is used as the CSS family name by default."
+  :type '(choice (const :tag "Disabled" nil) file)
+  :group 'financial-chart)
+
+(defcustom financial-chart-svg-font-file-family nil
+  "Override the filename-derived CSS family for `financial-chart-svg-font-file'."
+  :type '(choice (const :tag "Infer from font-family" nil) string)
+  :group 'financial-chart)
+
+(defvar financial-chart-svg--font-family-override nil
+  "Dynamically bound per-call font family override.")
+
+(defun financial-chart-svg--local-font-family ()
+  "Return the configured or filename-derived family for a local font."
+  (or financial-chart-svg-font-file-family
+      (and financial-chart-svg-font-file
+           (file-name-base financial-chart-svg-font-file))))
+
+(defun financial-chart-svg--font-family ()
+  "Return the family name used on SVG text elements."
+  (or financial-chart-svg--font-family-override
+      financial-chart-svg-google-font
+      (financial-chart-svg--local-font-family)
+      financial-chart-svg-font-family))
+
+(defun financial-chart-svg--safe-font-name (name)
+  "Return NAME if it is a simple CSS font family name, else signal."
+  (unless (and (stringp name)
+               (string-match-p "\\`[[:alnum:] _-]+\\'" name))
+    (user-error "Unsupported font family name: %S" name))
+  name)
+
+(defun financial-chart-svg--font-css ()
+  "Return SVG CSS for configured Google or embedded local fonts."
+  (let (google-css file-css)
+    (when financial-chart-svg-google-font
+      (let* ((name (financial-chart-svg--safe-font-name
+                    financial-chart-svg-google-font))
+             (family (url-hexify-string name)))
+        (setq family (replace-regexp-in-string "%20" "+" family t t))
+        (setq google-css
+              (format "@import url(\"https://fonts.googleapis.com/css2?family=%s&display=swap\");"
+                      family))))
+    (when financial-chart-svg-font-file
+      (unless (file-readable-p financial-chart-svg-font-file)
+        (user-error "Font file is not readable: %s" financial-chart-svg-font-file))
+      (let* ((extension (downcase (or (file-name-extension
+                                       financial-chart-svg-font-file) "")))
+             (mime (cdr (assoc extension
+                               '(("ttf" . "font/ttf") ("otf" . "font/otf")
+                                 ("woff" . "font/woff") ("woff2" . "font/woff2")))))
+             (family (or (financial-chart-svg--local-font-family)
+                         (car (split-string financial-chart-svg-font-family ","))))
+             (family (string-trim family "[ \t\"']+" "[ \t\"']+")))
+        (unless mime
+          (user-error "Unsupported font file extension: %s" extension))
+        (financial-chart-svg--safe-font-name family)
+        (setq file-css
+              (format "@font-face{font-family:\"%s\";src:url(data:%s;base64,%s);font-style:normal;font-weight:100 900;}"
+                      family mime
+                      (base64-encode-string
+                       (with-temp-buffer
+                         (set-buffer-multibyte nil)
+                         (insert-file-contents-literally
+                          financial-chart-svg-font-file)
+                         (buffer-string)) t)))))
+    (when (or google-css file-css)
+      (concat "<style>"
+              (replace-regexp-in-string
+               "&" "&amp;" (concat (or google-css "") (or file-css ""))
+               t t)
+              "</style>"))))
 
 (defcustom financial-chart-svg-background nil
   "Background color for the SVG renderer, or nil to use the current
@@ -574,8 +658,7 @@ its own `financial-chart-svg-*' size/margin/color knobs. FONT-FAMILY
 overrides `financial-chart-svg-font-family' for this call only."
   (unless bars
     (user-error "financial-chart-render-svg: no bars to render"))
-  (let* ((financial-chart-svg-font-family
-          (or font-family financial-chart-svg-font-family))
+  (let* ((financial-chart-svg--font-family-override font-family)
          (bars (financial-chart--window-bars bars))
          (n (length bars))
          (range (financial-chart--bars-range bars))
@@ -826,7 +909,7 @@ A missing key falls back to the matching financial-chart face, then to
   (let ((properties
          (list :x (financial-chart-svg--n x)
                :y (financial-chart-svg--n y)
-               :font-family financial-chart-svg-font-family
+               :font-family (financial-chart-svg--font-family)
                :font-size (or size financial-chart-svg-font-size)
                :text-anchor anchor
                :fill (or color (financial-chart-svg--color 'text)))))
@@ -839,9 +922,16 @@ A missing key falls back to the matching financial-chart face, then to
 `svg-print' puts whitespace between elements and around text in some
 builds and not others; it carries no meaning in these documents, so it
 is removed here, the one place SVG is serialized."
-  (replace-regexp-in-string
-   "[ \t\n]*\\(<\\|>\\)[ \t\n]*" "\\1"
-   (with-temp-buffer (svg-print svg) (buffer-string))))
+  (let* ((serialized
+          (replace-regexp-in-string
+           "[ \t\n]*\\(<\\|>\\)[ \t\n]*" "\\1"
+           (with-temp-buffer (svg-print svg) (buffer-string))))
+         (font-css (financial-chart-svg--font-css))
+         (root-end (and font-css (string-match ">" serialized))))
+    (if root-end
+        (concat (substring serialized 0 (1+ root-end)) font-css
+                (substring serialized (1+ root-end)))
+      serialized)))
 
 (defun financial-chart-svg--frame (width height title)
   "Plot box (X0 Y0 W H) inside a WIDTH x HEIGHT canvas with TITLE."

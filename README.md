@@ -292,11 +292,25 @@ derived from your current theme).
 **Font:** `financial-chart-svg-font-family` defaults to a widely-available
 open-source monospace stack (`"DejaVu Sans Mono, Menlo, Consolas,
 monospace"`) that doesn't assume any one specific font is installed on
-whatever machine ends up rasterizing the SVG. Set it to your own
-preferred font for every chart (`(setq financial-chart-svg-font-family
-"Hack")`), or pass a `FONT-FAMILY` argument to `financial-chart-render-svg`/
-`-export-svg`/`-export-png` to override it for one call only, e.g.
-`(financial-chart-export-png bars file title nil nil "Hack")`.
+whatever machine ends up rasterizing the SVG. Set `financial-chart-svg-google-font`
+to a Google Fonts family name such as `"Inter"` to load it in SVG viewers
+with network access. For offline/self-contained SVGs, set
+`financial-chart-svg-font-file` to a local `.ttf`, `.otf`, `.woff`, or
+`.woff2` file and set `financial-chart-svg-font-family` to its family name:
+
+```elisp
+(setq financial-chart-svg-google-font "Inter"
+      financial-chart-svg-font-size 14)
+
+;; Or embed a local font file in each SVG:
+(setq financial-chart-svg-font-file "~/fonts/Inter-Regular.woff2")
+;; The filename supplies the family by default. Override when needed:
+(setq financial-chart-svg-font-file-family "Inter")
+```
+
+`financial-chart-svg-font-size` controls text size. A per-call
+`FONT-FAMILY` argument to `financial-chart-render-svg`/`-export-svg`/
+`-export-png` overrides the configured family for that call.
 
 `financial-chart-export-png` renders to SVG first, then rasterizes via
 `financial-chart-png-converter` (nil auto-detects `rsvg-convert` /
@@ -388,12 +402,13 @@ Source is grouped by responsibility under src/:
 ## Tests
 
 ```sh
-make test      # every test/*-test.el, offline, no display
+make test      # every src/**/*-test.el, offline, no display
 make compile   # byte-compile with warnings as errors
 make test MARKET_DATA=../market-data.el   # same suite with market-data loaded
 ```
 
-Golden text and SVG fixtures are in `test/fixtures/`. After an intended
+ERT tests live beside the source modules they cover. Golden text and SVG
+fixtures are in `test/fixtures/`. After an intended
 visual change, regenerate them with `FINANCIAL_CHART_UPDATE_GOLDEN=1
 make test` and review the diff. Trailing spaces in fixtures are data;
 `.gitattributes` and `.editorconfig` keep tools from stripping them.

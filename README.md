@@ -9,17 +9,11 @@ diverging P/L bars) as unicode text in a terminal frame or as an SVG
 image in a GUI frame. Pure Elisp on Emacs's built-in `svg.el`; the only
 external process is optional PNG export.
 
-```
-   +$50 █▅▂               ▂▅█
-      0 ███▆▃───────────▃▆███
-              █████████      
-               ▀█████▀       
-                ▀███▀        
-  -$100          ▔█▔         
-        $90              $110
+![TSMC daily candlestick chart rendered by financial-charts.el](images/tsmc-candlestick.png)
 
-        breakeven $95, $105   max +$50 / -$100   5 pts
-```
+Daily NYSE: TSM candles, August 20–October 1, 2026. [Source data](examples/tsmc-daily.csv)
+and [regeneration script](examples/render-tsmc-chart.el); source: [Nasdaq historical
+data](https://api.nasdaq.com/api/quote/TSM/historical?assetclass=stocks&fromdate=2026-08-01&todate=2026-10-02&limit=30).
 
 Requires Emacs 29.1+. No dependencies. Optional:
 market-data.el (companion package) for
@@ -192,8 +186,50 @@ Empty by default (no overlays drawn unless you configure one):
                   :face 'font-lock-keyword-face)))
 ```
 
+### Provider-neutral indicator series
+
+The calculation boundary is normalized `bar/v1` input and
+`indicator-series/v1` output. Indicator functions have no broker
+dependency. Any provider or external calculator can return the same
+series shape: aligned `:values` (numbers or `nil`), optional epoch-ms
+`:timestamps`, plus `:name`, `:label`, `:unit`, `:panel`, `:scale`,
+`:bounds`, `:params` and `:source` metadata.
+
+```elisp
+;; Compute locally from normalized bars; output retains the bar timestamps.
+(setq rsi (financial-chart-indicator-evaluate 'rsi bars 14))
+
+;; Or normalize a result computed by another library or service.
+(setq vendor-rsi
+      (financial-chart-normalize-indicator-series
+       '(:name vendor.rsi-14 :label "RSI 14" :unit :percent
+         :panel :oscillator :values [nil 42.1 55.8]
+         :timestamps [1728000000000 1728086400000 1728172800000]
+         :source vendor)))
+
+;; Any normalized result is directly plottable as a line series.
+(financial-chart-plot-spec (financial-chart-indicator-chart-spec vendor-rsi))
+```
+
+`financial-chart-register-indicator` adds a local calculator to the
+registry. `financial-chart-list-indicators` reports its display
+metadata. Multi-output indicators (for example, a MACD line, signal
+line and histogram) return a list of named series with the same
+timestamps. The built-ins favor simple, inspectable pure-Elisp
+calculations for ordinary chart windows; expensive or specialized
+calculations can be supplied externally through `indicator-series/v1`.
+
 ### Built-in indicators
 
+- `financial-chart-indicator-evaluate` exposes the built-ins through one
+  registry. Call `financial-chart-list-indicators` to discover them:
+  moving averages (SMA, EMA, WMA, DEMA, TEMA, HMA, KAMA); momentum and
+  oscillators (Momentum, ROC, CCI, MACD, RSI, Stochastic, Williams %R,
+  Ultimate Oscillator); volatility and range (ATR, Bollinger Bands,
+  Keltner Channels, Donchian Channels); trend (DMI/ADX, Aroon, Parabolic
+  SAR); and volume flow (OBV, A/D, MFI, CMF, Chaikin Oscillator).
+  Parameterized functions use documented period defaults. Warm-up and
+  unavailable points remain `nil`, preserving alignment with input bars.
 - `financial-chart-sma`/`-ema` `(bars &optional window field)` — moving
   average of `:close` (or `FIELD`) over `WINDOW` bars (default 20). On
   the price scale — use directly as a `financial-chart-indicators` `:fn`.
@@ -210,11 +246,10 @@ Empty by default (no overlays drawn unless you configure one):
   oscillator sub-panel with its own 0-100 scale (analogous to the
   volume panel) if you want it charted.
 
-None of these are native to Schwab's or Alpaca's APIs — both give raw
-OHLCV only (Alpaca's bars do include a native `vw` VWAP field per bar,
-`(alist-get 'vw bar)`, if you'd rather use the broker's own number than
-recompute it). RSI is never native to any broker API; it's always
-computed from closes, here or anywhere else.
+The calculators work from normalized bars, independent of which provider
+supplied them. Alpaca's bars also carry a native per-bar VWAP field;
+Schwab and Alpaca do not supply the broader technical indicators above
+as market-data fields.
 
 ### SVG / PNG export
 

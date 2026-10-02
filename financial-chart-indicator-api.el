@@ -90,19 +90,35 @@ This function performs shape validation only, not financial semantics."
   (let* ((series (financial-chart-normalize-indicator-series series))
          (values (plist-get series :values))
          (timestamps (plist-get series :timestamps)))
-    (if timestamps
-        (cl-mapcar (lambda (time value)
-                     (if time (list time value) value)) timestamps values)
-      values)))
+    (if (and timestamps (cl-every #'numberp timestamps))
+        (cl-mapcar #'list timestamps values)
+      (cl-loop for value in values for index from 0
+               collect (cons index value)))))
 
 (defun financial-chart-indicator-chart-spec (series &optional title)
-  "Return a renderable line-chart spec for normalized SERIES and TITLE."
-  (let* ((series (financial-chart-normalize-indicator-series series))
-         (data (financial-chart-indicator-series-data series)))
-    (list :kind 'line :data data
-          :title (or title (plist-get series :label)
-                     (format "%s" (plist-get series :name)))
-          :unit (plist-get series :unit))))
+  "Return a renderable chart spec for normalized SERIES and TITLE.
+SERIES may be one normalized result or a list of results from a
+multi-output indicator.  Semantic :unit values remain metadata; only a
+string unit is passed to the renderer as a literal display prefix."
+  (let* ((series-list (if (and (listp series) (keywordp (car series)))
+                          (list (financial-chart-normalize-indicator-series series))
+                        (mapcar #'financial-chart-normalize-indicator-series
+                                series)))
+         (multiple (cdr series-list))
+         (data (if multiple
+                   (mapcar (lambda (one)
+                             (cons (or (plist-get one :label)
+                                       (format "%s" (plist-get one :name)))
+                                   (financial-chart-indicator-series-data one)))
+                           series-list)
+                 (financial-chart-indicator-series-data (car series-list))))
+         (first (car series-list))
+         (unit (plist-get first :unit)))
+    (append (list :kind (if multiple 'multi 'line)
+                  :data data
+                  :title (or title (plist-get first :label)
+                             (format "%s" (plist-get first :name))))
+            (when (stringp unit) (list :unit unit)))))
 
 (defun financial-chart--indicator-output-p (value)
   "Non-nil when VALUE is a named output descriptor from an indicator."

@@ -98,6 +98,8 @@
          (back (json-parse-string (json-encode d) :object-type 'plist)))
     (should (equal (plist-get back :package) "financial-chart"))
     (should (vectorp (plist-get back :kinds)))
+    (should (vectorp (plist-get back :indicators)))
+    (should (>= (length (plist-get back :indicators)) 28))
     (should (= (length (plist-get back :kinds)) (length financial-chart-kinds)))
     ;; every advertised entry point exists
     (dolist (g financial-chart-entry-points)

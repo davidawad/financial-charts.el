@@ -6,7 +6,7 @@
 (defconst financial-chart-candle-res-test--dir
   (file-name-directory (or load-file-name buffer-file-name)))
 (defconst financial-chart-candle-res-test--fixtures
-  (expand-file-name "fixtures" financial-chart-candle-res-test--dir))
+  (expand-file-name "../../test/fixtures" financial-chart-candle-res-test--dir))
 (defconst financial-chart-candle-res-test--bars
   '((:open 3 :high 10 :low 1 :close 7)
     (:open 7 :high 9 :low 2 :close 4)

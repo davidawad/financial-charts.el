@@ -402,7 +402,7 @@ Source is grouped by responsibility under src/:
 ## Tests
 
 ```sh
-make test      # every src/**/*-test.el, offline, no display
+make test      # every src module's *-test.el files, offline, no display
 make compile   # byte-compile with warnings as errors
 make test MARKET_DATA=../market-data.el   # same suite with market-data loaded
 ```

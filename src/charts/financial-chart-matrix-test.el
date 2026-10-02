@@ -10,7 +10,7 @@
 (require 'financial-chart)
 
 (defconst financial-chart-matrix-test--fixtures
-  (expand-file-name "fixtures" financial-chart-matrix-test--dir))
+  (expand-file-name "../../test/fixtures" financial-chart-matrix-test--dir))
 
 (defconst financial-chart-matrix-test--data
   '(:labels ("SPY" "QQQ" "TLT")

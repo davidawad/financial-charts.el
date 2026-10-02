@@ -16,7 +16,7 @@
   "Two series with different starting values, for normalization fixtures.")
 
 (defconst financial-chart-multi-test--fixtures
-  (expand-file-name "fixtures" financial-chart-multi-test--dir))
+  (expand-file-name "../../test/fixtures" financial-chart-multi-test--dir))
 
 (defun financial-chart-multi-test--golden (name actual)
   "Compare ACTUAL, ignoring text properties, with fixture NAME."

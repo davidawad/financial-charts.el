@@ -11,7 +11,7 @@
 (require 'financial-chart)
 
 (defconst financial-chart-series-x-test--fixtures
-  (expand-file-name "fixtures" financial-chart-series-x-test--dir))
+  (expand-file-name "../../test/fixtures" financial-chart-series-x-test--dir))
 
 (defconst financial-chart-series-x-test--irregular
   '((0 10.0) (1 40.0) (9 20.0) (10 30.0)))

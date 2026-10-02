@@ -14,7 +14,7 @@
 
 (defun financial-chart-returns-test--golden (name actual)
   "Compare ACTUAL with the text fixture NAME, ignoring properties."
-  (let ((file (expand-file-name (concat "fixtures/" name)
+  (let ((file (expand-file-name (concat "../../test/fixtures/" name)
                                 financial-chart-returns-test--dir))
         (text (substring-no-properties actual)))
     (when (getenv "FINANCIAL_CHART_UPDATE_GOLDEN")

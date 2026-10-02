@@ -9,7 +9,7 @@
 (require 'financial-chart)
 
 (defconst financial-chart-oscillator-test--fixtures
-  (expand-file-name "fixtures" financial-chart-oscillator-test--dir))
+  (expand-file-name "../../test/fixtures" financial-chart-oscillator-test--dir))
 
 (defun financial-chart-oscillator-test--golden (name actual)
   "Compare ACTUAL, with text properties removed, against fixture NAME."

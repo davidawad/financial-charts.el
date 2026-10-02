@@ -10,7 +10,7 @@
 (defconst financial-chart-depth-test--dir
   (file-name-directory (or load-file-name buffer-file-name)))
 (defconst financial-chart-depth-test--fixtures
-  (expand-file-name "fixtures" financial-chart-depth-test--dir))
+  (expand-file-name "../../test/fixtures" financial-chart-depth-test--dir))
 (defconst financial-chart-depth-test--book
   '(:bids ((99.5 4.0) (100.0 2.0) (99.0 6.0))
     :asks ((101.0 3.0) (100.5 1.0) (101.5 5.0)))

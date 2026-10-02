@@ -14,7 +14,7 @@
     ("T+30" . ((90 10) (100 10) (110 20)))))
 
 (defconst financial-chart-payoff-test--fixtures
-  (expand-file-name "fixtures" (file-name-directory (or load-file-name buffer-file-name))))
+  (expand-file-name "../../test/fixtures" (file-name-directory (or load-file-name buffer-file-name))))
 
 (defun financial-chart-payoff-test--golden (name actual)
   "Compare ACTUAL text with fixture NAME, optionally updating it."

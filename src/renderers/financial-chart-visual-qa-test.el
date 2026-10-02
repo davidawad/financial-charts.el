@@ -10,7 +10,7 @@
 (require 'financial-chart)
 
 (defconst financial-chart-visual-qa-test--fixtures
-  (expand-file-name "fixtures" financial-chart-visual-qa-test--dir))
+  (expand-file-name "../../test/fixtures" financial-chart-visual-qa-test--dir))
 
 (defun financial-chart-visual-qa-test--golden (name actual)
   "Compare ACTUAL, without text properties, to fixture NAME."

@@ -15,7 +15,7 @@
 (add-to-list 'load-path (expand-file-name ".." financial-chart-plot-test--dir))
 (require 'financial-chart)
 
-(defconst financial-chart-plot-test--fixtures (expand-file-name "fixtures" financial-chart-plot-test--dir))
+(defconst financial-chart-plot-test--fixtures (expand-file-name "../../test/fixtures" financial-chart-plot-test--dir))
 
 (defun financial-chart-plot-test--golden (name actual)
   "Compare ACTUAL (a string, properties ignored) with fixture NAME."

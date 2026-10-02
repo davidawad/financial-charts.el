@@ -230,6 +230,8 @@ calculations can be supplied externally through `indicator-series/v1`.
   SAR); and volume flow (OBV, A/D, MFI, CMF, Chaikin Oscillator).
   Parameterized functions use documented period defaults. Warm-up and
   unavailable points remain `nil`, preserving alignment with input bars.
+- [Indicator examples](docs/indicator-examples.md) shows eight rendered
+  TSMC charts and includes the script to regenerate their PNG captures.
 - `financial-chart-sma`/`-ema` `(bars &optional window field)` — moving
   average of `:close` (or `FIELD`) over `WINDOW` bars (default 20). On
   the price scale — use directly as a `financial-chart-indicators` `:fn`.

@@ -16,6 +16,7 @@
 ;;; Code:
 
 (require 'financial-chart-core)
+(require 'financial-chart-indicator-api)
 
 ;; -----------------------------------------------------------------------
 ;; Indicator overlays
@@ -163,6 +164,26 @@ list the same length as BARS; nil for any bar with no :volume."
              (setq cum-vol (+ cum-vol vol))
              (if (zerop cum-vol) nil (/ cum-pv cum-vol))))))
      bars)))
+
+;; Provider-neutral registry entries for the existing calculators.  New
+;; indicator modules register with this same API; broker adapters do not.
+(financial-chart-register-indicator
+ 'sma #'financial-chart-sma
+ :label "SMA" :unit :price :panel :overlay :scale :linear
+ :description "Simple moving average.")
+(financial-chart-register-indicator
+ 'ema #'financial-chart-ema
+ :label "EMA" :unit :price :panel :overlay :scale :linear
+ :description "Exponential moving average.")
+(financial-chart-register-indicator
+ 'rsi #'financial-chart-rsi
+ :label "RSI" :unit :percent :panel :oscillator :scale :bounded
+ :bounds '(0 . 100)
+ :description "Relative strength index (simple-average variant).")
+(financial-chart-register-indicator
+ 'vwap #'financial-chart-vwap
+ :label "VWAP" :unit :price :panel :overlay :scale :linear
+ :description "Cumulative volume-weighted average price.")
 
 ;; -----------------------------------------------------------------------
 ;; Indicator cohorts -- named, reusable indicator sets

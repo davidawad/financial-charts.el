@@ -1,13 +1,13 @@
 ;;; render-tsmc-chart.el --- Regenerate README TSMC chart -*- lexical-binding: t; -*-
 
 (let* ((here (file-name-directory (or load-file-name buffer-file-name)))
-       (root (expand-file-name ".." here)))
-  (add-to-list 'load-path root)
+       (root (expand-file-name "../.." here)))
+  (add-to-list 'load-path (expand-file-name "src" root))
   (require 'financial-chart)
   (require 'financial-chart-svg)
   (require 'subr-x)
-  (let* ((csv-file (expand-file-name "tsmc-daily.csv" here))
-         (output-file (expand-file-name "../images/tsmc-candlestick.png" here))
+  (let* ((csv-file (expand-file-name "examples/tsmc-daily.csv" root))
+         (output-file (expand-file-name "images/tsmc-candlestick.png" root))
          (lines (with-temp-buffer
                   (insert-file-contents csv-file)
                   (split-string (string-trim (buffer-string)) "\n" t)))

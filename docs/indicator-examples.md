@@ -8,7 +8,7 @@ they are examples of rendering, not investment recommendations.
 Regenerate all eight captures from the repository root:
 
 ```sh
-emacs -Q --batch -l examples/render-indicator-examples.el
+emacs -Q --batch -l src/examples/render-indicator-examples.el
 ```
 
 The script writes PNGs under `docs/images/indicators/`. Every capture is

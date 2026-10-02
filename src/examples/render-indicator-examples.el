@@ -4,10 +4,10 @@
 (require 'subr-x)
 
 (let* ((here (file-name-directory (or load-file-name buffer-file-name)))
-       (root (expand-file-name ".." here))
-       (csv-file (expand-file-name "tsmc-daily.csv" here))
-       (output-dir (expand-file-name "../docs/images/indicators" here)))
-  (add-to-list 'load-path root)
+       (root (expand-file-name "../.." here))
+       (csv-file (expand-file-name "examples/tsmc-daily.csv" root))
+       (output-dir (expand-file-name "docs/images/indicators" root)))
+  (add-to-list 'load-path (expand-file-name "src" root))
   (require 'financial-chart)
   (require 'financial-chart-svg)
   (let* ((lines (with-temp-buffer

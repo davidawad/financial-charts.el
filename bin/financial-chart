@@ -3,8 +3,8 @@
 #   financial-chart render spec.json        (or: ... | financial-chart render -)
 #   financial-chart explain|validate spec.json
 #   financial-chart example KIND | kinds | describe | doctor
-# Set EMACS to pick the binary. See financial-chart-batch.el for the spec format.
+# Set EMACS to pick the binary. See src/cli/financial-chart-batch.el for the spec format.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-exec "${EMACS:-emacs}" -Q --batch -L "$here" -l financial-chart-batch \
+exec "${EMACS:-emacs}" -Q --batch -L "$here/src" -L "$here/src/cli" -l financial-chart-batch \
   -f financial-chart-batch-main "$@"

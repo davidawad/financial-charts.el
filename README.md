@@ -14,7 +14,7 @@ external process is optional PNG export.
 [See the indicator chart samples](docs/indicator-examples.md).
 
 Daily NYSE: TSM candles, August 20–October 1, 2026. [Source data](examples/tsmc-daily.csv)
-and [regeneration script](examples/render-tsmc-chart.el); source: [Nasdaq historical
+and [regeneration script](src/examples/render-tsmc-chart.el); source: [Nasdaq historical
 data](https://api.nasdaq.com/api/quote/TSM/historical?assetclass=stocks&fromdate=2026-08-01&todate=2026-10-02&limit=30).
 
 Requires Emacs 29.1+. No dependencies. Optional:
@@ -29,10 +29,10 @@ With Emacs 30's `use-package :vc`:
 
 ```elisp
 (use-package financial-chart
-  :vc (:url "https://github.com/davidawad/financial-charts.el"))
+  :vc (:url "https://github.com/davidawad/financial-charts.el" :lisp-dir "src"))
 ```
 
-or put the directory on `load-path` and `(require 'financial-chart)`.
+or add the repository's `src/` directory to `load-path` and `(require 'financial-chart)`.
 
 ## Use
 
@@ -373,18 +373,17 @@ be charted:
 
 ## Layout
 
-| File | What |
-|---|---|
-| `financial-chart.el` | entry: requires everything, `describe`, `doctor` |
-| `financial-chart-core.el` | customization group, candle defcustoms, scale and windowing |
-| `financial-chart-series.el` | data shapes, faces, resampling, formatting, breakevens |
-| `financial-chart-indicators.el` | SMA/EMA/RSI/VWAP, overlays, cohorts |
-| `financial-chart-text.el` | text renderers |
-| `financial-chart-svg.el` | SVG renderers, SVG/PNG export |
-| `financial-chart-plot.el` | kind and shape registries, `plot`, `validate`, `explain`, plot buffers |
-| `financial-chart-symbol.el` | charts by ticker through market-data.el |
-| `financial-chart-presets.el` | named presets |
-| `financial-chart-batch.el`, `bin/financial-chart` | JSON command line |
+Source is grouped by responsibility under src/:
+
+- src/financial-chart.el — package entry point and package discovery.
+- src/core/ — configuration, data shapes, faces and series helpers.
+- src/indicators/ — normalized indicator API, registry and built-in families.
+- src/renderers/ — terminal and SVG rendering.
+- src/charts/ — plot interface, chart kinds and multi-series charts.
+- src/integrations/ — ticker and preset bridges.
+- src/cli/ — JSON command-line interface.
+- src/examples/ — Elisp scripts that regenerate chart examples.
+- test/ — ERT tests; examples/ — sample TSMC bars; docs/ — guide and captures.
 
 ## Tests
 

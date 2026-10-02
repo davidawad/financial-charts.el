@@ -11,6 +11,8 @@ external process is optional PNG export.
 
 ![TSMC daily candlestick chart rendered by financial-charts.el](images/tsmc-candlestick.png)
 
+[See the indicator chart samples](docs/indicator-examples.md).
+
 Daily NYSE: TSM candles, August 20–October 1, 2026. [Source data](examples/tsmc-daily.csv)
 and [regeneration script](examples/render-tsmc-chart.el); source: [Nasdaq historical
 data](https://api.nasdaq.com/api/quote/TSM/historical?assetclass=stocks&fromdate=2026-08-01&todate=2026-10-02&limit=30).

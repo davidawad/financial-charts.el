@@ -79,6 +79,40 @@
     (should (string-match-p (regexp-quote "<title>T+0: price 90, P/L +$2</title>") svg))
     (should (string-match-p (regexp-quote "<title>T+15: price 110, P/L +$3</title>") svg))))
 
+(ert-deftest financial-chart-svg-unify-indicator-colors-are-configurable ()
+  (let ((financial-chart-svg-series-colors '("#123456" "#abcdef")))
+    (should (string-match-p
+             "stroke=\"#123456\""
+             (financial-chart-plot 'line '(1 2 3) :backend 'svg)))
+    (should (string-match-p
+             "stroke=\"#abcdef\""
+             (financial-chart-plot
+              'multi '(("A" . (1 2 3)) ("B" . (2 3 4))) :backend 'svg))))
+  (let* ((financial-chart-indicators
+          (list (list :fn (lambda (bars) (mapcar (lambda (bar)
+                                                    (plist-get bar :close))
+                                                  bars))
+                      :label "close" :color "#123456")))
+         (svg (financial-chart-render-svg
+               '((:open 1 :high 3 :low 0 :close 2)
+                 (:open 2 :high 4 :low 1 :close 3)))))
+    (should (string-match-p "stroke=\"#123456\"" svg))))
+
+(ert-deftest financial-chart-svg-unify-bollinger-close-regions-use-configurable-fills ()
+  (let* ((financial-chart-indicator-bands
+          (list (financial-chart-bollinger-band-spec
+                 2 1 "#aa1122" "#2233bb" 0.25)))
+         (financial-chart-show-volume nil)
+         (financial-chart-show-x-axis nil)
+         (svg (financial-chart-render-svg
+               '((:open 10 :high 11 :low 9 :close 10)
+                 (:open 12 :high 13 :low 11 :close 12)
+                 (:open 14 :high 15 :low 13 :close 14)
+                 (:open 16 :high 17 :low 15 :close 16)))))
+    (should (string-match-p "fill-opacity=\"0.25\" fill=\"#aa1122\"" svg))
+    (should (string-match-p "fill-opacity=\"0.25\" fill=\"#2233bb\"" svg))
+    (should (= 4 (1- (length (split-string svg "<polygon" t)))))))
+
 (provide 'financial-chart-svg-unify-test)
 
 ;;; financial-chart-svg-unify-test.el ends here

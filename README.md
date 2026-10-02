@@ -242,6 +242,17 @@ calculations can be supplied externally through `indicator-series/v1`.
   direct `:fn`. VWAP conventionally resets daily — pass one session's
   bars, not a multi-day history, unless you deliberately want a running
   VWAP across the whole window.
+- Indicator overlay and oscillator specs accept per-series `:face`
+  values for text and SVG, or an SVG `:color` string. Customize fallback
+  SVG series colors with `financial-chart-svg-series-colors`; customize
+  generic text series faces with `financial-chart-multi-text-faces`.
+- Bollinger regions from close to the upper and lower bands can be shaded
+  independently with `financial-chart-indicator-bands` and
+  `financial-chart-bollinger-band-spec`. Each region has a configurable
+  color and opacity; SVG defaults are
+  `financial-chart-svg-band-upper-fill`,
+  `financial-chart-svg-band-lower-fill`, and
+  `financial-chart-svg-band-fill-opacity`.
 - `financial-chart-rsi` `(bars &optional period field)` — simple-average
   RSI (default period 14), values in [0,100]. **Not** on the price
   scale — do not pass it straight to `financial-chart-indicators`, it

@@ -475,6 +475,7 @@ OFFSET is the number of leading columns before the plot begins."
             (scale 'linear)
             (up-face 'financial-chart-up) (down-face 'financial-chart-down)
             (dim-face 'financial-chart-dim) (accent-face 'financial-chart-accent)
+            face
             (footer t) &allow-other-keys)
   "Render SERIES as an eighth-block area chart string.
 WIDTH/HEIGHT are the plot size in columns/rows (labels excluded); UNIT
@@ -502,7 +503,7 @@ trailing last/range/points line.  Returns nil for no data."
            (cells (* height 8))
            (levels (mapcar (lambda (v) (max 1 (round (* cells (/ (- v lo) span)))))
                            cols))
-           (face (financial-chart-direction-face raw-cols up-face down-face))
+           (face (or face (financial-chart-direction-face raw-cols up-face down-face)))
            (x-axis (financial-chart-text--series-x-axis
                     series (length cols) dim-face (1+ label-width)))
            (rows
@@ -542,6 +543,7 @@ trailing last/range/points line.  Returns nil for no data."
             (scale 'linear)
             (up-face 'financial-chart-up) (down-face 'financial-chart-down)
             (dim-face 'financial-chart-dim) (accent-face 'financial-chart-accent)
+            face
             (footer t) &allow-other-keys)
   "Render SERIES as a braille line chart string (2x4 dots per cell).
 Twice the horizontal and four times the vertical resolution of a block
@@ -567,7 +569,7 @@ requires positive Y values.  Returns nil for no data."
            (ys (mapcar (lambda (v) (- dots 1 (round (* (1- dots) (/ (- v lo) span))))) pts))
            (ncols (/ (1+ (length pts)) 2))
            (grid (make-vector (* height ncols) 0))
-           (face (financial-chart-direction-face raw-pts up-face down-face))
+           (face (or face (financial-chart-direction-face raw-pts up-face down-face)))
            (x-axis (financial-chart-text--series-x-axis
                     series ncols dim-face (1+ label-width))))
       (cl-flet ((dot (x y)

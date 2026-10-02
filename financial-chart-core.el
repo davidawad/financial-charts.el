@@ -245,6 +245,14 @@ volume, with fixed 0/30/70/100 guides."
   :type '(repeat plist)
   :group 'financial-chart)
 
+(defcustom financial-chart-indicator-bands nil
+  "List of SVG fills between each close and its upper/lower indicator bands.
+Each spec has :upper-fn and :lower-fn functions of BARS returning aligned
+lists, optional :upper-color and :lower-color strings, and optional
+:opacity from 0.0 to 1.0.  Bands are SVG-only."
+  :type '(repeat plist)
+  :group 'financial-chart)
+
 
 ;; -----------------------------------------------------------------------
 ;; Scale-space helpers (linear passthrough, or log)

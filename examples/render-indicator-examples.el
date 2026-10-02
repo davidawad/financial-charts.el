@@ -36,9 +36,10 @@
           (financial-chart-svg-price-height 430)
           (financial-chart-svg-oscillator-height 150))
       (cl-labels
-          ((save-candle (file title overlays oscillators)
+          ((save-candle (file title overlays oscillators &optional bands)
              (let ((financial-chart-indicators overlays)
-                   (financial-chart-oscillators oscillators))
+                   (financial-chart-oscillators oscillators)
+                   (financial-chart-indicator-bands bands))
                (financial-chart-export-png
                 bars (expand-file-name file output-dir) title 1280 760)))
            (save-plot (file title chart-spec)
@@ -75,22 +76,27 @@
                      :label "SMA 8" :face 'font-lock-keyword-face)
                (list :fn (lambda (data) (financial-chart-ema data 5))
                      :label "EMA 5" :face 'font-lock-function-name-face))
-         nil)
+         nil nil)
         (save-candle
          "bollinger-bands.png" "TSMC — Bollinger Bands"
          (list (list :fn (lambda (data)
                            (plist-get (nth 2 (financial-chart-bollinger-bands data 10 2))
                                       :values))
-                     :label "Lower Band" :face 'font-lock-constant-face)
+                     :label "Lower Band" :face 'font-lock-constant-face
+                     :color "#c45b6a")
                (list :fn (lambda (data)
                            (plist-get (nth 1 (financial-chart-bollinger-bands data 10 2))
                                       :values))
-                     :label "Middle Band" :face 'font-lock-keyword-face)
+                     :label "Middle Band" :face 'font-lock-keyword-face
+                     :color "#6b7280")
                (list :fn (lambda (data)
                            (plist-get (nth 0 (financial-chart-bollinger-bands data 10 2))
                                       :values))
-                     :label "Upper Band" :face 'font-lock-warning-face))
-         nil)
+                     :label "Upper Band" :face 'font-lock-warning-face
+                     :color "#4c9f70"))
+         nil
+         (list (financial-chart-bollinger-band-spec
+                10 2 "#4c9f70" "#c45b6a" 0.16)))
         (save-candle
          "oscillators.png" "TSMC — RSI and Stochastic"
          nil

@@ -21,9 +21,11 @@
 (require 'financial-chart-svg)
 (require 'financial-chart-plot)
 
-(defconst financial-chart-multi-text-faces
+(defcustom financial-chart-multi-text-faces
   '(financial-chart-up financial-chart-down font-lock-keyword-face financial-chart-accent)
-  "Text faces assigned to series in order, then cycled.")
+  "Text faces assigned to series in order, then cycled."
+  :type '(repeat face)
+  :group 'financial-chart)
 
 (defun financial-chart-multi--label (label)
   "Return LABEL as display text with control characters replaced by spaces."
@@ -101,6 +103,7 @@
     (data &key (width 60) (height financial-chart-plot-height) (unit "") normalize
           (label-width 6) (up-face 'financial-chart-up) (down-face 'financial-chart-down)
           (dim-face 'financial-chart-dim) (accent-face 'financial-chart-accent)
+          series-faces
           &allow-other-keys)
   "Render named DATA series as a shared-scale braille line chart.
 Each entry is (LABEL . SERIES), where SERIES uses the `series' shape.
@@ -120,7 +123,10 @@ UNIT suffixes the Y-axis and legend values."
              (ncols width)
              (grid (make-vector (* height ncols) 0))
              (faces (make-vector (* height ncols) dim-face))
-             (palette (copy-sequence financial-chart-multi-text-faces)))
+             (default-palette (or financial-chart-multi-text-faces
+                                  '(financial-chart-up financial-chart-down
+                                    font-lock-keyword-face financial-chart-accent)))
+             (palette (copy-sequence default-palette)))
         (setf (nth 0 palette) up-face
               (nth 1 palette) down-face
               (nth 3 palette) accent-face)
@@ -137,7 +143,8 @@ UNIT suffixes the Y-axis and legend values."
                                       (- dots 1 (round (* (1- dots)
                                                           (/ (float (- value lo)) span)))))
                                     values)
-                   for face = (nth (% series-index (length palette)) palette)
+                   for face = (or (nth series-index series-faces)
+                                  (nth (% series-index (length palette)) palette))
                    do (cl-loop for (y0 y1) on ys
                                for x from 0
                                do (dot x y0 face)
@@ -178,7 +185,8 @@ UNIT suffixes the Y-axis and legend values."
          "\n"))))))
 
 (cl-defun financial-chart-svg-multi
-    (data &key (width 600) (height 240) (unit "") title normalize &allow-other-keys)
+    (data &key (width 600) (height 240) (unit "") title normalize
+          series-colors series-faces &allow-other-keys)
   "Render named DATA series as a shared-scale SVG line chart.
 NORMALIZE, when numeric, rebases each series to that value at its first
 numeric point.  UNIT suffixes the Y-axis and legend values."
@@ -188,7 +196,14 @@ numeric point.  UNIT suffixes the Y-axis and legend values."
          (y0 (nth 1 frame))
          (w (nth 2 frame))
          (plot-height (max 1 (- (nth 3 frame) 46)))
-         (colors (financial-chart-multi--svg-colors (length series)))
+         (colors (cl-loop for index below (length series)
+                          collect
+                          (or (nth index series-colors)
+                              (and (nth index series-faces)
+                                   (financial-chart--face-color
+                                    (nth index series-faces)))
+                              (nth index (financial-chart-multi--svg-colors
+                                          (length series))))))
          (range (financial-chart-multi--range series)))
     (when range
       (let* ((lo (car range))
@@ -235,7 +250,8 @@ numeric point.  UNIT suffixes the Y-axis and legend values."
         (let ((step (/ (float w) (max 1 (length series)))))
           (cl-loop for entry in series
                    for index from 0
-                   for color = (nth index colors)
+                   for color = (or (nth index series-colors)
+                                   (nth index colors))
                    for values = (cdr entry)
                    for x = (+ x0 (* index step))
                    do (svg-line svg x (- legend-y 4) (+ x 14) (- legend-y 4)

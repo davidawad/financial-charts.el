@@ -31,6 +31,7 @@
                         (if (symbolp fn) (symbol-name fn) "Indicator")))
            :glyph (or (plist-get spec :glyph) financial-chart-glyph-indicator)
            :face (or (plist-get spec :face) 'default)
+           :color (plist-get spec :color)
            :series (funcall (plist-get spec :fn) bars)))
    specs))
 
@@ -41,6 +42,22 @@
 (defun financial-chart--compute-oscillator-series (bars)
   "Evaluate every `financial-chart-oscillators' spec over BARS."
   (financial-chart--compute-series bars financial-chart-oscillators))
+
+(defun financial-chart--compute-indicator-bands (bars)
+  "Evaluate configured indicator bands over BARS."
+  (mapcar
+   (lambda (spec)
+     (let ((upper (funcall (plist-get spec :upper-fn) bars))
+           (lower (funcall (plist-get spec :lower-fn) bars)))
+       (unless (and (= (length upper) (length bars))
+                    (= (length lower) (length bars)))
+         (signal 'financial-chart-error
+                 (list "indicator band values must align with bars")))
+       (list :upper upper :lower lower
+             :upper-color (plist-get spec :upper-color)
+             :lower-color (plist-get spec :lower-color)
+             :opacity (plist-get spec :opacity))))
+   financial-chart-indicator-bands))
 
 (defun financial-chart--indicator-overlay (row-low row-high index series-list)
   "Return (TEXT . FACE), the last SERIES-LIST entry landing in this row

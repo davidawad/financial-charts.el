@@ -129,6 +129,28 @@ or missing values are nil."
           (list :name 'bollinger-middle :label "Bollinger Middle" :values middle)
           (list :name 'bollinger-lower :label "Bollinger Lower" :values lower))))
 
+(defun financial-chart-bollinger-band-spec
+    (&optional period deviations upper-color lower-color opacity)
+  "Return a render spec that shades closes to Bollinger bands.
+PERIOD defaults to 20, DEVIATIONS to 2.  UPPER-COLOR and LOWER-COLOR
+color the two regions independently; OPACITY defaults to the global band
+fill setting.  Add the result to financial-chart-indicator-bands."
+  (let ((period (or period 20))
+        (deviations (or deviations 2.0)))
+    (list :upper-fn
+          (lambda (bars)
+            (plist-get (nth 0 (financial-chart-bollinger-bands
+                               bars period deviations))
+                       :values))
+          :lower-fn
+          (lambda (bars)
+            (plist-get (nth 2 (financial-chart-bollinger-bands
+                               bars period deviations))
+                       :values))
+          :upper-color upper-color
+          :lower-color lower-color
+          :opacity opacity)))
+
 (defun financial-chart--volatility-ema (values period)
   "Return EMA of VALUES over PERIOD, resetting after missing values."
   (let ((result nil)

@@ -92,6 +92,29 @@
   :type 'integer
   :group 'financial-chart)
 
+(defcustom financial-chart-svg-series-colors nil
+  "Optional repeating list of colors for indicator and generic line series.
+When nil, use the active semantic palette.  A series-level :color or
+:face overrides this list."
+  :type '(choice (const :tag "Use active palette" nil)
+                 (repeat (color :tag "Series color")))
+  :group 'financial-chart)
+
+(defcustom financial-chart-svg-band-upper-fill "#4c9f70"
+  "Default fill color between close and an indicator's upper band."
+  :type 'color
+  :group 'financial-chart)
+
+(defcustom financial-chart-svg-band-lower-fill "#c45b6a"
+  "Default fill color between close and an indicator's lower band."
+  :type 'color
+  :group 'financial-chart)
+
+(defcustom financial-chart-svg-band-fill-opacity 0.14
+  "Default opacity for indicator band region fills, from 0.0 to 1.0."
+  :type 'number
+  :group 'financial-chart)
+
 (defcustom financial-chart-svg-font-family
   "DejaVu Sans Mono, Menlo, Consolas, monospace"
   "CSS font-family value for all text in the SVG renderer.
@@ -305,8 +328,66 @@ spanning [PANEL-Y, PANEL-Y+PANEL-HEIGHT), Y growing downward."
   ;; OHLC values.
   (+ panel-y (* panel-height (- 1.0 (/ (float (- value min)) (- max min))))))
 
+(defun financial-chart--svg-band-regions (svg bars min max panel-y panel-h
+                                              band-specs)
+  "Draw upper and lower close-to-band fills from BARS using BAND-SPECS."
+  (dolist (spec band-specs)
+    (let ((upper (plist-get spec :upper))
+          (lower (plist-get spec :lower))
+          (opacity (or (plist-get spec :opacity)
+                       financial-chart-svg-band-fill-opacity))
+          (upper-color (or (plist-get spec :upper-color)
+                           financial-chart-svg-band-upper-fill))
+          (lower-color (or (plist-get spec :lower-color)
+                           financial-chart-svg-band-lower-fill)))
+      (cl-loop for i from 0 below (1- (length bars))
+               for current = (nth i bars)
+               for next = (nth (1+ i) bars)
+               for close-a = (plist-get current :close)
+               for close-b = (plist-get next :close)
+               for upper-a = (nth i upper)
+               for upper-b = (nth (1+ i) upper)
+               for lower-a = (nth i lower)
+               for lower-b = (nth (1+ i) lower)
+               for x-a = (+ (financial-chart--svg-x i)
+                            (/ financial-chart-svg-candle-width 2.0))
+               for x-b = (+ (financial-chart--svg-x (1+ i))
+                            (/ financial-chart-svg-candle-width 2.0))
+               when (and (numberp close-a) (numberp close-b)
+                         (numberp upper-a) (numberp upper-b))
+               do (svg-polygon
+                   svg (list (cons x-a (financial-chart--svg-y
+                                        (financial-chart--to-scale close-a)
+                                        min max panel-y panel-h))
+                             (cons x-a (financial-chart--svg-y
+                                        (financial-chart--to-scale upper-a)
+                                        min max panel-y panel-h))
+                             (cons x-b (financial-chart--svg-y
+                                        (financial-chart--to-scale upper-b)
+                                        min max panel-y panel-h))
+                             (cons x-b (financial-chart--svg-y
+                                        (financial-chart--to-scale close-b)
+                                        min max panel-y panel-h)))
+                   :fill upper-color :fill-opacity opacity :stroke "none")
+               when (and (numberp close-a) (numberp close-b)
+                         (numberp lower-a) (numberp lower-b))
+               do (svg-polygon
+                   svg (list (cons x-a (financial-chart--svg-y
+                                        (financial-chart--to-scale close-a)
+                                        min max panel-y panel-h))
+                             (cons x-a (financial-chart--svg-y
+                                        (financial-chart--to-scale lower-a)
+                                        min max panel-y panel-h))
+                             (cons x-b (financial-chart--svg-y
+                                        (financial-chart--to-scale lower-b)
+                                        min max panel-y panel-h))
+                             (cons x-b (financial-chart--svg-y
+                                        (financial-chart--to-scale close-b)
+                                        min max panel-y panel-h)))
+                   :fill lower-color :fill-opacity opacity :stroke "none")))))
+
 (defun financial-chart--svg-price-panel (svg bars min max panel-y panel-h
-                                             plot-width indicator-series)
+                                             plot-width indicator-series band-specs)
   "Draw the price panel (axis labels, gridlines, candles, indicator
 overlays) into SVG."
   (financial-chart-svg--horizontal-ticks
@@ -322,6 +403,8 @@ overlays) into SVG."
                 min max financial-chart-axis-label-count))
    financial-chart-svg-margin-left
    (- plot-width financial-chart-svg-margin-right))
+  (financial-chart--svg-band-regions
+   svg bars min max panel-y panel-h band-specs)
   (cl-loop
    for i from 0
    for bar in bars
@@ -535,11 +618,12 @@ overrides `financial-chart-svg-font-family' for this call only."
          (total-height
           (+ xaxis-y (if show-x-axis financial-chart-svg-margin-bottom 10)))
          (indicator-series (financial-chart--compute-indicator-series bars))
+         (band-specs (financial-chart--compute-indicator-bands bars))
          (oscillator-series (financial-chart--compute-oscillator-series bars))
          (svg (financial-chart-svg--canvas plot-width total-height title))
          (text-color (financial-chart-svg--color 'text)))
     (financial-chart--svg-price-panel
-     svg bars min max price-y price-h plot-width indicator-series)
+     svg bars min max price-y price-h plot-width indicator-series band-specs)
     (when (> (length indicator-series) 1)
       (financial-chart-svg--legend svg indicator-series
                                    financial-chart-svg-margin-left
@@ -666,11 +750,13 @@ A missing key falls back to the matching financial-chart face, then to
 
 (defun financial-chart-svg--series-color (index)
   "Return the shared SVG color for zero-based series INDEX."
-  (let* ((base (if (eq financial-chart-color-palette 'colorblind-safe)
+  (let* ((configured financial-chart-svg-series-colors)
+         (base (or configured
+                   (if (eq financial-chart-color-palette 'colorblind-safe)
                    financial-chart-svg--safe-series-colors
                  (list "#2e7d32" "#c62828"
                        "#1565c0" "#8e24aa" "#17becf" "#8c564b"
-                       "#e377c2" "#7f7f7f" "#bcbd22")))
+                       "#e377c2" "#7f7f7f" "#bcbd22"))))
          (colors (copy-sequence base))
          (candidate-index 0))
     (while (<= (length colors) index)
@@ -684,10 +770,10 @@ A missing key falls back to the matching financial-chart face, then to
 
 (defun financial-chart-svg--series-face-color (spec index)
   "Resolve SPEC's face or shared palette color at series INDEX."
-  (if (or (eq financial-chart-color-palette 'colorblind-safe)
-          (memq (plist-get spec :face) '(nil default)))
-      (financial-chart-svg--series-color index)
-    (financial-chart--face-color (plist-get spec :face))))
+  (or (plist-get spec :color)
+      (and (not (memq (plist-get spec :face) '(nil default)))
+           (financial-chart--face-color (plist-get spec :face)))
+      (financial-chart-svg--series-color index)))
 
 (defun financial-chart-svg--legend (svg series x y)
   "Draw SERIES labels in SVG at X,Y using the shared fonts and colors."
@@ -841,7 +927,7 @@ is removed here, the one place SVG is serialized."
   (ignore text-color)
   (financial-chart-svg--vertical-ticks svg ticks x0 y0 width height))
 
-(defun financial-chart-svg--series (series style width height unit title scale)
+(defun financial-chart-svg--series (series style width height unit title scale color face)
   "Render SERIES with STYLE (`area' or `line') in a shared SVG frame."
   (let ((values (financial-chart-series-values series)))
     (when values
@@ -870,9 +956,13 @@ is removed here, the one place SVG is serialized."
                    (source-x0 (car source-xs))
                    (source-x-span (and (financial-chart-series-x-aware-p series)
                                        (- (car (last source-xs)) source-x0)))
-                   (color (financial-chart-svg--color
-                           (if (eq (financial-chart-direction-face cols 'up 'down) 'up)
-                               'up 'down)))
+                   (color (or color
+                              (and face (financial-chart--face-color face))
+                              (car financial-chart-svg-series-colors)
+                              (financial-chart-svg--color
+                               (if (eq (financial-chart-direction-face cols 'up 'down)
+                                       'up)
+                                   'up 'down))))
                    (points
                     (cl-loop for value in cols for index from 0
                              collect
@@ -926,22 +1016,22 @@ is removed here, the one place SVG is serialized."
         (financial-chart-svg--string svg)))))
 
 (cl-defun financial-chart-svg-area
-    (series &key (width 600) (height 240) (unit "") title (scale 'linear)
+    (series &key (width 600) (height 240) (unit "") title (scale 'linear) color face
             &allow-other-keys)
   "SVG of SERIES as a filled area chart with a shared axis and grid."
-  (financial-chart-svg--series series 'area width height unit title scale))
+  (financial-chart-svg--series series 'area width height unit title scale color face))
 
 (cl-defun financial-chart-svg-line
-    (series &key (width 600) (height 240) (unit "") title (scale 'linear)
+    (series &key (width 600) (height 240) (unit "") title (scale 'linear) color face
             &allow-other-keys)
   "SVG of SERIES as an unfilled polyline with a shared axis and grid."
-  (financial-chart-svg--series series 'line width height unit title scale))
+  (financial-chart-svg--series series 'line width height unit title scale color face))
 
 (cl-defun financial-chart-svg-sparkline
-    (series &key (width 600) (height 240) (unit "") title (scale 'linear)
+    (series &key (width 600) (height 240) (unit "") title (scale 'linear) color face
             &allow-other-keys)
   "SVG of SERIES as an unfilled polyline with point hover values."
-  (financial-chart-svg--series series 'line width height unit title scale))
+  (financial-chart-svg--series series 'line width height unit title scale color face))
 
 (cl-defun financial-chart-svg-payoff
     (payoff &key (width 600) (height 260) (unit "$") title &allow-other-keys)

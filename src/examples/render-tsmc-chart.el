@@ -29,9 +29,7 @@
            (cdr lines))))
     (make-directory (file-name-directory output-file) t)
     (let ((financial-chart-show-volume t)
-          (financial-chart-show-x-axis t)
-          (financial-chart-svg-width 1280)
-          (financial-chart-svg-height 760))
+          (financial-chart-show-x-axis t))
       (financial-chart-export-png
        bars output-file "TSMC (NYSE: TSM) — Daily candles" 1280 760))
     (princ (format "Wrote %s from %d daily bars\n" output-file (length bars)))))

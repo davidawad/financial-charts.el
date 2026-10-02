@@ -31,8 +31,6 @@
     (make-directory output-dir t)
     (let ((financial-chart-show-volume t)
           (financial-chart-show-x-axis t)
-          (financial-chart-svg-width 1280)
-          (financial-chart-svg-height 760)
           (financial-chart-svg-price-height 430)
           (financial-chart-svg-oscillator-height 150))
       (cl-labels

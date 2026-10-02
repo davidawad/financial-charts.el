@@ -463,5 +463,14 @@ error."
 `financial-chart-recipe-evaluators' entry")))))
    financial-chart-indicator-cohorts))
 
+;; Built-in families are separate modules so additions stay isolated and
+;; local.  All consume bar/v1 and register against the same output API.
+(require 'financial-chart-trend-indicators)
+(require 'financial-chart-momentum)
+(require 'financial-chart-indicator-oscillators)
+(require 'financial-chart-volatility)
+(require 'financial-chart-trend-strength)
+(require 'financial-chart-volume-indicators)
+
 (provide 'financial-chart-indicators)
 ;;; financial-chart-indicators.el ends here

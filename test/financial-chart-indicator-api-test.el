@@ -46,7 +46,19 @@
                '(:name rsi :label "RSI" :values (nil 45 60) :unit :percent))))
     (should (eq (plist-get spec :kind) 'line))
     (should (equal (plist-get spec :title) "RSI"))
-    (should (equal (plist-get spec :data) '(nil 45 60)))))
+    (should (equal (plist-get spec :data) '((0 . nil) (1 . 45) (2 . 60))))
+    (should (stringp (financial-chart-plot-spec spec)))))
+
+(ert-deftest financial-chart-indicator-api-plots-multiple-output-series ()
+  (let* ((series (financial-chart-indicator-evaluate
+                  'macd
+                  '((:close 10) (:close 11) (:close 12) (:close 13))
+                  1 2 1))
+         (spec (financial-chart-indicator-chart-spec series "MACD")))
+    (should (= (length series) 3))
+    (should (eq (plist-get spec :kind) 'multi))
+    (should (= (length (plist-get spec :data)) 3))
+    (should (stringp (financial-chart-plot-spec spec)))))
 
 (provide 'financial-chart-indicator-api-test)
 ;;; financial-chart-indicator-api-test.el ends here

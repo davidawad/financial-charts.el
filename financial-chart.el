@@ -72,7 +72,7 @@
 (defconst financial-chart-entry-points
   '((discover financial-chart-list-kinds financial-chart-describe-kind
               financial-chart-describe financial-chart-list-cohorts
-              financial-chart-list-presets)
+              financial-chart-list-presets financial-chart-list-indicators)
     (validate financial-chart-validate)
     (plan financial-chart-explain financial-chart-explain-symbol
           financial-chart-resolve-preset financial-chart-resolve-cohort)
@@ -82,7 +82,8 @@
     (export financial-chart-export-svg financial-chart-export-png
             financial-chart-export-symbol-svg financial-chart-export-symbol-png)
     (tickers financial-chart-view-symbol financial-chart-view-preset)
-    (extend financial-chart-register-kind financial-chart-indicator-cohorts
+    (extend financial-chart-register-kind financial-chart-register-indicator
+            financial-chart-indicator-evaluate financial-chart-indicator-cohorts
             financial-chart-presets financial-chart-recipe-evaluators)
     (health financial-chart-doctor financial-chart-doctor-checks))
   "Public entry points grouped by what a caller is doing.")
@@ -108,6 +109,16 @@ entry points.  Lists are vectors, so the result round-trips `json-encode'."
                          financial-chart-shapes))
         :cohorts (financial-chart--vec (mapcar (lambda (c) (symbol-name (car c)))
                                                financial-chart-indicator-cohorts))
+        :indicators (financial-chart--vec
+                     (mapcar (lambda (indicator)
+                               (list :name (symbol-name (plist-get indicator :name))
+                                     :label (plist-get indicator :label)
+                                     :unit (when (plist-get indicator :unit)
+                                             (substring (symbol-name (plist-get indicator :unit)) 1))
+                                     :panel (when (plist-get indicator :panel)
+                                              (substring (symbol-name (plist-get indicator :panel)) 1))
+                                     :description (plist-get indicator :description)))
+                             (financial-chart-list-indicators)))
         :presets (financial-chart--vec (mapcar (lambda (p) (symbol-name (car p)))
                                                financial-chart-presets))
         :market-data (and (fboundp 'market-data-bars) t)

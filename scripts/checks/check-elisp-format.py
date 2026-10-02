@@ -75,7 +75,11 @@ def _target_files() -> list[Path]:
             part in _NOISE_DIRS or part.startswith(".git") for part in rel_parts[:-1]
         ):
             continue
-        if "test" in rel_parts[:-1]:
+        if (
+            "test" in rel_parts[:-1]
+            or path.name.startswith("test-")
+            or path.name.endswith("-test.el")
+        ):
             continue
         files.append(path)
     return files

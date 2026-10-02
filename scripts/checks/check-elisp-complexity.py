@@ -51,7 +51,7 @@ BATCH_DRIVER = LINT_DIR / "elisp-complexity-batch.el"
 
 # Directories pruned from the repo-wide *.el walk: standard package-manager/
 # build noise (mirrors AI/skills/swe-repo/rules.py's _ELISP_NOISE_DIRS) plus
-# this gate's own vendored tooling and any test/ subtree (test files aren't
+# this gate's own vendored tooling and test files (test files aren't
 # held to the same complexity scrutiny as hand-authored library/config code
 # — same reasoning as the reference implementation this was
 # generalized from).
@@ -87,7 +87,11 @@ def _target_files() -> list[Path]:
             part in _NOISE_DIRS or part.startswith(".git") for part in rel_parts[:-1]
         ):
             continue
-        if "test" in rel_parts[:-1]:
+        if (
+            "test" in rel_parts[:-1]
+            or path.name.startswith("test-")
+            or path.name.endswith("-test.el")
+        ):
             continue
         files.append(path)
     return files

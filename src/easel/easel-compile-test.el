@@ -88,7 +88,9 @@
          (brush (easel-scene-mark scene "main/brush:brush")))
     (should brush)
     (should (equal (plist-get scene :params) [(:name "brush" :select (:type "interval" :encodings ["x"]) :view "main")]))
-    (should (= (plist-get (aref (plist-get brush :items) 0) :w) 60.0))))
+    ;; [2 4] of the x domain [0 10]: a fifth of the theme's continuousWidth.
+    (should (= (plist-get (aref (plist-get brush :items) 0) :w)
+               (* 0.2 (easel-theme-get easel-theme-default :view :continuousWidth))))))
 
 (ert-deftest easel-compile-decimates-long-series-with-lttb ()
   (let* ((values (vconcat (mapcar (lambda (i) (list :x i :y (if (= i 777) 1000 (% (* i 37) 50))))

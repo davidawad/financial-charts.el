@@ -98,8 +98,10 @@ with Vega-Lite selection semantics.")
 (defun easel-time-unit-floor (unit value)
   "Truncate date VALUE to time UNIT; return epoch ms or `:null'.
 Absent components take Vega's defaults (year 2012, January, day 1)."
-  (let ((ms (easel-time-parse value))
-        (parts (easel-time-unit-components unit)))
+  (let* ((ms (easel-time-parse value))
+         (parts (easel-time-unit-components unit))
+         ;; utc time units floor in UTC; the others in local time.
+         (easel-time-zone (unless (string-prefix-p "utc" unit) easel-time-zone)))
     (if (null ms) :null
       (let* ((f (easel-time-fields ms))
              (has (lambda (p) (member p parts)))

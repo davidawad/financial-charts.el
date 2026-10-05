@@ -10,10 +10,14 @@
 ;; fc-qx1.14 spike the DOM is consed directly (svg.el's per-node
 ;; append is quadratic) and every series is a single <path>.
 ;;
-;; The theme is a Vega config object (the JSON bin/chart accepts):
-;; background, font, axis.{domain,tick,grid,label,title}Color,
-;; legend.{label,title}Color, title.color.  With no theme, GUI frames
-;; map it from Emacs faces; batch uses Vega's defaults.
+;; The theme is a Vega config object (the JSON bin/chart accepts),
+;; overlaid on the config the scene was compiled with: background,
+;; font, axis.{domain,tick,grid,label,title}Color and widths, font sizes
+;; and weights, legend.{label,title}Color, title.color.  With no theme,
+;; GUI frames map colors from Emacs faces; batch keeps the scene's.
+;; Text sits on Vega's baselines (top 0.79em, middle 0.30em, bottom
+;; -0.21em, rounded) and the generic "sans-serif" is drawn as Arial, the
+;; font compile measured text with (easel-font.el).
 ;;
 ;; `easel-svg-image' adds :map hot spots for discrete items (bars,
 ;; points, text, legend entries) with help-echo and pointer; continuous
@@ -24,13 +28,7 @@
 (require 'dom)
 (require 'svg)
 (require 'easel-core)
-
-(defconst easel-svg-default-theme
-  '(:background "white" :font "sans-serif"
-    :axis (:domainColor "#888" :tickColor "#888" :gridColor "#ddd" :labelColor "#000" :titleColor "#000")
-    :legend (:labelColor "#000" :titleColor "#000")
-    :title (:color "#000"))
-  "Vega's default look, as a Vega config object.")
+(require 'easel-theme)
 
 (defun easel-svg--face-color (face attribute)
   "FACE's ATTRIBUTE color as a string, or nil when unspecified."
@@ -51,18 +49,16 @@
           :legend (list :labelColor fg :titleColor fg)
           :title (list :color fg))))
 
-(defun easel-svg--theme (theme)
-  "THEME merged over the default, or the face-mapped theme in GUI frames."
-  (let ((base (if (and (null theme) (display-graphic-p)) (easel-svg-theme-from-faces)
-                easel-svg-default-theme)))
-    (cl-loop for (k v) on theme by #'cddr
-             do (setq base (easel-plist-put base k (if (and (easel-object-p v) (easel-object-p (plist-get base k)))
-                                                       (let ((m (plist-get base k)))
-                                                         (cl-loop for (k2 v2) on v by #'cddr
-                                                                  do (setq m (easel-plist-put m k2 v2)))
-                                                         m)
-                                                     v))))
-    base))
+(defun easel-svg--theme (theme scene)
+  "The config SCENE was compiled with, under GUI face colors or THEME."
+  (easel-theme-merge (or (plist-get scene :config) easel-theme-default)
+                     (when-let* ((bg (plist-get scene :background))) (list :background bg))
+                     (and (null theme) (display-graphic-p) (easel-svg-theme-from-faces))
+                     theme))
+
+(defun easel-svg--font (font)
+  "SVG font-family for theme FONT: the generic sans-serif resolves to Arial."
+  (if (member font '(nil "sans-serif")) "Arial, Liberation Sans, sans-serif" font))
 
 (defun easel-svg--n (v)
   "Format number V compactly for SVG attributes."
@@ -88,14 +84,15 @@
 
 (defun easel-svg--text (text x y size &rest props)
   "A <text> node for TEXT at X Y with font SIZE.
-PROPS: :align :baseline :angle :fill :weight."
+PROPS: :align :baseline :angle :fill :weight :opacity."
   (let* ((baseline (plist-get props :baseline))
-         (dy (pcase baseline ("top" (* 0.8 size)) ("middle" (* 0.35 size)) (_ 0)))
+         (dy (floor (+ 0.5 (* size (pcase baseline ("top" 0.79) ("middle" 0.30) ("bottom" -0.21) (_ 0))))))
          (angle (or (plist-get props :angle) 0))
          (node (easel-svg--node 'text :x x :y (+ y (if (zerop angle) dy 0))
                                 :dy (unless (zerop angle) (easel-svg--n dy))
                                 :font-size size :fill (plist-get props :fill)
-                                :font-weight (plist-get props :weight)
+                                :font-weight (let ((w (plist-get props :weight))) (and w (format "%s" w)))
+                                :opacity (plist-get props :opacity)
                                 :text-anchor (easel-svg--anchor (plist-get props :align))
                                 :transform (unless (zerop angle)
                                              (format "rotate(%s %s %s)" (easel-svg--n angle)
@@ -117,59 +114,91 @@ PROPS: :align :baseline :angle :fill :weight."
                                    (reverse base) "L")
                     "Z"))))
 
+(defun easel-svg--rounded-rect (x y w h corners)
+  "Path data for the W x H rect at X Y with CORNERS [TL TR BR BL] radii."
+  (let* ((lim (/ (min w h) 2.0))
+         (c (mapcar (lambda (r) (min r lim)) (append corners nil)))
+         (tl (nth 0 c)) (tr (nth 1 c)) (br (nth 2 c)) (bl (nth 3 c))
+         (n #'easel-svg--n))
+    (concat "M" (funcall n (+ x tl)) "," (funcall n y)
+            "H" (funcall n (- (+ x w) tr))
+            (if (> tr 0) (format "A%s,%s 0 0 1 %s,%s" (funcall n tr) (funcall n tr) (funcall n (+ x w)) (funcall n (+ y tr))) "")
+            "V" (funcall n (- (+ y h) br))
+            (if (> br 0) (format "A%s,%s 0 0 1 %s,%s" (funcall n br) (funcall n br) (funcall n (- (+ x w) br)) (funcall n (+ y h))) "")
+            "H" (funcall n (+ x bl))
+            (if (> bl 0) (format "A%s,%s 0 0 1 %s,%s" (funcall n bl) (funcall n bl) (funcall n x) (funcall n (- (+ y h) bl))) "")
+            "V" (funcall n (+ y tl))
+            (if (> tl 0) (format "A%s,%s 0 0 1 %s,%s" (funcall n tl) (funcall n tl) (funcall n (+ x tl)) (funcall n y)) "")
+            "Z")))
+
+(defun easel-svg--symbol (shape x y size &rest attrs)
+  "A Vega symbol of SHAPE and area SIZE centred on X Y, with ATTRS."
+  (let ((r (/ (sqrt (max 0 size)) 2.0)))
+    (if (equal shape "square")
+        (apply #'easel-svg--node 'rect :x (- x r) :y (- y r) :width (* 2 r) :height (* 2 r) attrs)
+      (apply #'easel-svg--node 'circle :cx x :cy y :r r attrs))))
+
 (defun easel-svg--item (mark item)
   "SVG node for ITEM of MARK."
   (let ((fill (plist-get item :fill)) (stroke (plist-get item :stroke))
         (opacity (let ((o (plist-get item :opacity))) (and o (/= o 1) o))))
     (pcase (plist-get mark :mark)
       ((or "bar" "rect" "brush")
-       (easel-svg--node 'rect :x (plist-get item :x) :y (plist-get item :y)
-                        :width (max 0 (plist-get item :w)) :height (max 0 (plist-get item :h))
-                        :fill fill :stroke (unless (equal stroke "none") stroke) :opacity opacity))
+       (if-let* ((corners (plist-get item :corners)))
+           (easel-svg--node 'path :d (easel-svg--rounded-rect (plist-get item :x) (plist-get item :y)
+                                                              (max 0 (plist-get item :w)) (max 0 (plist-get item :h)) corners)
+                            :fill fill :stroke (unless (equal stroke "none") stroke) :opacity opacity)
+         (easel-svg--node 'rect :x (plist-get item :x) :y (plist-get item :y)
+                          :width (max 0 (plist-get item :w)) :height (max 0 (plist-get item :h))
+                          :fill fill :stroke (unless (equal stroke "none") stroke) :opacity opacity)))
       ((or "rule" "tick")
        (easel-svg--line (vector (plist-get item :x1) (plist-get item :y1) (plist-get item :x2) (plist-get item :y2))
                         stroke (plist-get item :strokeWidth) opacity (plist-get item :strokeDash)))
       ("text" (apply #'easel-svg--text (plist-get item :text) (plist-get item :x) (plist-get item :y)
                      (plist-get item :fontSize)
-                     (list :align (plist-get item :align) :baseline (plist-get item :baseline) :fill fill)))
+                     (list :align (plist-get item :align) :baseline (plist-get item :baseline) :fill fill
+                           :opacity opacity)))
       ((or "line" "area")
        (let ((area (plist-get item :base)))
          (easel-svg--node 'path :d (concat "M" (easel-svg--path (plist-get item :points) area))
                           :fill (if area fill "none") :stroke (unless (or area (equal stroke "none")) stroke)
                           :stroke-width (unless area (plist-get item :strokeWidth))
+                          :stroke-linecap (unless area (plist-get item :strokeCap))
+                          :stroke-linejoin (unless area (plist-get item :strokeJoin))
                           :stroke-dasharray (and (plist-get item :strokeDash)
                                                  (mapconcat #'easel-svg--n (plist-get item :strokeDash) ","))
                           :opacity opacity)))
-      (_ (let ((r (sqrt (/ (plist-get item :size) float-pi))))
-           (if (equal (plist-get item :shape) "square")
-               (let ((side (sqrt (plist-get item :size))))
-                 (easel-svg--node 'rect :x (- (plist-get item :x) (/ side 2)) :y (- (plist-get item :y) (/ side 2))
-                                  :width side :height side :fill fill :stroke (unless (equal stroke "none") stroke)
-                                  :opacity opacity))
-             (easel-svg--node 'circle :cx (plist-get item :x) :cy (plist-get item :y) :r r
-                              :fill fill :stroke (unless (equal stroke "none") stroke)
-                              :stroke-width (unless (equal stroke "none") (plist-get item :strokeWidth))
-                              :opacity opacity)))))))
+      (_ (easel-svg--symbol (plist-get item :shape) (plist-get item :x) (plist-get item :y) (plist-get item :size)
+                            :fill fill :stroke (unless (equal stroke "none") stroke)
+                            :stroke-width (unless (equal stroke "none") (plist-get item :strokeWidth))
+                            :opacity opacity)))))
 
 (defun easel-svg--axis (axis theme)
   "SVG nodes for placed AXIS under THEME."
-  (let* ((at (plist-get theme :axis)) out)
+  (let* ((channel (if (equal (plist-get axis :orient) "bottom") :x :y))
+         (get (lambda (key) (easel-theme-axis theme channel key)))
+         out)
     (seq-doseq (tk (plist-get axis :ticks))
       (when (plist-get tk :grid)
-        (push (easel-svg--line (plist-get tk :grid) (plist-get at :gridColor) 1 (plist-get at :gridOpacity)) out)))
-    (push (easel-svg--line (plist-get axis :domain-line) (plist-get at :domainColor)) out)
+        (push (easel-svg--line (plist-get tk :grid) (funcall get :gridColor) (or (funcall get :gridWidth) 1)
+                               (funcall get :gridOpacity))
+              out)))
+    (push (easel-svg--line (plist-get axis :domain-line) (funcall get :domainColor) (or (funcall get :domainWidth) 1)) out)
     (seq-doseq (tk (plist-get axis :ticks))
-      (push (easel-svg--line (plist-get tk :tick) (plist-get at :tickColor)) out)
-      (push (easel-svg--text (plist-get tk :label) (plist-get tk :lx) (plist-get tk :ly) 10
-                             :align (plist-get tk :align) :baseline (plist-get tk :baseline)
-                             :angle (if (equal (plist-get axis :orient) "bottom")
-                                        (plist-get axis :labelAngle) 0)
-                             :fill (plist-get at :labelColor))
-            out))
+      (push (easel-svg--line (plist-get tk :tick) (funcall get :tickColor) (or (funcall get :tickWidth) 1)) out)
+      (unless (string-empty-p (plist-get tk :label))
+        (push (easel-svg--text (plist-get tk :label) (plist-get tk :lx) (plist-get tk :ly)
+                               (or (funcall get :labelFontSize) 10)
+                               :align (plist-get tk :align) :baseline (plist-get tk :baseline)
+                               :angle (if (equal (plist-get axis :orient) "bottom")
+                                          (plist-get axis :labelAngle) 0)
+                               :fill (funcall get :labelColor))
+              out)))
     (when-let* ((tm (plist-get axis :title-mark)))
-      (push (easel-svg--text (plist-get tm :text) (plist-get tm :x) (plist-get tm :y) 11
+      (push (easel-svg--text (plist-get tm :text) (plist-get tm :x) (plist-get tm :y) (or (funcall get :titleFontSize) 11)
                              :align (plist-get tm :align) :baseline (plist-get tm :baseline)
-                             :angle (plist-get tm :angle) :weight "bold" :fill (plist-get at :titleColor))
+                             :angle (plist-get tm :angle) :weight (or (funcall get :titleFontWeight) "bold")
+                             :fill (funcall get :titleColor))
             out))
     (nreverse out)))
 
@@ -186,38 +215,36 @@ PROPS: :align :baseline :angle :fill :weight."
 
 (defun easel-svg--legend (legend theme)
   "SVG nodes for placed LEGEND under THEME."
-  (let ((lt (plist-get theme :legend)) out)
+  (let ((get (lambda (key) (easel-theme-get theme :legend key)))
+        (fs (or (plist-get legend :font-size) 10)) out)
     (when-let* ((tm (plist-get legend :title-mark)))
-      (push (easel-svg--text (plist-get tm :text) (plist-get tm :x) (plist-get tm :y) 11 :align "left"
-                             :baseline "top" :weight "bold" :fill (plist-get lt :titleColor))
+      (push (easel-svg--text (plist-get tm :text) (plist-get tm :x) (plist-get tm :y) (or (funcall get :titleFontSize) 11)
+                             :align "left" :baseline "top" :weight (or (funcall get :titleFontWeight) "bold")
+                             :fill (funcall get :titleColor))
             out))
     (when-let* ((bar (plist-get legend :bar)))
       (push (easel-svg--node 'rect :x (aref bar 0) :y (aref bar 1) :width (aref bar 2) :height (aref bar 3)
                              :fill (format "url(#%s)" (easel-svg--gradient-id legend)))
             out))
     (seq-doseq (e (plist-get legend :entries))
-      (when (plist-get e :color)
-        (push (pcase (plist-get legend :shape)
-                ("square" (easel-svg--node 'rect :x (- (plist-get e :sx) 5) :y (- (plist-get e :sy) 5)
-                                           :width 10 :height 10 :fill (plist-get e :color)))
-                ("stroke" (easel-svg--line (vector (- (plist-get e :sx) 5) (plist-get e :sy)
-                                                   (+ (plist-get e :sx) 5) (plist-get e :sy))
-                                           (plist-get e :color) 2))
-                (_ (easel-svg--node 'circle :cx (plist-get e :sx) :cy (plist-get e :sy) :r 5
-                                    :fill (plist-get e :color))))
+      (when (plist-get e :size)
+        (push (easel-svg--symbol (plist-get legend :symbol-type) (plist-get e :sx) (plist-get e :sy) (plist-get e :size)
+                                 :fill (plist-get e :fill) :stroke (plist-get e :stroke)
+                                 :stroke-width (and (plist-get e :stroke) (plist-get e :stroke-width))
+                                 :opacity (let ((o (plist-get e :opacity))) (and o (/= o 1) o)))
               out))
-      (push (easel-svg--text (plist-get e :label) (plist-get e :lx) (plist-get e :ly) 10 :align "left"
-                             :baseline "middle" :fill (plist-get lt :labelColor))
+      (push (easel-svg--text (plist-get e :label) (plist-get e :lx) (plist-get e :ly) fs :align "left"
+                             :baseline (or (plist-get e :baseline) "middle") :fill (funcall get :labelColor))
             out))
     (nreverse out)))
 
 (defun easel-svg-dom (scene &optional theme)
   "Return the SVG DOM for SCENE under THEME (a Vega config plist)."
-  (let* ((theme (easel-svg--theme theme))
+  (let* ((theme (easel-svg--theme theme scene))
          (size (plist-get scene :size))
          (children nil) (defs nil))
     (push (easel-svg--node 'rect :width "100%" :height "100%"
-                           :fill (or (plist-get theme :background) (plist-get scene :background)))
+                           :fill (or (plist-get theme :background) "white"))
           children)
     (seq-doseq (view (plist-get scene :views))
       (let* ((b (plist-get view :bounds))
@@ -247,14 +274,15 @@ PROPS: :align :baseline :angle :fill :weight."
           (setq children (append (reverse (easel-svg--legend legend theme)) children)))))
     (when-let* ((title (plist-get scene :title)))
       (push (easel-svg--text (plist-get title :text) (plist-get title :x) (plist-get title :y)
-                             (plist-get title :fontSize) :align "center" :baseline "top" :weight "bold"
+                             (plist-get title :fontSize) :align (or (plist-get title :align) "center") :baseline "top"
+                             :weight (or (plist-get title :fontWeight) "bold")
                              :fill (plist-get (plist-get theme :title) :color))
             children))
     (apply #'dom-node 'svg
            `((xmlns . "http://www.w3.org/2000/svg")
              (width . ,(easel-svg--n (plist-get size :w))) (height . ,(easel-svg--n (plist-get size :h)))
              (viewBox . ,(format "0 0 %s %s" (easel-svg--n (plist-get size :w)) (easel-svg--n (plist-get size :h))))
-             (font-family . ,(easel-svg--escape (or (plist-get theme :font) "sans-serif"))))
+             (font-family . ,(easel-svg--escape (easel-svg--font (plist-get theme :font)))))
            (cons (apply #'dom-node 'defs nil (nreverse defs)) (nreverse children)))))
 
 (defun easel-svg-render (scene &optional theme)
@@ -286,7 +314,7 @@ Each area id is a symbol easel:VIEW|MARK|ITEM (or easel-legend:VIEW|CHANNEL|I)."
                                                  (cons (round (+ (plist-get item :x) (max 1 (plist-get item :w))))
                                                        (round (+ (plist-get item :y) (max 1 (plist-get item :h)))))))
                              (cons 'circle (cons (cons (round (plist-get item :x)) (round (plist-get item :y)))
-                                                 (max 3 (round (sqrt (/ (or (plist-get item :size) 30) float-pi)))))))
+                                                 (max 3 (round (/ (sqrt (or (plist-get item :size) 30)) 2))))))
                            id props)
                      areas)))
            (plist-get mark :items))))

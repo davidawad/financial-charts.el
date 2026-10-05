@@ -155,12 +155,6 @@ ENV holds param values for expressions."
 
 ;;; Titles and tooltips
 
-(defconst easel-encode--op-titles
-  '(("mean" . "Average") ("average" . "Average") ("sum" . "Sum") ("count" . "Count")
-    ("median" . "Median") ("min" . "Min") ("max" . "Max") ("distinct" . "Distinct")
-    ("variance" . "Variance") ("stdev" . "Stdev") ("q1" . "Q1") ("q3" . "Q3"))
-  "Vega-Lite's titles for aggregate ops.")
-
 (defun easel-encode-title (def)
   "Vega-Lite's default title for DEF, or DEF's explicit :title."
   (let ((title (plist-get def :title)))
@@ -170,9 +164,9 @@ ENV holds param values for expressions."
      ((equal (plist-get def :derived) "aggregate")
       (if (and (equal (plist-get def :op) "count") (null (plist-get def :source)))
           "Count of Records"
-        (format "%s of %s" (or (cdr (assoc (plist-get def :op) easel-encode--op-titles))
-                               (plist-get def :op))
-                (plist-get def :source))))
+        ;; Vega-Lite's verbal title: titleCase(op) of field.
+        (let ((op (plist-get def :op)))
+          (format "%s%s of %s" (upcase (substring op 0 1)) (substring op 1) (plist-get def :source)))))
      ((equal (plist-get def :derived) "bin") (format "%s (binned)" (plist-get def :source)))
      ((equal (plist-get def :derived) "timeUnit")
       (format "%s (%s)" (plist-get def :source)

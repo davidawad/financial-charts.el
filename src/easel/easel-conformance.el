@@ -11,9 +11,11 @@
 ;;
 ;;   native  compile for both targets, render SVG and text; the text must
 ;;           equal test/conformance/NAME.txt exactly
-;;   oracle  native SVG -> PNG (rsvg-convert) vs bin/chart's PNG, compared
-;;           with bin/chart diff at the spec's threshold (only when
-;;           bin/chart is installed; otherwise "unverified")
+;;   oracle  native SVG -> PNG (rsvg-convert) vs bin/chart's PNG (the
+;;           committed ref/NAME.png, or a fresh build when bin/chart is
+;;           installed), aligned and compared at the spec's threshold
+;;           (see easel-conformance-oracle.el); "unverified" when
+;;           rsvg-convert is missing
 ;;
 ;; `easel-conformance-generate' writes supported.json next to this file
 ;; from the passing gallery; `easel-spec-check', compile and describe
@@ -28,6 +30,7 @@
 (require 'easel-svg)
 (require 'easel-text)
 (require 'easel-chart)
+(require 'easel-conformance-oracle)
 
 (defvar easel-conformance-directory
   (expand-file-name "test/conformance" easel-template--root)
@@ -61,11 +64,13 @@
 
 (defun easel-conformance-native (entry)
   "Compile and render gallery ENTRY natively, unrestricted by supported.json.
+The SVG is compiled in the references' time zone, the text golden in UTC.
 Return (:name :ok :features :svg :text :error)."
   (let ((easel-spec-supported-function nil)
         (spec (plist-get entry :spec)))
     (condition-case err
-        (let* ((svg (easel-svg-render (easel-compile spec)))
+        (let* ((svg (let ((easel-time-zone (easel-conformance-ref-zone)))
+                      (easel-svg-render (easel-compile spec))))
                (text (concat (substring-no-properties
                               (easel-text-render (easel-compile spec :target 'text :size easel-conformance-text-size)))
                              "\n"))
@@ -79,28 +84,6 @@ Return (:name :ok :features :svg :text :error)."
                 :svg svg :text text
                 :error (unless matches (list :code "GOLDEN_MISMATCH" :message "text differs from its golden"))))
       (easel-error (list :name (plist-get entry :name) :ok nil :features nil :error (easel-error-plist err))))))
-
-(defun easel-conformance-oracle (entry native)
-  "Compare NATIVE's SVG for ENTRY with bin/chart.  Return (:status :detail).
-STATUS is \"pass\", \"fail\" or \"unverified\" (with the reason)."
-  (cond
-   ((easel-chart-missing-reason) (list :status "unverified" :detail (easel-chart-missing-reason)))
-   ((not (executable-find easel-chart-rsvg-program))
-    (list :status "unverified" :detail (format "%s is not on PATH" easel-chart-rsvg-program)))
-   ((not (plist-get native :ok)) (list :status "fail" :detail "native rendering failed"))
-   (t (let ((mine (make-temp-file "easel-native" nil ".png"))
-            (ref (make-temp-file "easel-ref" nil ".png")))
-        (unwind-protect
-            (condition-case err
-                (progn
-                  (easel-chart-rasterize (plist-get native :svg) mine)
-                  (with-temp-file ref
-                    (set-buffer-multibyte nil)
-                    (insert (easel-chart-build (plist-get entry :spec) "png")))
-                  (let ((result (easel-chart-diff mine ref (plist-get entry :threshold))))
-                    (list :status (if (car result) "pass" "fail") :detail (cdr result))))
-              (easel-error (list :status "fail" :detail (plist-get (easel-error-plist err) :message))))
-          (delete-file mine) (delete-file ref))))))
 
 (defun easel-conformance-run (&optional oracle)
   "Run the gallery natively (and against bin/chart when ORACLE is non-nil)."
@@ -172,7 +155,11 @@ STATUS is \"pass\", \"fail\" or \"unverified\" (with the reason)."
                                                            when (equal (plist-get v :oracle) "verified")
                                                            collect (easel-key-name k)))
                                :extensions (vconcat (mapcar #'easel-key-name (easel-plist-keys (plist-get data :extensions))))
-                               :oracle (or (easel-chart-missing-reason) "bin/chart available"))
+                               :oracle (cond ((easel-chart-available-p) "bin/chart available")
+                                             ((executable-find easel-chart-rsvg-program)
+                                              "committed bin/chart references (test/conformance/ref)")
+                                             (t (format "unverified here: %s is not on PATH"
+                                                        easel-chart-rsvg-program))))
                        :null))))
 
 (with-eval-after-load 'easel-describe

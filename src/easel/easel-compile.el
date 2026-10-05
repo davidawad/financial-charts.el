@@ -28,6 +28,9 @@
 (require 'easel-hit)
 (require 'easel-compile-scales)
 (require 'easel-compile-place)
+(require 'easel-marks-bounds)
+(require 'easel-theme)
+(require 'easel-legend)
 
 (defvar easel-compile-gc-threshold (* 64 1024 1024)
   "GC threshold compile runs under; compile allocates many small plists.")
@@ -71,7 +74,9 @@
          (derived (easel-encode-derive enc rows env))
          (mark (plist-get node :mark))
          (unit (list :path path :name (plist-get node :name)
-                     :mark (if (stringp mark) (list :type mark) mark)
+                     :mark (easel-marks-resolve-mark
+                            mark (or (plist-get ctx :config)
+                                     (easel-theme-merge easel-theme-vega-lite easel-theme-default)))
                      :encoding (car derived) :rows (vconcat (cdr derived)) :env env
                      :aggregated (seq-some (lambda (d) (and (easel-object-p d) (plist-get d :aggregate)))
                                            (cl-loop for (_ d) on (plist-get ctx :encoding) by #'cddr collect d))
@@ -89,6 +94,7 @@
                         enc)
                     nil)
         :path (format "%s/%s/%d" (plist-get ctx :path) (easel-key-name key) i)
+        :config (plist-get ctx :config)
         :width (or (plist-get node :width) (plist-get ctx :width))
         :height (or (plist-get node :height) (plist-get ctx :height))))
 
@@ -132,24 +138,34 @@
                                                       (list :node node :ctx uctx)))))))
         (unless group (list :group g)))))))
 
-(defun easel-compile--scales (group state)
+(defun easel-compile--scales (group state metrics)
   "Build GROUP's scales, axis defs and legend specs; STATE gives zooms."
   (let* ((units (plist-get group :units))
+         (config (plist-get metrics :config))
          (zoom (plist-get (plist-get state :domains) (easel-key (plist-get group :id))))
-         (color (easel-compile-color-scale units))
+         (color (easel-compile-color-scale units config))
+         (size (easel-compile-aux-scale units :size [4 361]))
+         (opacity (easel-compile-aux-scale units :opacity [0.3 0.8]))
          (first-def (lambda (ch) (cdar (easel-compile--defs units ch))))
-         (shape (let ((type (plist-get (plist-get (car units) :mark) :type)))
+         (unit (car units))
+         (shape (let ((type (plist-get (plist-get unit :mark) :type)))
                   (cond ((member type '("bar" "rect" "area" "square")) "square")
-                        ((member type '("line" "rule")) "stroke") (t "circle")))))
+                        ((member type '("line" "rule")) "stroke") (t "circle"))))
+         (style (easel-marks-legend-style unit metrics))
+         (spec (lambda (channel def scale)
+                 (list :channel channel :def def :scale scale :shape shape :style style))))
     (plist-put group :scales
                (append (cl-loop for ch in '(:x :y)
                                 for s = (easel-compile-position-scale units ch (plist-get zoom ch))
                                 when s append (list ch s))
                        (when color (list (nth 0 color) (nth 2 color)))
-                       (when-let* ((s (easel-compile-aux-scale units :size [9 361]))) (list :size s))
-                       (when-let* ((s (easel-compile-aux-scale units :opacity [0.3 0.8]))) (list :opacity s))))
+                       (when size (list :size size))
+                       (when opacity (list :opacity opacity))))
     (plist-put group :axis-defs (list :x (funcall first-def :x) :y (funcall first-def :y)))
-    (plist-put group :legend-specs (when color (list (list (nth 0 color) (nth 1 color) (nth 2 color) shape))))))
+    (plist-put group :legend-specs
+               (delq nil (list (when color (funcall spec (nth 0 color) (nth 1 color) (nth 2 color)))
+                               (when size (funcall spec :size (funcall first-def :size) size))
+                               (when opacity (funcall spec :opacity (funcall first-def :opacity) opacity)))))))
 
 (defun easel-compile--ranges (group)
   "Map GROUP's positional scales onto its placed plot."
@@ -204,24 +220,28 @@
                  (plist-get group :units)))
          (legend-y (plist-get group :y0)))
     (list :id (plist-get group :id) :path (plist-get group :path) :bounds bounds
-          ;; Vega-Lite clips marks only on request or once scales are zoomed.
-          :clip (if (or (plist-get (plist-get state :domains) (easel-key (plist-get group :id)))
-                        (seq-some (lambda (u) (eq (plist-get (plist-get u :mark) :clip) t))
-                                  (plist-get group :units)))
-                    t :false)
-          ;; Vega-Lite frames each plot (config.view.stroke); terminals don't.
-          :frame (unless (easel-layout-text-p metrics) (list :stroke "#ddd"))
+          :clip (if (easel-compile--clipped-p group state) t :false)
+          ;; Vega-Lite frames each plot with config.view.stroke; terminals don't.
+          :frame (let ((stroke (plist-get (easel-theme-get (plist-get metrics :config) :view) :stroke)))
+                   (unless (or (easel-layout-text-p metrics) (eq stroke :null))
+                     (list :stroke (if (stringp stroke) stroke "#ddd"))))
           :scales scales
           :axes (vconcat (mapcar (lambda (axis)
                                    (easel-layout-axis-place
                                     axis (plist-get scales (easel-key (plist-get axis :channel))) bounds metrics))
                                  (plist-get group :axes-model)))
-          :legends (vconcat (mapcar (lambda (legend)
-                                      (prog1 (easel-layout-legend-place
-                                              legend (+ (aref bounds 0) (aref bounds 2) (plist-get metrics :legend-offset))
-                                              legend-y metrics)
-                                        (setq legend-y (+ legend-y (cdr (easel-layout-legend-size legend metrics))))))
-                                    (plist-get group :legends-model)))
+          :legends (vconcat
+                    (if (easel-layout-text-p metrics)
+                        (mapcar (lambda (legend)
+                                  (prog1 (easel-legend-place
+                                          legend (+ (aref bounds 0) (aref bounds 2) (plist-get metrics :legend-offset))
+                                          legend-y metrics)
+                                    (setq legend-y (+ legend-y (cdr (easel-legend-size legend metrics))))))
+                                (plist-get group :legends-model))
+                      (cl-mapcar (lambda (legend at)
+                                   (easel-legend-place legend (+ (aref bounds 0) (car at)) (+ (aref bounds 1) (cdr at))
+                                                       metrics))
+                                 (plist-get group :legends-model) (plist-get group :legend-offsets))))
           :marks (vconcat (append marks (easel-compile--brushes group state)))
           :params (vconcat (mapcar (lambda (p) (plist-get p :name)) (plist-get group :params))))))
 
@@ -257,22 +277,72 @@ compiling again."
       (easel-signal "UNSUPPORTED_FEATURE" (plist-get unsupported :message)
                     :path (plist-get unsupported :path) :feature (plist-get unsupported :feature)))
     (let* ((target (or target 'svg))
-           (metrics (easel-layout-metrics target cell))
+           (config (easel-theme-merge easel-theme-vega-lite easel-theme-default
+                                      (let ((c (plist-get spec :config))) (and (easel-object-p c) c))))
+           (metrics (easel-layout-metrics target cell config))
            (cellv (plist-get metrics :cell))
            (size (cond ((and (consp size) (plist-get size :cols))
                         (cons (* (plist-get size :cols) (aref cellv 0)) (* (plist-get size :rows) (aref cellv 1))))
                        (t size)))
            (rows (if (easel-data-p rows) (plist-get rows :rows) rows))
            (env (easel-compile--env spec state))
-           (tree (easel-compile--collect spec (list :path "" :rows [] :transforms nil :encoding nil)
+           (tree (easel-compile--collect spec (list :path "" :rows [] :transforms nil :encoding nil :config config)
                                          env rows nil))
            (groups (easel-place--groups tree))
            (title (easel-compile--title spec))
            (title-h (if title (+ (plist-get metrics :chart-title-size) (plist-get metrics :chart-title-pad)) 0)))
-      (dolist (g groups) (easel-compile--scales g state))
+      (dolist (g groups) (easel-compile--scales g state metrics))
       (let ((total (easel-place-layout tree metrics title-h size)))
         (dolist (g groups) (easel-compile--ranges g))
+        ;; Vega's canvas also holds whatever the marks overhang: measure
+        ;; them, lay out again around them and move the items along.
+        ;; Charts fitted to a size (Emacs windows) skip this; their
+        ;; overhang mostly falls in the padding, and measuring would
+        ;; compute every item twice.
+        (when (and (null size) (not (easel-layout-text-p metrics))
+                   (easel-compile--measure-marks groups metrics state))
+          (let ((origins (mapcar (lambda (g) (cons (plist-get g :x0) (plist-get g :y0))) groups)))
+            (setq total (easel-place-layout tree metrics title-h nil t))
+            (cl-loop for g in groups for o in origins
+                     do (easel-compile--ranges g)
+                     (let ((dx (- (plist-get g :x0) (car o))) (dy (- (plist-get g :y0) (cdr o))))
+                       (dolist (u (plist-get g :units))
+                         (plist-put u :items (easel-marks-translate (plist-get u :items) dx dy)))))))
         (list :spec spec :metrics metrics :groups groups :total total :title title :env env)))))
+
+(defun easel-compile--clipped-p (group state)
+  "Non-nil when GROUP's marks are clipped to its plot.
+Vega-Lite clips zoomable views (a param bound to scales), marks with
+clip: true, and easel clips views zoomed in STATE."
+  (or (plist-get (plist-get state :domains) (easel-key (plist-get group :id)))
+      (seq-some (lambda (p) (equal (plist-get p :bind) "scales")) (plist-get group :params))
+      (seq-some (lambda (u) (eq (plist-get (plist-get u :mark) :clip) t)) (plist-get group :units))))
+
+(defun easel-compile--measure-marks (groups metrics state)
+  "Compute GROUPS' items and record how far they overhang each plot.
+Sets :mark-over [LEFT TOP RIGHT BOTTOM] and :scope-over (series marks'
+overhang on the right) in pixels; clipped views overhang nothing, as in
+Vega.  Return non-nil when anything overhangs, so chrome may grow."
+  (let (grew)
+    (dolist (g groups)
+      (let* ((x0 (plist-get g :x0)) (y0 (plist-get g :y0)) (w (plist-get g :w)) (h (plist-get g :h))
+             (bounds (vector x0 y0 w h))
+             (over (lambda (b) (if b (vector (max 0 (- x0 (aref b 0))) (max 0 (- y0 (aref b 1)))
+                                             (max 0 (- (aref b 2) x0 w)) (max 0 (- (aref b 3) y0 h)))
+                                 (vector 0 0 0 0))))
+             mbox sbox)
+        (dolist (u (plist-get g :units))
+          (unless (plist-get u :items)
+            (plist-put u :items (easel-marks-items u (plist-get g :scales) bounds metrics)))
+          (unless (easel-compile--clipped-p g state)
+            (let ((b (easel-marks-bounds u metrics)))
+              (setq mbox (easel-layout-union mbox b))
+              (when (easel-marks-scope-p u) (setq sbox (easel-layout-union sbox b))))))
+        (let ((m (funcall over mbox)))
+          (when (seq-some #'cl-plusp m) (setq grew t))
+          (plist-put g :mark-over m)
+          (plist-put g :scope-over (aref (funcall over sbox) 2)))))
+    grew))
 
 (defun easel-compile-scene (plan state)
   "Assemble scene/v1 from PLAN under view STATE, reusing cached items."
@@ -282,11 +352,20 @@ compiling again."
     (append
      (list :contract "scene/v1" :target (plist-get metrics :target)
            :size (list :w (car total) :h (cdr total) :cell (plist-get metrics :cell))
-           :background (let ((bg (plist-get spec :background))) (if (stringp bg) bg "white")))
+           :background (let ((bg (plist-get spec :background)))
+                         (if (stringp bg) bg (or (easel-theme-get (plist-get metrics :config) :background) "white")))
+           :config (plist-get metrics :config))
      (when title
-       (list :title (list :text title :x (/ (car total) 2.0) :y (plist-get metrics :pad)
-                          :align "center" :baseline "top"
-                          :fontSize (plist-get metrics :chart-title-size))))
+       (let* ((x1 (apply #'min (mapcar (lambda (g) (plist-get g :x0)) groups)))
+              (x2 (apply #'max (mapcar (lambda (g) (+ (plist-get g :x0) (plist-get g :w))) groups)))
+              (anchor (if (easel-layout-text-p metrics) "middle" (plist-get metrics :chart-title-anchor))))
+         (list :title (list :text title
+                            :x (pcase anchor ("start" x1) ("end" x2)
+                                 (_ (if (easel-layout-text-p metrics) (/ (car total) 2.0) (/ (+ x1 x2) 2.0))))
+                            :y (plist-get metrics :pad)
+                            :align (pcase anchor ("start" "left") ("end" "right") (_ "center")) :baseline "top"
+                            :fontSize (plist-get metrics :chart-title-size)
+                            :fontWeight (plist-get metrics :chart-title-weight)))))
      (list :views (vconcat (mapcar (lambda (g) (easel-compile--view g metrics state)) groups))
            :params (vconcat (apply #'append (mapcar (lambda (g) (plist-get g :params)) groups)))))))
 

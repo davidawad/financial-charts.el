@@ -53,7 +53,8 @@
     (should (equal (get-text-property pos 'easel-view text) "main"))
     (should (equal (get-text-property pos 'easel-mark text) "main/0"))
     (should (equal (get-text-property pos 'help-echo text) "category: Fri\nvalue: 12050"))
-    (should (equal (plist-get (get-text-property pos 'face text) :foreground) "#4c78a8"))))
+    (should (equal (plist-get (get-text-property pos 'face text) :foreground)
+                   (easel-theme-get easel-theme-default :mark :color)))))
 
 (ert-deftest easel-render-text-line-cells-map-to-nearest-datum ()
   (let* ((scene (easel-compile (easel-resolve "line" (easel-template-example "line"))
@@ -93,7 +94,8 @@
          (svg (easel-svg-render scene '(:background "#111111" :axis (:labelColor "#eeeeee")))))
     (should (string-match-p "fill=\"#111111\"" svg))
     (should (string-match-p "fill=\"#eeeeee\"" svg))
-    (should (string-match-p "stroke=\"#888\"" svg))))
+    ;; Keys the theme leaves alone keep the scene's config (the default theme).
+    (should (string-match-p (format "stroke=\"%s\"" (easel-theme-get easel-theme-default :axis :domainColor)) svg))))
 
 (ert-deftest easel-render-svg-escapes-text ()
   (let ((svg (easel-svg-render (easel-compile '(:title "a < b & c" :data (:values [(:x 1)]) :mark "point"

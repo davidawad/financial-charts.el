@@ -107,6 +107,8 @@
                  (and (member type '("linear" "log")) positional (not binned) (not custom)))))
     (append (easel-scale-continuous type lo hi [0 1] :zero zero :nice nice
                                     :field (plist-get def :field)
+                                    ;; utc scales tick and label in UTC whatever `easel-time-zone' is.
+                                    :utc (if (equal (plist-get sp :type) "utc") t :false)
                                     :reverse (if (eq (plist-get sp :reverse) t) t :false))
             ;; Vega-Lite pads a bar's continuous dimension by continuousBandSize.
             (let ((pad (or (plist-get sp :padding)
@@ -141,15 +143,20 @@ ZOOM is a [LO HI] domain from view state, or nil."
            (values (easel-compile--values pairs channel))
            (sp (plist-get (cdar pairs) :scale)))
       (if (member type '("band" "point"))
-          (let* ((rect (seq-every-p (lambda (p) (equal (plist-get (plist-get (car p) :mark) :type) "rect")) pairs))
-                 (inner (or (plist-get sp :paddingInner) (plist-get sp :padding) (if rect 0 nil)))
-                 (outer (or (plist-get sp :paddingOuter) (plist-get sp :padding) (if rect 0 nil))))
+          (let* ((only (lambda (type) (seq-every-p (lambda (p) (equal (plist-get (plist-get (car p) :mark) :type) type))
+                                                   pairs)))
+                 (rect (funcall only "rect"))
+                 ;; Vega-Lite: rect bands touch; tick bands pad 0.25 inside, 0.125 outside.
+                 (tick (and (equal type "band") (funcall only "tick")))
+                 (inner (or (plist-get sp :paddingInner) (plist-get sp :padding) (cond (rect 0) (tick 0.25))))
+                 (outer (or (plist-get sp :paddingOuter) (plist-get sp :padding) (cond (rect 0) (tick 0.125)))))
             (append (easel-scale-band type (easel-compile--discrete-domain pairs values) [0 1] inner outer)
                     (list :field (plist-get (cdar pairs) :field) :padding-inner inner :padding-outer outer)))
         (easel-compile--continuous type pairs channel values zoom)))))
 
-(defun easel-compile-color-scale (units)
-  "Return (CHANNEL DEF SCALE) for the first field-mapped color channel."
+(defun easel-compile-color-scale (units &optional config)
+  "Return (CHANNEL DEF SCALE) for the first field-mapped color channel.
+Ranges come from CONFIG's range.category, .heatmap and .ramp."
   (cl-loop for channel in '(:color :fill :stroke)
            for pairs = (seq-filter (lambda (p) (plist-get (cdr p) :field))
                                    (easel-compile--defs units channel))
@@ -160,6 +167,7 @@ ZOOM is a [LO HI] domain from view state, or nil."
                           (if (easel-encode-discrete-p def)
                               (append (easel-scale-ordinal (easel-compile--discrete-domain pairs values)
                                                            (or (and (vectorp (plist-get sp :range)) (plist-get sp :range))
+                                                               (easel-compile--config-range config :category)
                                                                easel-scale-tableau10))
                                       (list :field (plist-get def :field)))
                             (let ((nums (if (equal (plist-get def :type) "temporal")
@@ -171,9 +179,14 @@ ZOOM is a [LO HI] domain from view state, or nil."
                                                ;; Vega-Lite: config.range.heatmap for rect, ramp otherwise.
                                                (if (seq-some (lambda (p) (equal (plist-get (plist-get (car p) :mark) :type) "rect"))
                                                              pairs)
-                                                   easel-scale-yellowgreenblue
-                                                 easel-scale-blues))
+                                                   (or (easel-compile--config-range config :heatmap)
+                                                       easel-scale-yellowgreenblue)
+                                                 (or (easel-compile--config-range config :ramp) easel-scale-blues)))
                                     :field (plist-get def :field))))))))
+
+(defun easel-compile--config-range (config key)
+  "CONFIG's range KEY when it is an explicit array of colors."
+  (let ((r (plist-get (plist-get config :range) key))) (and (vectorp r) (> (length r) 0) r)))
 
 (defun easel-compile-aux-scale (units channel range)
   "Linear scale for CHANNEL (size or opacity) onto RANGE, or nil."

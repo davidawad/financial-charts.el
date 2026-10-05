@@ -1,5 +1,62 @@
 {
-  "background": "white",
+  "background": "#fcfcfb",
+  "config": {
+    "arc": {"stroke": "#fcfcfb", "strokeWidth": 2},
+    "area": {"opacity": 0.85},
+    "axis": {
+      "domainColor": "#c3c2b7",
+      "domainWidth": 1,
+      "gridColor": "#e1e0d9",
+      "gridWidth": 1,
+      "labelColor": "#52514e",
+      "labelFontSize": 11,
+      "labelPadding": 4,
+      "tickColor": "#c3c2b7",
+      "tickSize": 4,
+      "titleColor": "#52514e",
+      "titleFontSize": 12,
+      "titleFontWeight": "normal"
+    },
+    "axisX": {"grid": false},
+    "background": "#fcfcfb",
+    "bar": {"cornerRadiusEnd": 4},
+    "circle": {"size": 64},
+    "font": "sans-serif",
+    "legend": {
+      "labelColor": "#52514e",
+      "labelFontSize": 11,
+      "symbolSize": 80,
+      "symbolType": "circle",
+      "titleColor": "#52514e",
+      "titleFontSize": 11,
+      "titleFontWeight": "normal"
+    },
+    "line": {"strokeCap": "round", "strokeJoin": "round", "strokeWidth": 2},
+    "mark": {"color": "#2a78d6"},
+    "point": {"filled": true, "size": 64},
+    "range": {
+      "category": ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"],
+      "diverging": ["#256abf", "#6da7ec", "#cde2fb", "#f0efec", "#f6c3bd", "#ee7d78", "#c0392b"],
+      "heatmap": ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"],
+      "ordinal": ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"],
+      "ramp": ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
+    },
+    "rect": {"stroke": "#fcfcfb", "strokeWidth": 1},
+    "rule": {"color": "black"},
+    "square": {"size": 30},
+    "text": {"color": "black", "fontSize": 11},
+    "tick": {"thickness": 1},
+    "title": {
+      "anchor": "start",
+      "color": "#0b0b0b",
+      "fontSize": 16,
+      "fontWeight": 600,
+      "offset": 12,
+      "subtitleColor": "#52514e",
+      "subtitleFontSize": 12
+    },
+    "view": {"continuousHeight": 300, "continuousWidth": 480, "stroke": null}
+  },
   "contract": "scene/v1",
   "params": [],
   "size": {
@@ -8,7 +65,15 @@
     "w": 420
   },
   "target": "text",
-  "title": {"align": "center", "baseline": "top", "fontSize": 14, "text": "Daily value", "x": 210.0, "y": 0},
+  "title": {
+    "align": "center",
+    "baseline": "top",
+    "fontSize": 14,
+    "fontWeight": {},
+    "text": "Daily value",
+    "x": 210.0,
+    "y": 0
+  },
   "views": [
     {
       "axes": [
@@ -16,14 +81,14 @@
           "channel": "x",
           "discrete": false,
           "domain-line": [28, 189.0, 420, 189.0],
-          "grid": true,
+          "grid": false,
           "labelAngle": 0,
           "orient": "bottom",
+          "overlap": "parity",
           "ticks": [
             {
               "align": "center",
               "baseline": "top",
-              "grid": [71.556, 28, 71.556, 182],
               "label": "Tue 03",
               "lx": 71.556,
               "ly": 196,
@@ -34,7 +99,6 @@
             {
               "align": "center",
               "baseline": "top",
-              "grid": [158.667, 28, 158.667, 182],
               "label": "Thu 05",
               "lx": 158.667,
               "ly": 196,
@@ -45,7 +109,6 @@
             {
               "align": "center",
               "baseline": "top",
-              "grid": [245.778, 28, 245.778, 182],
               "label": "Sat 07",
               "lx": 245.778,
               "ly": 196,
@@ -56,7 +119,6 @@
             {
               "align": "center",
               "baseline": "top",
-              "grid": [332.889, 28, 332.889, 182],
               "label": "Mon 09",
               "lx": 332.889,
               "ly": 196,
@@ -67,7 +129,6 @@
             {
               "align": "right",
               "baseline": "top",
-              "grid": [420.0, 28, 420.0, 182],
               "label": "Wed 11",
               "lx": 420.0,
               "ly": 196,
@@ -77,8 +138,7 @@
             }
           ],
           "title": "date",
-          "title-mark": {"align": "center", "angle": 0, "baseline": "top", "text": "date", "x": 224.0, "y": 210},
-          "top-gap": {}
+          "title-mark": {"align": "center", "angle": 0, "baseline": "top", "text": "date", "x": 224.0, "y": 210}
         },
         {
           "channel": "y",
@@ -87,6 +147,7 @@
           "grid": true,
           "labelAngle": 0,
           "orient": "left",
+          "overlap": "parity",
           "ticks": [
             {
               "align": "right",
@@ -145,8 +206,7 @@
             }
           ],
           "title": "value",
-          "title-mark": {"align": "left", "angle": 0, "baseline": "top", "text": "value", "x": 0, "y": 14},
-          "top-gap": 15.4
+          "title-mark": {"align": "left", "angle": 0, "baseline": "top", "text": "value", "x": 0, "y": 14}
         }
       ],
       "bounds": [28, 28, 392, 154],
@@ -186,7 +246,9 @@
                 [376.444, 37.24],
                 [420.0, 58.8]
               ],
-              "stroke": "#4c78a8",
+              "stroke": "#2a78d6",
+              "strokeCap": "round",
+              "strokeJoin": "round",
               "strokeWidth": 2
             }
           ],
@@ -212,14 +274,16 @@
           "field": "date",
           "range": [28, 420],
           "reverse": false,
-          "type": "time"
+          "type": "time",
+          "utc": false
         },
         "y": {
           "domain": [101.0, 111.0],
           "field": "value",
           "range": [182, 28],
           "reverse": false,
-          "type": "linear"
+          "type": "linear",
+          "utc": false
         }
       }
     }

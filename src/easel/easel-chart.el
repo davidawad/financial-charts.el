@@ -6,11 +6,13 @@
 ;;; Commentary:
 
 ;; bin/chart (chart-runtime) renders any resolved Vega-Lite
-;; spec statically and compares images.  easel uses it twice: as the
-;; conformance oracle, and to display specs whose features the native
-;; engine does not support.  The command lines are variables because
-;; they are an assumption here: adjust `easel-chart-build-args' and
-;; `easel-chart-diff-args' if bin/chart's flags differ.
+;; spec statically.  easel uses it twice: as the conformance oracle
+;; (its builds are the reference images), and to display specs whose
+;; features the native engine does not support.  The command lines are
+;; variables because they are an assumption here: adjust
+;; `easel-chart-build-args' and `easel-chart-theme-args' if bin/chart's
+;; flags differ.  Images are compared by `easel-png-compare', not
+;; `bin/chart diff', which scores any canvas size mismatch as total.
 
 ;;; Code:
 
@@ -25,10 +27,8 @@
 The output format follows OUT-FILE's extension (.svg or .png).  OUT-FILE
 already exists (`make-temp-file' creates it), hence --force.")
 
-(defvar easel-chart-diff-args
-  (lambda (a b threshold) (list "diff" a b "--threshold" (format "%s" threshold)))
-  "Function (A B THRESHOLD) -> argument list comparing two PNGs.
-Exit status 0 means the images agree within THRESHOLD.")
+(defvar easel-chart-theme-args '("theme" "--json")
+  "Arguments printing bin/chart's default theme as {config, hash, source}.")
 
 (defvar easel-chart-rsvg-program "rsvg-convert"
   "Rasterizer turning native SVG into PNG for oracle diffs.")
@@ -43,10 +43,11 @@ Exit status 0 means the images agree within THRESHOLD.")
          (format "bin/chart (%s) is not on PATH; install bin/chart" easel-chart-program))
         (t nil)))
 
-(defun easel-chart--run (args)
-  "Run bin/chart with ARGS; return (EXIT . OUTPUT)."
+(defun easel-chart--run (args &optional stdout-only)
+  "Run bin/chart with ARGS; return (EXIT . OUTPUT).
+OUTPUT includes stderr unless STDOUT-ONLY."
   (with-temp-buffer
-    (let ((exit (apply #'call-process easel-chart-program nil t nil args)))
+    (let ((exit (apply #'call-process easel-chart-program nil (if stdout-only '(t nil) t) nil args)))
       (cons exit (buffer-string)))))
 
 (defun easel-chart-build (spec format)
@@ -71,10 +72,21 @@ bin/chart is absent and ENGINE_FAILED when it fails."
       (delete-file in)
       (delete-file out))))
 
-(defun easel-chart-diff (png-a png-b threshold)
-  "Compare PNG files PNG-A and PNG-B with bin/chart; return (PASS . OUTPUT)."
-  (let ((result (easel-chart--run (funcall easel-chart-diff-args png-a png-b threshold))))
-    (cons (zerop (car result)) (string-trim (cdr result)))))
+(defun easel-chart-theme ()
+  "bin/chart's default theme, parsed: (:config CONFIG :hash HASH ...).
+Signals NOT_FOUND when bin/chart is absent and ENGINE_FAILED when it fails."
+  (when-let* ((reason (easel-chart-missing-reason)))
+    (easel-signal "NOT_FOUND" reason :program easel-chart-program))
+  (let ((result (easel-chart--run easel-chart-theme-args t)))
+    (unless (zerop (car result))
+      (easel-signal "ENGINE_FAILED" (format "bin/chart theme failed: %s" (string-trim (cdr result)))
+                    :exit (car result)))
+    ;; `chart theme --json' prints the chart/v1 envelope:
+    ;; {"data": {"config": {...}, "config_hash": "sha256:..."}}.
+    (let* ((parsed (easel-json-parse (cdr result)))
+           (data (or (plist-get parsed :data) parsed)))
+      (list :config (plist-get data :config)
+            :hash (or (plist-get data :config_hash) (plist-get data :hash))))))
 
 (defun easel-chart-rasterize (svg png-file)
   "Rasterize SVG (a string) to PNG-FILE with `easel-chart-rsvg-program'."

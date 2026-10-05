@@ -9,8 +9,9 @@
 ;; mark definition) plus its view's scales into scene items.  Every
 ;; item carries :datum, the index of its row in the mark's :rows, and
 ;; fully resolved style, tooltip and href, so renderers decide nothing.
-;; Defaults follow Vega-Lite's config: color #4c78a8, point size 30
-;; hollow, opacity 0.7 for point-like marks, line width 2, rule 1.
+;; Mark definitions arrive with their config defaults resolved
+;; (`easel-marks-resolve-mark'); the remaining fallbacks are Vega-Lite's:
+;; opacity 0.7 for point-like marks, line width 2, rule 1.
 
 ;;; Code:
 
@@ -190,6 +191,38 @@ Returns the plot centre when the channel is absent."
                               scales row)))
                    (easel-marks--extras unit row)))))))
 
+(defun easel-marks--stack-ends (unit measure dim)
+  "Hash of (DIM-VALUE . SIGN) -> the extreme MEASURE value of UNIT's stacks."
+  (let* ((enc (plist-get unit :encoding)) (mdef (plist-get enc measure)) (ddef (plist-get enc dim))
+         (key (easel-encode-field mdef)) (ends (make-hash-table :test 'equal)))
+    (seq-doseq (row (plist-get unit :rows))
+      (let ((v (plist-get row key)) (g (and ddef (easel-encode-raw ddef row))))
+        (when (numberp v)
+          (let* ((k (cons g (>= v 0))) (old (gethash k ends)))
+            (when (or (null old) (if (>= v 0) (> v old) (< v old))) (puthash k v ends))))))
+    ends))
+
+(defun easel-marks--corners (unit horizontal)
+  "Function ROW -> corner radii [TL TR BR BL] of UNIT's bar for ROW, or nil.
+Vega-Lite rounds a stack's end by cornerRadiusEnd and both ends of a
+ranged (x2/y2) bar."
+  (let* ((mark (plist-get unit :mark)) (enc (plist-get unit :encoding))
+         (r (or (plist-get mark :cornerRadiusEnd) 0)) (all (or (plist-get mark :cornerRadius) 0)))
+    (cond
+     ((and (zerop r) (zerop all)) nil)
+     ((or (plist-get enc :x2) (plist-get enc :y2))
+      (let ((c (max r all))) (lambda (_) (vector c c c c))))
+     (t (let* ((measure (if horizontal :x :y)) (dim (if horizontal :y :x))
+               (key (easel-encode-field (plist-get enc measure)))
+               (ddef (plist-get enc dim))
+               (ends (easel-marks--stack-ends unit measure dim)))
+          (lambda (row)
+            (let ((v (plist-get row key)))
+              (when (and (numberp v) (equal v (gethash (cons (and ddef (easel-encode-raw ddef row)) (>= v 0)) ends)))
+                (pcase (list horizontal (>= v 0))
+                  ('(nil t) (vector r r all all)) ('(nil nil) (vector all all r r))
+                  ('(t t) (vector all r r all)) (_ (vector r all all r)))))))))))
+
 (defun easel-marks--bar-row (unit scales bounds metrics)
   "Row builder (ROW I -> item) for bar and rect marks."
   (let* ((mark (plist-get unit :mark))
@@ -197,7 +230,9 @@ Returns the plot centre when the channel is absent."
          (xband (member (plist-get xs :type) '("band" "point")))
          (yband (member (plist-get ys :type) '("band" "point")))
          (horizontal (and yband (not xband)))
-         (thin (if (easel-layout-text-p metrics) (aref (plist-get metrics :cell) 0) 5)))
+         (text (easel-layout-text-p metrics))
+         (corners (and (not text) (equal (plist-get mark :type) "bar") (easel-marks--corners unit horizontal)))
+         (thin (if text (aref (plist-get metrics :cell) 0) 5)))
     (lambda (row i)
        (cl-flet ((span (channel scale band other-band)
                    (let* ((p (easel-marks--pos unit scales channel row bounds t))
@@ -207,7 +242,8 @@ Returns the plot centre when the channel is absent."
                       (band (cons p (+ p (plist-get scale :bandwidth))))
                       (q (if (and (plist-get (plist-get (plist-get unit :encoding) channel) :bin-end)
                                   (not other-band))
-                             (cons (min (+ p 1) q) (max (+ p 1) q))
+                             ;; Vega-Lite's binSpacing: one pixel between adjacent bins.
+                             (cons (+ (min p q) (if text 1 0.5)) (- (max p q) (if text 0 0.5)))
                            (cons (min p q) (max p q))))
                       ((and (eq channel (if horizontal :x :y)) (not (equal (plist-get mark :type) "rect")))
                        (let ((z (easel-marks--zero scale bounds channel))) (cons (min p z) (max p z))))
@@ -218,6 +254,7 @@ Returns the plot centre when the channel is absent."
                            ;; Which edge grows with the value; text partial blocks use it.
                            :orient (cond ((equal (plist-get mark :type) "rect") "none")
                                          (horizontal "horizontal") (t "vertical")))
+                     (when-let* ((c (and corners (funcall corners row)))) (list :corners c))
                      (easel-marks--style unit scales row)
                      (easel-marks--extras unit row))))))))
 
@@ -232,13 +269,14 @@ Returns the plot centre when the channel is absent."
               (x2 (and (plist-get enc :x2) (easel-marks--secondary unit scales :x row)))
               (y2 (and (plist-get enc :y2) (easel-marks--secondary unit scales :y row)))
               (ys (plist-get scales :y)) (xs (plist-get scales :x))
+              (xdisc (member (plist-get xs :type) '("band" "point")))
               (half (/ (or (plist-get mark :size)
-                           (let ((s (if (plist-get ys :bandwidth) ys xs)))
-                             (if (and s (> (or (plist-get s :bandwidth) 0) 0)) (* 0.75 (plist-get s :bandwidth)) 14)))
+                           (let ((s (if xdisc xs ys)))
+                             (if (and s (> (or (plist-get s :bandwidth) 0) 0)) (plist-get s :bandwidth)
+                               (or (plist-get mark :bandSize) 5))))
                        2.0))
               (seg (cond
-                    ((and tick x y (member (plist-get ys :type) '("band" "point")))
-                     (vector x (- y half) x (+ y half)))
+                    ((and tick x y (not xdisc)) (vector x (- y half) x (+ y half)))
                     ((and tick x y) (vector (- x half) y (+ x half) y))
                     ((and x y y2) (vector x y x y2))
                     ((and x y x2) (vector x y x2 y))
@@ -304,6 +342,7 @@ Returns the plot centre when the channel is absent."
                   (when area
                     (list :base (vconcat (mapcar #'vconcat (easel-marks--step (mapcar (lambda (p) (list (nth 0 p) (nth 3 p))) kept) mode)))))
                   (list :strokeWidth (or (plist-get mark :strokeWidth) (if area 0 2)))
+                  (unless area (list :strokeCap (plist-get mark :strokeCap) :strokeJoin (plist-get mark :strokeJoin)))
                   (when (plist-get mark :strokeDash) (list :strokeDash (plist-get mark :strokeDash)))
                   (easel-marks--style unit scales row)
                   (when (> (length pts) max-points) (list :decimated (length pts))))))

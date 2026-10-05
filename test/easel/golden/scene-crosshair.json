@@ -1,5 +1,62 @@
 {
-  "background": "white",
+  "background": "#fcfcfb",
+  "config": {
+    "arc": {"stroke": "#fcfcfb", "strokeWidth": 2},
+    "area": {"opacity": 0.85},
+    "axis": {
+      "domainColor": "#c3c2b7",
+      "domainWidth": 1,
+      "gridColor": "#e1e0d9",
+      "gridWidth": 1,
+      "labelColor": "#52514e",
+      "labelFontSize": 11,
+      "labelPadding": 4,
+      "tickColor": "#c3c2b7",
+      "tickSize": 4,
+      "titleColor": "#52514e",
+      "titleFontSize": 12,
+      "titleFontWeight": "normal"
+    },
+    "axisX": {"grid": false},
+    "background": "#fcfcfb",
+    "bar": {"cornerRadiusEnd": 4},
+    "circle": {"size": 64},
+    "font": "sans-serif",
+    "legend": {
+      "labelColor": "#52514e",
+      "labelFontSize": 11,
+      "symbolSize": 80,
+      "symbolType": "circle",
+      "titleColor": "#52514e",
+      "titleFontSize": 11,
+      "titleFontWeight": "normal"
+    },
+    "line": {"strokeCap": "round", "strokeJoin": "round", "strokeWidth": 2},
+    "mark": {"color": "#2a78d6"},
+    "point": {"filled": true, "size": 64},
+    "range": {
+      "category": ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"],
+      "diverging": ["#256abf", "#6da7ec", "#cde2fb", "#f0efec", "#f6c3bd", "#ee7d78", "#c0392b"],
+      "heatmap": ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"],
+      "ordinal": ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"],
+      "ramp": ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
+    },
+    "rect": {"stroke": "#fcfcfb", "strokeWidth": 1},
+    "rule": {"color": "black"},
+    "square": {"size": 30},
+    "text": {"color": "black", "fontSize": 11},
+    "tick": {"thickness": 1},
+    "title": {
+      "anchor": "start",
+      "color": "#0b0b0b",
+      "fontSize": 16,
+      "fontWeight": 600,
+      "offset": 12,
+      "subtitleColor": "#52514e",
+      "subtitleFontSize": 12
+    },
+    "view": {"continuousHeight": 300, "continuousWidth": 480, "stroke": null}
+  },
   "contract": "scene/v1",
   "params": [
     {
@@ -15,131 +72,159 @@
   ],
   "size": {
     "cell": [7, 14],
-    "h": 192,
-    "w": 348
+    "h": 195,
+    "w": 350
   },
   "target": "svg",
   "views": [
     {
       "axes": [
         {
+          "bounds": [42.0, 155, 344.0, 190.0],
           "channel": "x",
           "discrete": false,
-          "domain-line": [43, 155, 343, 155],
-          "grid": true,
+          "domain-line": [43.5, 156.5, 343.5, 156.5],
+          "grid": false,
           "labelAngle": 0,
           "orient": "bottom",
+          "overlap": "parity",
           "ticks": [
             {
               "align": "left",
               "baseline": "top",
-              "grid": [43.0, 5, 43.0, 155],
               "label": "2026",
-              "lx": 43.0,
-              "ly": 162,
+              "lx": 43.5,
+              "ly": 164.5,
               "pos": 43.0,
-              "tick": [43.0, 155, 43.0, 160],
+              "tick": [43.5, 156.5, 43.5, 160.5],
               "value": 1767225600000
             },
             {
               "align": "center",
               "baseline": "top",
-              "grid": [143.0, 5, 143.0, 155],
+              "label": "12 PM",
+              "lx": 93.5,
+              "ly": 164.5,
+              "pos": 93.0,
+              "tick": [93.5, 156.5, 93.5, 160.5],
+              "value": 1767268800000
+            },
+            {
+              "align": "center",
+              "baseline": "top",
               "label": "Fri 02",
-              "lx": 143.0,
-              "ly": 162,
+              "lx": 143.5,
+              "ly": 164.5,
               "pos": 143.0,
-              "tick": [143.0, 155, 143.0, 160],
+              "tick": [143.5, 156.5, 143.5, 160.5],
               "value": 1767312000000
             },
             {
               "align": "center",
               "baseline": "top",
-              "grid": [243.0, 5, 243.0, 155],
+              "label": "12 PM",
+              "lx": 193.5,
+              "ly": 164.5,
+              "pos": 193.0,
+              "tick": [193.5, 156.5, 193.5, 160.5],
+              "value": 1767355200000
+            },
+            {
+              "align": "center",
+              "baseline": "top",
               "label": "Sat 03",
-              "lx": 243.0,
-              "ly": 162,
+              "lx": 243.5,
+              "ly": 164.5,
               "pos": 243.0,
-              "tick": [243.0, 155, 243.0, 160],
+              "tick": [243.5, 156.5, 243.5, 160.5],
               "value": 1767398400000
+            },
+            {
+              "align": "center",
+              "baseline": "top",
+              "label": "12 PM",
+              "lx": 293.5,
+              "ly": 164.5,
+              "pos": 293.0,
+              "tick": [293.5, 156.5, 293.5, 160.5],
+              "value": 1767441600000
             },
             {
               "align": "right",
               "baseline": "top",
-              "grid": [343.0, 5, 343.0, 155],
               "label": "Jan 04",
-              "lx": 343.0,
-              "ly": 162,
+              "lx": 343.5,
+              "ly": 164.5,
               "pos": 343.0,
-              "tick": [343.0, 155, 343.0, 160],
+              "tick": [343.5, 156.5, 343.5, 160.5],
               "value": 1767484800000
             }
           ],
           "title": "t",
-          "title-mark": {"align": "center", "angle": 0, "baseline": "top", "text": "t", "x": 193.0, "y": 176},
-          "top-gap": {}
+          "title-mark": {"align": "center", "angle": 0, "baseline": "top", "text": "t", "x": 193.5, "y": 179.5}
         },
         {
+          "bounds": [5.765, 6, 44, 161.0],
           "channel": "y",
           "discrete": false,
-          "domain-line": [43, 5, 43, 155],
+          "domain-line": [43.5, 6.5, 43.5, 156.5],
           "grid": true,
           "labelAngle": 0,
           "orient": "left",
+          "overlap": "parity",
           "ticks": [
             {
               "align": "right",
               "baseline": "middle",
-              "grid": [43, 14.375, 343, 14.375],
-              "label": "15",
-              "lx": 36,
-              "ly": 14.375,
-              "pos": 14.375,
-              "tick": [38, 14.375, 43, 14.375],
-              "value": 15.0
+              "grid": [43.5, 156.5, 343.5, 156.5],
+              "label": "0",
+              "lx": 35.5,
+              "ly": 156.5,
+              "pos": 156.0,
+              "tick": [39.5, 156.5, 43.5, 156.5],
+              "value": 0.0
             },
             {
               "align": "right",
               "baseline": "middle",
-              "grid": [43, 61.25, 343, 61.25],
-              "label": "10",
-              "lx": 36,
-              "ly": 61.25,
-              "pos": 61.25,
-              "tick": [38, 61.25, 43, 61.25],
-              "value": 10.0
-            },
-            {
-              "align": "right",
-              "baseline": "middle",
-              "grid": [43, 108.125, 343, 108.125],
+              "grid": [43.5, 109.625, 343.5, 109.625],
               "label": "5",
-              "lx": 36,
-              "ly": 108.125,
-              "pos": 108.125,
-              "tick": [38, 108.125, 43, 108.125],
+              "lx": 35.5,
+              "ly": 109.625,
+              "pos": 109.125,
+              "tick": [39.5, 109.625, 43.5, 109.625],
               "value": 5.0
             },
             {
               "align": "right",
               "baseline": "middle",
-              "grid": [43, 155.0, 343, 155.0],
-              "label": "0",
-              "lx": 36,
-              "ly": 155.0,
-              "pos": 155.0,
-              "tick": [38, 155.0, 43, 155.0],
-              "value": 0.0
+              "grid": [43.5, 62.75, 343.5, 62.75],
+              "label": "10",
+              "lx": 35.5,
+              "ly": 62.75,
+              "pos": 62.25,
+              "tick": [39.5, 62.75, 43.5, 62.75],
+              "value": 10.0
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [43.5, 15.875, 343.5, 15.875],
+              "label": "15",
+              "lx": 35.5,
+              "ly": 15.875,
+              "pos": 15.375,
+              "tick": [39.5, 15.875, 43.5, 15.875],
+              "value": 15.0
             }
           ],
           "title": "p",
-          "title-mark": {"align": "center", "angle": -90, "baseline": "bottom", "text": "p", "x": 16, "y": 80.0},
-          "top-gap": 9.375
+          "title-mark": {"align": "center", "angle": -90, "baseline": "bottom", "text": "p", "x": 19.265, "y": 81.5}
         }
       ],
-      "bounds": [43, 5, 300, 150],
+      "bounds": [43, 6, 300, 150],
       "clip": false,
-      "frame": {"stroke": "#ddd"},
+      "frame": {},
       "id": "main",
       "legends": [],
       "marks": [
@@ -161,12 +246,14 @@
               "fill": "none",
               "opacity": 1,
               "points": [
-                [43.0, 61.25],
-                [143.0, 42.5],
-                [243.0, 51.875],
-                [343.0, 14.375]
+                [43.0, 62.25],
+                [143.0, 43.5],
+                [243.0, 52.875],
+                [343.0, 15.375]
               ],
-              "stroke": "#4c78a8",
+              "stroke": "#2a78d6",
+              "strokeCap": "round",
+              "strokeJoin": "round",
               "strokeWidth": 2
             }
           ],
@@ -196,45 +283,45 @@
               "datum": 0,
               "fill": "none",
               "opacity": 0,
-              "stroke": "#4c78a8",
+              "stroke": "black",
               "strokeWidth": 1,
               "x1": 43.0,
               "x2": 43.0,
-              "y1": 5,
-              "y2": 155
+              "y1": 6,
+              "y2": 156
             },
             {
               "datum": 1,
               "fill": "none",
               "opacity": 0,
-              "stroke": "#4c78a8",
+              "stroke": "black",
               "strokeWidth": 1,
               "x1": 143.0,
               "x2": 143.0,
-              "y1": 5,
-              "y2": 155
+              "y1": 6,
+              "y2": 156
             },
             {
               "datum": 2,
               "fill": "none",
               "opacity": 0,
-              "stroke": "#4c78a8",
+              "stroke": "black",
               "strokeWidth": 1,
               "x1": 243.0,
               "x2": 243.0,
-              "y1": 5,
-              "y2": 155
+              "y1": 6,
+              "y2": 156
             },
             {
               "datum": 3,
               "fill": "none",
               "opacity": 0,
-              "stroke": "#4c78a8",
+              "stroke": "black",
               "strokeWidth": 1,
               "x1": 343.0,
               "x2": 343.0,
-              "y1": 5,
-              "y2": 155
+              "y1": 6,
+              "y2": 156
             }
           ],
           "mark": "rule",
@@ -255,14 +342,16 @@
           "field": "t",
           "range": [43, 343],
           "reverse": false,
-          "type": "time"
+          "type": "time",
+          "utc": false
         },
         "y": {
           "domain": [0.0, 16.0],
           "field": "p",
-          "range": [155, 5],
+          "range": [156, 6],
           "reverse": false,
-          "type": "linear"
+          "type": "linear",
+          "utc": false
         }
       }
     }

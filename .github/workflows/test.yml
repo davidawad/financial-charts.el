@@ -21,15 +21,19 @@ jobs:
         with:
           version: ${{ matrix.emacs_version }}
 
-      # Conformance oracle (fc-qx1.21): bin/chart from the chart
-      # runtime plus rsvg-convert.  Set the repository variable
+      # Conformance oracle (fc-qx1.21): native SVG is rasterized with
+      # rsvg-convert and compared with bin/chart's committed reference
+      # PNGs (test/conformance/ref), so CI needs only rsvg-convert and
+      # Arial-metric fonts.  Setting the repository variable
       # CHART_RUNTIME_URL to a tarball whose bin/chart is the pinned
-      # release; without it the oracle tests are skipped with the reason
-      # printed in the ERT output.
-      - name: Install conformance oracle
+      # release also rebuilds the references from bin/chart and checks
+      # the vendored theme against it.
+      - name: Install conformance rasterizer
+        run: sudo apt-get install -y librsvg2-bin fonts-liberation
+
+      - name: Install bin/chart
         if: ${{ vars.CHART_RUNTIME_URL != '' }}
         run: |
-          sudo apt-get install -y librsvg2-bin
           mkdir -p "$HOME/chart-runtime"
           curl -fsSL "${{ vars.CHART_RUNTIME_URL }}" -o /tmp/chart-runtime.tgz
           tar -xzf /tmp/chart-runtime.tgz -C "$HOME/chart-runtime"

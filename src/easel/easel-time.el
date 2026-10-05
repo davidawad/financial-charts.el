@@ -5,14 +5,22 @@
 
 ;;; Commentary:
 
-;; Temporal values are epoch milliseconds, always UTC.  Vega reads a
-;; date-time string without an offset as local time; easel reads it as
-;; UTC so output is identical on every machine.  Templates that need
-;; exact parity with a browser give explicit offsets or epoch numbers.
+;; Temporal values are epoch milliseconds.  Calendar fields, formats
+;; and zone-less date-time strings follow `easel-time-zone', which is
+;; nil (UTC) by default so output is identical on every machine.  Bound
+;; to a zone it gives Vega's local-time semantics in that zone: a
+;; date-time without an offset is local, a date-only string is UTC
+;; midnight (as JavaScript parses it), and fields, timeUnits, "time"
+;; scale ticks and labels are local.  The conformance oracle binds it to
+;; the zone bin/chart's references were built in.
 
 ;;; Code:
 
 (require 'easel-core)
+
+(defvar easel-time-zone nil
+  "Zone for local time, or nil for UTC.
+A `decode-time' ZONE such as \"America/Chicago\".")
 
 (defconst easel-time--iso-regexp
   (concat "\\`\\([0-9]\\{4\\}\\)\\(?:[-/]\\([0-9]\\{1,2\\}\\)"
@@ -63,20 +71,31 @@ Numbers are already epoch milliseconds."
            (frac (match-string 7 value))
            (zone (match-string 8 value))
            (ms (if frac (round (* 1000 (string-to-number (concat "0." frac)))) 0))
+           (local (and easel-time-zone (match-string 4 value) (null zone)))
            (offset (if (and zone (not (equal zone "Z")))
                        (let ((sign (if (eq (aref zone 0) ?-) -1 1))
                              (digits (replace-regexp-in-string ":" "" (substring zone 1))))
                          (* sign (+ (* 60 (string-to-number (substring digits 0 2)))
                                     (string-to-number (substring digits 2)))))
                      0)))
-      (+ (* 1000 (+ (* 86400 (easel-time-days-from-civil year month day))
-                    (* 3600 hour) (* 60 (- minute offset)) sec))
-         ms)))))
+      (if local (easel-time-ms year month day hour minute sec ms)
+        (+ (* 1000 (+ (* 86400 (easel-time-days-from-civil year month day))
+                      (* 3600 hour) (* 60 (- minute offset)) sec))
+           ms))))))
 
 (defun easel-time-fields (ms)
-  "Return the UTC calendar fields of epoch MS as a plist.
+  "Return the calendar fields of epoch MS in `easel-time-zone' as a plist.
 Keys are :year :month (1-12) :day :hours :minutes :seconds
 :milliseconds and :weekday (0 is Sunday)."
+  (if easel-time-zone
+      (let* ((ms (floor ms)) (s (floor ms 1000)) (d (decode-time s easel-time-zone)))
+        (list :year (decoded-time-year d) :month (decoded-time-month d) :day (decoded-time-day d)
+              :hours (decoded-time-hour d) :minutes (decoded-time-minute d) :seconds (decoded-time-second d)
+              :milliseconds (- ms (* 1000 s)) :weekday (decoded-time-weekday d)))
+    (easel-time--utc-fields ms)))
+
+(defun easel-time--utc-fields (ms)
+  "The UTC calendar fields of epoch MS (see `easel-time-fields')."
   (let* ((ms (floor ms))
          (days (floor ms 86400000))
          (rem (- ms (* days 86400000)))
@@ -87,8 +106,18 @@ Keys are :year :month (1-12) :day :hours :minutes :seconds
           :weekday (mod (+ 4 days) 7))))
 
 (defun easel-time-ms (year &optional month day hours minutes seconds milliseconds)
-  "Return UTC epoch milliseconds for the given calendar fields.
-MONTH (1-12) and DAY may overflow; they are normalized."
+  "Return epoch milliseconds for calendar fields in `easel-time-zone'.
+MONTH (1-12), DAY and the clock fields may overflow; they are normalized."
+  (if easel-time-zone
+      (+ (* 1000 (time-convert (encode-time (list (or seconds 0) (or minutes 0) (or hours 0) (or day 1)
+                                                  (or month 1) year nil -1 easel-time-zone))
+                               'integer))
+         (or milliseconds 0))
+    (easel-time--utc-ms year month day hours minutes seconds milliseconds)))
+
+(defun easel-time--utc-ms (year &optional month day hours minutes seconds milliseconds)
+  "UTC epoch milliseconds for calendar fields YEAR MONTH DAY HOURS
+MINUTES SECONDS MILLISECONDS (see `easel-time-ms')."
   (let* ((month (or month 1))
          (y (+ year (floor (1- month) 12)))
          (m (1+ (mod (1- month) 12))))
@@ -97,8 +126,8 @@ MONTH (1-12) and DAY may overflow; they are normalized."
        (* 1000 (or seconds 0)) (or milliseconds 0))))
 
 (defun easel-time-format (ms format-string)
-  "Format UTC epoch MS with `format-time-string' FORMAT-STRING."
-  (format-time-string format-string (seconds-to-time (/ ms 1000.0)) t))
+  "Format epoch MS in `easel-time-zone' with `format-time-string' FORMAT-STRING."
+  (format-time-string format-string (seconds-to-time (/ ms 1000.0)) (or easel-time-zone t)))
 
 (defun easel-time-iso (ms)
   "Return MS as an ISO date (YYYY-MM-DD) or date-time string."

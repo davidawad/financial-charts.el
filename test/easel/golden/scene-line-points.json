@@ -1,157 +1,261 @@
 {
-  "background": "white",
+  "background": "#fcfcfb",
+  "config": {
+    "arc": {"stroke": "#fcfcfb", "strokeWidth": 2},
+    "area": {"opacity": 0.85},
+    "axis": {
+      "domainColor": "#c3c2b7",
+      "domainWidth": 1,
+      "gridColor": "#e1e0d9",
+      "gridWidth": 1,
+      "labelColor": "#52514e",
+      "labelFontSize": 11,
+      "labelPadding": 4,
+      "tickColor": "#c3c2b7",
+      "tickSize": 4,
+      "titleColor": "#52514e",
+      "titleFontSize": 12,
+      "titleFontWeight": "normal"
+    },
+    "axisX": {"grid": false},
+    "background": "#fcfcfb",
+    "bar": {"cornerRadiusEnd": 4},
+    "circle": {"size": 64},
+    "font": "sans-serif",
+    "legend": {
+      "labelColor": "#52514e",
+      "labelFontSize": 11,
+      "symbolSize": 80,
+      "symbolType": "circle",
+      "titleColor": "#52514e",
+      "titleFontSize": 11,
+      "titleFontWeight": "normal"
+    },
+    "line": {"strokeCap": "round", "strokeJoin": "round", "strokeWidth": 2},
+    "mark": {"color": "#2a78d6"},
+    "point": {"filled": true, "size": 64},
+    "range": {
+      "category": ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"],
+      "diverging": ["#256abf", "#6da7ec", "#cde2fb", "#f0efec", "#f6c3bd", "#ee7d78", "#c0392b"],
+      "heatmap": ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"],
+      "ordinal": ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"],
+      "ramp": ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
+    },
+    "rect": {"stroke": "#fcfcfb", "strokeWidth": 1},
+    "rule": {"color": "black"},
+    "square": {"size": 30},
+    "text": {"color": "black", "fontSize": 11},
+    "tick": {"thickness": 1},
+    "title": {
+      "anchor": "start",
+      "color": "#0b0b0b",
+      "fontSize": 16,
+      "fontWeight": 600,
+      "offset": 12,
+      "subtitleColor": "#52514e",
+      "subtitleFontSize": 12
+    },
+    "view": {"continuousHeight": 300, "continuousWidth": 480, "stroke": null}
+  },
   "contract": "scene/v1",
   "params": [],
   "size": {
     "cell": [7, 14],
-    "h": 259,
-    "w": 456
+    "h": 272,
+    "w": 459
   },
   "target": "svg",
-  "title": {"align": "center", "baseline": "top", "fontSize": 13, "text": "Daily value", "x": 228.0, "y": 5},
+  "title": {"align": "left", "baseline": "top", "fontSize": 16, "fontWeight": 600, "text": "Daily value", "x": 49, "y": 5},
   "views": [
     {
       "axes": [
         {
+          "bounds": [48.0, 232, 450.0, 267.0],
           "channel": "x",
           "discrete": false,
-          "domain-line": [51, 222, 451, 222],
-          "grid": true,
+          "domain-line": [49.5, 233.5, 449.5, 233.5],
+          "grid": false,
           "labelAngle": 0,
           "orient": "bottom",
+          "overlap": "parity",
           "ticks": [
             {
               "align": "left",
               "baseline": "top",
-              "grid": [51.0, 22, 51.0, 222],
               "label": "Mon 02",
-              "lx": 51.0,
-              "ly": 229,
-              "pos": 51.0,
-              "tick": [51.0, 222, 51.0, 227],
+              "lx": 49.5,
+              "ly": 241.5,
+              "pos": 49.0,
+              "tick": [49.5, 233.5, 49.5, 237.5],
               "value": 1772409600000
             },
             {
               "align": "center",
               "baseline": "top",
-              "grid": [139.889, 22, 139.889, 222],
+              "label": "",
+              "lx": 93.944,
+              "ly": 241.5,
+              "pos": 93.444,
+              "tick": [93.944, 233.5, 93.944, 237.5],
+              "value": 1772496000000
+            },
+            {
+              "align": "center",
+              "baseline": "top",
               "label": "Wed 04",
-              "lx": 139.889,
-              "ly": 229,
-              "pos": 139.889,
-              "tick": [139.889, 222, 139.889, 227],
+              "lx": 138.389,
+              "ly": 241.5,
+              "pos": 137.889,
+              "tick": [138.389, 233.5, 138.389, 237.5],
               "value": 1772582400000
             },
             {
               "align": "center",
               "baseline": "top",
-              "grid": [228.778, 22, 228.778, 222],
+              "label": "",
+              "lx": 182.833,
+              "ly": 241.5,
+              "pos": 182.333,
+              "tick": [182.833, 233.5, 182.833, 237.5],
+              "value": 1772668800000
+            },
+            {
+              "align": "center",
+              "baseline": "top",
               "label": "Fri 06",
-              "lx": 228.778,
-              "ly": 229,
-              "pos": 228.778,
-              "tick": [228.778, 222, 228.778, 227],
+              "lx": 227.278,
+              "ly": 241.5,
+              "pos": 226.778,
+              "tick": [227.278, 233.5, 227.278, 237.5],
               "value": 1772755200000
             },
             {
               "align": "center",
               "baseline": "top",
-              "grid": [317.667, 22, 317.667, 222],
+              "label": "",
+              "lx": 271.722,
+              "ly": 241.5,
+              "pos": 271.222,
+              "tick": [271.722, 233.5, 271.722, 237.5],
+              "value": 1772841600000
+            },
+            {
+              "align": "center",
+              "baseline": "top",
               "label": "Mar 08",
-              "lx": 317.667,
-              "ly": 229,
-              "pos": 317.667,
-              "tick": [317.667, 222, 317.667, 227],
+              "lx": 316.167,
+              "ly": 241.5,
+              "pos": 315.667,
+              "tick": [316.167, 233.5, 316.167, 237.5],
               "value": 1772928000000
             },
             {
               "align": "center",
               "baseline": "top",
-              "grid": [406.556, 22, 406.556, 222],
+              "label": "",
+              "lx": 360.611,
+              "ly": 241.5,
+              "pos": 360.111,
+              "tick": [360.611, 233.5, 360.611, 237.5],
+              "value": 1773014400000
+            },
+            {
+              "align": "center",
+              "baseline": "top",
               "label": "Tue 10",
-              "lx": 406.556,
-              "ly": 229,
-              "pos": 406.556,
-              "tick": [406.556, 222, 406.556, 227],
+              "lx": 405.056,
+              "ly": 241.5,
+              "pos": 404.556,
+              "tick": [405.056, 233.5, 405.056, 237.5],
               "value": 1773100800000
+            },
+            {
+              "align": "right",
+              "baseline": "top",
+              "label": "",
+              "lx": 449.5,
+              "ly": 241.5,
+              "pos": 449.0,
+              "tick": [449.5, 233.5, 449.5, 237.5],
+              "value": 1773187200000
             }
           ],
           "title": "date",
-          "title-mark": {"align": "center", "angle": 0, "baseline": "top", "text": "date", "x": 251.0, "y": 243},
-          "top-gap": {}
+          "title-mark": {"align": "center", "angle": 0, "baseline": "top", "text": "date", "x": 249.5, "y": 256.5}
         },
         {
+          "bounds": [5.647, 33, 50, 233],
           "channel": "y",
           "discrete": false,
-          "domain-line": [51, 22, 51, 222],
+          "domain-line": [49.5, 33.5, 49.5, 233.5],
           "grid": true,
           "labelAngle": 0,
           "orient": "left",
+          "overlap": "parity",
           "ticks": [
             {
               "align": "right",
               "baseline": "middle",
-              "grid": [51, 42.0, 451, 42.0],
-              "label": "110",
-              "lx": 44,
-              "ly": 42.0,
-              "pos": 42.0,
-              "tick": [46, 42.0, 51, 42.0],
-              "value": 110.0
+              "grid": [49.5, 213.5, 449.5, 213.5],
+              "label": "102",
+              "lx": 41.5,
+              "ly": 213.5,
+              "pos": 213.0,
+              "tick": [45.5, 213.5, 49.5, 213.5],
+              "value": 102.0
             },
             {
               "align": "right",
               "baseline": "middle",
-              "grid": [51, 82.0, 451, 82.0],
-              "label": "108",
-              "lx": 44,
-              "ly": 82.0,
-              "pos": 82.0,
-              "tick": [46, 82.0, 51, 82.0],
-              "value": 108.0
-            },
-            {
-              "align": "right",
-              "baseline": "middle",
-              "grid": [51, 122.0, 451, 122.0],
-              "label": "106",
-              "lx": 44,
-              "ly": 122.0,
-              "pos": 122.0,
-              "tick": [46, 122.0, 51, 122.0],
-              "value": 106.0
-            },
-            {
-              "align": "right",
-              "baseline": "middle",
-              "grid": [51, 162.0, 451, 162.0],
+              "grid": [49.5, 173.5, 449.5, 173.5],
               "label": "104",
-              "lx": 44,
-              "ly": 162.0,
-              "pos": 162.0,
-              "tick": [46, 162.0, 51, 162.0],
+              "lx": 41.5,
+              "ly": 173.5,
+              "pos": 173.0,
+              "tick": [45.5, 173.5, 49.5, 173.5],
               "value": 104.0
             },
             {
               "align": "right",
               "baseline": "middle",
-              "grid": [51, 202.0, 451, 202.0],
-              "label": "102",
-              "lx": 44,
-              "ly": 202.0,
-              "pos": 202.0,
-              "tick": [46, 202.0, 51, 202.0],
-              "value": 102.0
+              "grid": [49.5, 133.5, 449.5, 133.5],
+              "label": "106",
+              "lx": 41.5,
+              "ly": 133.5,
+              "pos": 133.0,
+              "tick": [45.5, 133.5, 49.5, 133.5],
+              "value": 106.0
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [49.5, 93.5, 449.5, 93.5],
+              "label": "108",
+              "lx": 41.5,
+              "ly": 93.5,
+              "pos": 93.0,
+              "tick": [45.5, 93.5, 49.5, 93.5],
+              "value": 108.0
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [49.5, 53.5, 449.5, 53.5],
+              "label": "110",
+              "lx": 41.5,
+              "ly": 53.5,
+              "pos": 53.0,
+              "tick": [45.5, 53.5, 49.5, 53.5],
+              "value": 110.0
             }
           ],
           "title": "value",
-          "title-mark": {"align": "center", "angle": -90, "baseline": "bottom", "text": "value", "x": 16, "y": 122.0},
-          "top-gap": 20.0
+          "title-mark": {"align": "center", "angle": -90, "baseline": "bottom", "text": "value", "x": 19.147, "y": 133.5}
         }
       ],
-      "bounds": [51, 22, 400, 200],
+      "bounds": [49, 33, 400, 200],
       "clip": false,
-      "frame": {"stroke": "#ddd"},
+      "frame": {},
       "id": "main",
       "legends": [],
       "marks": [
@@ -169,7 +273,7 @@
               [0, 6],
               [0, 7]
             ],
-            "xs": [51.0, 95.444, 139.889, 184.333, 228.778, 362.111, 406.556, 451.0]
+            "xs": [49.0, 93.444, 137.889, 182.333, 226.778, 360.111, 404.556, 449.0]
           },
           "items": [
             {
@@ -177,16 +281,18 @@
               "fill": "none",
               "opacity": 1,
               "points": [
-                [51.0, 192.0],
-                [95.444, 160.0],
-                [139.889, 206.0],
-                [184.333, 116.0],
-                [228.778, 64.0],
-                [362.111, 98.0],
-                [406.556, 34.0],
-                [451.0, 62.0]
+                [49.0, 203.0],
+                [93.444, 171.0],
+                [137.889, 217.0],
+                [182.333, 127.0],
+                [226.778, 75.0],
+                [360.111, 109.0],
+                [404.556, 45.0],
+                [449.0, 73.0]
               ],
-              "stroke": "#4c78a8",
+              "stroke": "#2a78d6",
+              "strokeCap": "round",
+              "strokeJoin": "round",
               "strokeWidth": 2
             }
           ],
@@ -208,7 +314,7 @@
           "index": {
             "cells": [
               {
-                "cell": [2, 9],
+                "cell": [2, 10],
                 "items": [0]
               },
               {
@@ -220,7 +326,7 @@
                 "items": [2]
               },
               {
-                "cell": [9, 5],
+                "cell": [9, 6],
                 "items": [3]
               },
               {
@@ -228,11 +334,11 @@
                 "items": [4]
               },
               {
-                "cell": [18, 4],
+                "cell": [18, 5],
                 "items": [5]
               },
               {
-                "cell": [20, 1],
+                "cell": [20, 2],
                 "items": [6]
               },
               {
@@ -246,91 +352,91 @@
           "items": [
             {
               "datum": 0,
-              "fill": "#4c78a8",
+              "fill": "#2a78d6",
               "opacity": 0.7,
               "shape": "circle",
-              "size": 30,
+              "size": 64,
               "stroke": "none",
               "strokeWidth": 2,
-              "x": 51.0,
-              "y": 192.0
+              "x": 49.0,
+              "y": 203.0
             },
             {
               "datum": 1,
-              "fill": "#4c78a8",
+              "fill": "#2a78d6",
               "opacity": 0.7,
               "shape": "circle",
-              "size": 30,
+              "size": 64,
               "stroke": "none",
               "strokeWidth": 2,
-              "x": 95.444,
-              "y": 160.0
+              "x": 93.444,
+              "y": 171.0
             },
             {
               "datum": 2,
-              "fill": "#4c78a8",
+              "fill": "#2a78d6",
               "opacity": 0.7,
               "shape": "circle",
-              "size": 30,
+              "size": 64,
               "stroke": "none",
               "strokeWidth": 2,
-              "x": 139.889,
-              "y": 206.0
+              "x": 137.889,
+              "y": 217.0
             },
             {
               "datum": 3,
-              "fill": "#4c78a8",
+              "fill": "#2a78d6",
               "opacity": 0.7,
               "shape": "circle",
-              "size": 30,
+              "size": 64,
               "stroke": "none",
               "strokeWidth": 2,
-              "x": 184.333,
-              "y": 116.0
+              "x": 182.333,
+              "y": 127.0
             },
             {
               "datum": 4,
-              "fill": "#4c78a8",
+              "fill": "#2a78d6",
               "opacity": 0.7,
               "shape": "circle",
-              "size": 30,
+              "size": 64,
               "stroke": "none",
               "strokeWidth": 2,
-              "x": 228.778,
-              "y": 64.0
+              "x": 226.778,
+              "y": 75.0
             },
             {
               "datum": 5,
-              "fill": "#4c78a8",
+              "fill": "#2a78d6",
               "opacity": 0.7,
               "shape": "circle",
-              "size": 30,
+              "size": 64,
               "stroke": "none",
               "strokeWidth": 2,
-              "x": 362.111,
-              "y": 98.0
+              "x": 360.111,
+              "y": 109.0
             },
             {
               "datum": 6,
-              "fill": "#4c78a8",
+              "fill": "#2a78d6",
               "opacity": 0.7,
               "shape": "circle",
-              "size": 30,
+              "size": 64,
               "stroke": "none",
               "strokeWidth": 2,
-              "x": 406.556,
-              "y": 34.0
+              "x": 404.556,
+              "y": 45.0
             },
             {
               "datum": 7,
-              "fill": "#4c78a8",
+              "fill": "#2a78d6",
               "opacity": 0.7,
               "shape": "circle",
-              "size": 30,
+              "size": 64,
               "stroke": "none",
               "strokeWidth": 2,
-              "x": 451.0,
-              "y": 62.0
+              "x": 449.0,
+              "y": 73.0
             }
           ],
           "mark": "point",
@@ -353,16 +459,18 @@
         "x": {
           "domain": [1772409600000.0, 1773187200000.0],
           "field": "date",
-          "range": [51, 451],
+          "range": [49, 449],
           "reverse": false,
-          "type": "time"
+          "type": "time",
+          "utc": false
         },
         "y": {
           "domain": [101.0, 111.0],
           "field": "value",
-          "range": [222, 22],
+          "range": [233, 33],
           "reverse": false,
-          "type": "linear"
+          "type": "linear",
+          "utc": false
         }
       }
     }

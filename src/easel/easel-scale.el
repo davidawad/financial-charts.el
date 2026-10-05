@@ -255,7 +255,8 @@ scales return the domain value whose band is nearest PX."
     (pcase (plist-get scale :type)
       ("linear" (easel-scale-linear-ticks (aref domain 0) (aref domain 1) count))
       ("log" (easel-scale-log-ticks (aref domain 0) (aref domain 1) count))
-      ((or "time" "utc") (easel-scale-time-ticks (aref domain 0) (aref domain 1) count))
+      ((or "time" "utc") (let ((easel-time-zone (easel-scale--zone scale)))
+                           (easel-scale-time-ticks (aref domain 0) (aref domain 1) count)))
       (_ (append domain nil)))))
 
 (defun easel-scale-log-ticks (lo hi &optional count)
@@ -305,14 +306,20 @@ decades than COUNT (default 10), else powers of ten."
                           (/ 1.0 step) step)))
             (max 0 (- (floor (log step 10))))))))))
 
+(defun easel-scale--zone (scale)
+  "The time zone SCALE ticks and labels in: none (UTC) for utc scales."
+  (unless (or (equal (plist-get scale :type) "utc") (eq (plist-get scale :utc) t)) easel-time-zone))
+
 (defun easel-scale-tick-format (scale count &optional format)
   "Return a function formatting SCALE's tick values at COUNT.
 FORMAT is a Vega-Lite format string; only d3 \",.Nf\"/\".N%\" style
 and strftime-style time formats are honored."
   (pcase (plist-get scale :type)
     ((or "time" "utc")
-     (if format (lambda (v) (easel-time-format v (easel-scale--d3-time-format format)))
-       #'easel-scale-time-multi-format))
+     (let ((zone (easel-scale--zone scale)))
+       (if format
+           (lambda (v) (let ((easel-time-zone zone)) (easel-time-format v (easel-scale--d3-time-format format))))
+         (lambda (v) (let ((easel-time-zone zone)) (easel-scale-time-multi-format v))))))
     ((or "linear" "log")
      (let ((decimals (easel-scale-tick-decimals scale count)))
        (cond

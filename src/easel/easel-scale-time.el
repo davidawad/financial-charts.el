@@ -5,8 +5,9 @@
 
 ;;; Commentary:
 
-;; A port of d3-time's tick interval choice (utc variants) and
-;; vega-format's timeMultiFormat, so time axes tick where Vega's do.
+;; A port of d3-time's tick interval choice and vega-format's
+;; timeMultiFormat, so time axes tick where Vega's do: in UTC by
+;; default, in `easel-time-zone' when it is bound (Vega's local time).
 ;; Weekday and month names are English (C locale), as in Vega.
 
 ;;; Code:
@@ -24,27 +25,33 @@
   "d3-time tickIntervals: (UNIT STEP APPROX-DURATION-MS).")
 
 (defun easel-scale-time--floor (unit ms)
-  "Floor epoch MS to the start of UNIT (UTC)."
-  (let ((f (easel-time-fields ms)))
+  "Floor epoch MS to the start of UNIT (in `easel-time-zone')."
+  (let* ((f (easel-time-fields ms))
+         (day (lambda (d) (easel-time-ms (plist-get f :year) (plist-get f :month) d))))
     (pcase unit
       ('millisecond ms)
       ('second (* 1000 (floor ms 1000)))
       ('minute (* 60000 (floor ms 60000)))
-      ('hour (* 3600000 (floor ms 3600000)))
-      ('day (* 86400000 (floor ms 86400000)))
-      ('week (- (* 86400000 (floor ms 86400000)) (* 86400000 (plist-get f :weekday))))
+      ('hour (easel-time-ms (plist-get f :year) (plist-get f :month) (plist-get f :day) (plist-get f :hours)))
+      ('day (funcall day (plist-get f :day)))
+      ('week (funcall day (- (plist-get f :day) (plist-get f :weekday))))
       ('month (easel-time-ms (plist-get f :year) (plist-get f :month) 1))
       ('year (easel-time-ms (plist-get f :year) 1 1)))))
 
 (defun easel-scale-time--offset (unit ms)
-  "Advance MS by one UNIT."
-  (let ((f (easel-time-fields ms)))
+  "Advance MS by one UNIT (calendar units in `easel-time-zone')."
+  (let* ((f (easel-time-fields ms))
+         (at (lambda (&rest delta)
+               (easel-time-ms (+ (plist-get f :year) (or (plist-get delta :year) 0))
+                              (+ (plist-get f :month) (or (plist-get delta :month) 0))
+                              (+ (plist-get f :day) (or (plist-get delta :day) 0))
+                              (plist-get f :hours) (plist-get f :minutes) (plist-get f :seconds)
+                              (plist-get f :milliseconds)))))
     (pcase unit
       ('millisecond (1+ ms)) ('second (+ ms 1000)) ('minute (+ ms 60000))
-      ('hour (+ ms 3600000)) ('day (+ ms 86400000)) ('week (+ ms 604800000))
-      ('month (easel-time-ms (plist-get f :year) (1+ (plist-get f :month)) (plist-get f :day)
-                             (plist-get f :hours) (plist-get f :minutes)))
-      ('year (easel-time-ms (1+ (plist-get f :year)) (plist-get f :month) (plist-get f :day))))))
+      ('hour (+ ms 3600000)) ('day (funcall at :day 1)) ('week (funcall at :day 7))
+      ('month (funcall at :month 1))
+      ('year (funcall at :year 1)))))
 
 (defun easel-scale-time--field (unit ms)
   "The field d3's interval.every(step) filters on for UNIT at MS."
@@ -77,7 +84,7 @@
     (if (< inc 0) (/ 1.0 (- inc)) inc)))
 
 (defun easel-scale-time-ticks (start stop count)
-  "Return UTC tick times (epoch ms) between START and STOP, about COUNT."
+  "Return tick times (epoch ms) between START and STOP, about COUNT."
   (let* ((reverse (< stop start))
          (lo (min start stop)) (hi (max start stop))
          (interval (easel-scale-time--interval lo hi (max 1 count)))

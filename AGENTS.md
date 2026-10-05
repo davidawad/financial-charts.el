@@ -34,7 +34,9 @@ for live views.
 4. To show the human: `open line --data b.json --show` in their Emacs,
    then `inspect`, `log` and `selection` say what they are looking at
    and picked; `dispatch VIEW EVENT` drives the view with event/v1
-   (an array replays a log).
+   (an array replays a log). `link VIEW BUS` shares hover, brush and
+   zoom across views (`buses` lists them; `eas-link-demo` shows two
+   tickers on the `panes` template).
 5. For a deliverable: `export ... --vl` is pure Vega-Lite for
    `bin/chart build`. `doctor` checks the install. bin/chart is never
    a runtime dependency: it is the conformance oracle (dev/CI; refs

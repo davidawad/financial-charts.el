@@ -1,0 +1,401 @@
+{
+ "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+ "x-eas": {
+  "template": "panes",
+  "version": "1.0.0",
+  "doc": "Price, volume and RSI(14) panes on one time axis: one crosshair and one zoom (wheel, drag, +/-) drive all three.",
+  "slots": {
+   "bars": {
+    "shape": "bar/v1",
+    "required": true,
+    "doc": "OHLCV bars, oldest first"
+   },
+   "title": {
+    "type": "string",
+    "default": ""
+   },
+   "description": {
+    "type": "string",
+    "default": "Price, volume and RSI(14) panes on one time axis: one crosshair and one zoom (wheel, drag, +/-) drive all three.",
+    "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+   }
+  },
+  "example": "examples/panes.data.json"
+ },
+ "title": {
+  "x-eas:slot": "title"
+ },
+ "description": {
+  "x-eas:slot": "description"
+ },
+ "data": {
+  "name": "bars"
+ },
+ "transform": [
+  {
+   "window": [
+    {
+     "op": "lag",
+     "field": "close",
+     "as": "prev"
+    }
+   ],
+   "sort": [
+    {
+     "field": "time"
+    }
+   ]
+  },
+  {
+   "calculate": "isValid(datum.prev) ? max(datum.close - datum.prev, 0) : 0",
+   "as": "gain"
+  },
+  {
+   "calculate": "isValid(datum.prev) ? max(datum.prev - datum.close, 0) : 0",
+   "as": "loss"
+  },
+  {
+   "window": [
+    {
+     "op": "mean",
+     "field": "gain",
+     "as": "avg_gain"
+    },
+    {
+     "op": "mean",
+     "field": "loss",
+     "as": "avg_loss"
+    },
+    {
+     "op": "count",
+     "as": "n"
+    }
+   ],
+   "frame": [
+    -13,
+    0
+   ],
+   "sort": [
+    {
+     "field": "time"
+    }
+   ]
+  },
+  {
+   "calculate": "datum.n < 14 ? null : datum.avg_loss == 0 ? 100 : 100 - 100 / (1 + datum.avg_gain / datum.avg_loss)",
+   "as": "rsi"
+  }
+ ],
+ "params": [
+  {
+   "name": "crosshair",
+   "select": {
+    "type": "point",
+    "on": "pointermove",
+    "nearest": true,
+    "encodings": [
+     "x"
+    ]
+   },
+   "views": [
+    "price-hit",
+    "volume-hit",
+    "rsi-hit"
+   ]
+  },
+  {
+   "name": "zoom",
+   "select": {
+    "type": "interval",
+    "encodings": [
+     "x"
+    ]
+   },
+   "bind": "scales",
+   "views": [
+    "price-hit",
+    "volume-hit",
+    "rsi-hit"
+   ]
+  }
+ ],
+ "vconcat": [
+  {
+   "name": "price",
+   "width": 400,
+   "height": 160,
+   "layer": [
+    {
+     "mark": "line",
+     "encoding": {
+      "x": {
+       "field": "time",
+       "type": "temporal",
+       "title": null
+      },
+      "y": {
+       "field": "close",
+       "type": "quantitative",
+       "scale": {
+        "zero": false
+       },
+       "title": "price"
+      },
+      "tooltip": [
+       {
+        "field": "time",
+        "type": "temporal",
+        "title": "date"
+       },
+       {
+        "field": "close",
+        "type": "quantitative"
+       },
+       {
+        "field": "volume",
+        "type": "quantitative"
+       },
+       {
+        "field": "rsi",
+        "type": "quantitative",
+        "format": ".1f",
+        "title": "RSI(14)"
+       }
+      ]
+     }
+    },
+    {
+     "name": "price-hit",
+     "mark": {
+      "type": "rule",
+      "opacity": 0
+     },
+     "encoding": {
+      "x": {
+       "field": "time",
+       "type": "temporal"
+      }
+     }
+    },
+    {
+     "transform": [
+      {
+       "filter": {
+        "param": "crosshair",
+        "empty": false
+       }
+      }
+     ],
+     "mark": {
+      "type": "rule",
+      "color": "gray"
+     },
+     "encoding": {
+      "x": {
+       "field": "time",
+       "type": "temporal"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "volume",
+   "width": 400,
+   "height": 60,
+   "layer": [
+    {
+     "mark": "bar",
+     "encoding": {
+      "x": {
+       "field": "time",
+       "type": "temporal",
+       "title": null
+      },
+      "y": {
+       "field": "volume",
+       "type": "quantitative",
+       "title": "volume",
+       "axis": {
+        "tickCount": 2
+       }
+      },
+      "tooltip": [
+       {
+        "field": "time",
+        "type": "temporal",
+        "title": "date"
+       },
+       {
+        "field": "close",
+        "type": "quantitative"
+       },
+       {
+        "field": "volume",
+        "type": "quantitative"
+       },
+       {
+        "field": "rsi",
+        "type": "quantitative",
+        "format": ".1f",
+        "title": "RSI(14)"
+       }
+      ]
+     }
+    },
+    {
+     "name": "volume-hit",
+     "mark": {
+      "type": "rule",
+      "opacity": 0
+     },
+     "encoding": {
+      "x": {
+       "field": "time",
+       "type": "temporal"
+      }
+     }
+    },
+    {
+     "transform": [
+      {
+       "filter": {
+        "param": "crosshair",
+        "empty": false
+       }
+      }
+     ],
+     "mark": {
+      "type": "rule",
+      "color": "gray"
+     },
+     "encoding": {
+      "x": {
+       "field": "time",
+       "type": "temporal"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "rsi",
+   "width": 400,
+   "height": 60,
+   "layer": [
+    {
+     "transform": [
+      {
+       "filter": "isValid(datum.rsi)"
+      }
+     ],
+     "mark": "line",
+     "encoding": {
+      "x": {
+       "field": "time",
+       "type": "temporal",
+       "title": "date"
+      },
+      "y": {
+       "field": "rsi",
+       "type": "quantitative",
+       "title": "RSI(14)",
+       "scale": {
+        "domain": [
+         0,
+         100
+        ]
+       },
+       "axis": {
+        "values": [
+         30,
+         70
+        ]
+       }
+      },
+      "tooltip": [
+       {
+        "field": "time",
+        "type": "temporal",
+        "title": "date"
+       },
+       {
+        "field": "close",
+        "type": "quantitative"
+       },
+       {
+        "field": "volume",
+        "type": "quantitative"
+       },
+       {
+        "field": "rsi",
+        "type": "quantitative",
+        "format": ".1f",
+        "title": "RSI(14)"
+       }
+      ]
+     }
+    },
+    {
+     "data": {
+      "values": [
+       {
+        "level": 30
+       },
+       {
+        "level": 70
+       }
+      ]
+     },
+     "mark": {
+      "type": "rule",
+      "strokeDash": [
+       2,
+       2
+      ],
+      "color": "gray"
+     },
+     "encoding": {
+      "y": {
+       "field": "level",
+       "type": "quantitative"
+      }
+     }
+    },
+    {
+     "name": "rsi-hit",
+     "mark": {
+      "type": "rule",
+      "opacity": 0
+     },
+     "encoding": {
+      "x": {
+       "field": "time",
+       "type": "temporal"
+      }
+     }
+    },
+    {
+     "transform": [
+      {
+       "filter": {
+        "param": "crosshair",
+        "empty": false
+       }
+      }
+     ],
+     "mark": {
+      "type": "rule",
+      "color": "gray"
+     },
+     "encoding": {
+      "x": {
+       "field": "time",
+       "type": "temporal"
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

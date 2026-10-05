@@ -33,6 +33,7 @@
 (defvar-local easel-mode--view nil "The view this buffer shows.")
 (defvar-local easel-mode--timer nil "Pending idle redraw.")
 (defvar-local easel-mode--last-px nil "Last pointer position sent.")
+(defvar-local easel-mode--last-cell nil "Point's (LINE . COLUMN) when it last hovered.")
 (defvar-local easel-mode--pinch nil "Last pinch scale of the current gesture.")
 
 (defun easel-mode--gui-p ()
@@ -43,10 +44,10 @@
   "The scene's cell size [W H]."
   (plist-get (plist-get (easel-view-scene easel-mode--view) :size) :cell))
 
-(defun easel-mode-event-px (event)
+(defun easel-mode-event-px (event &optional snap)
   "Scene pixels of mouse EVENT, or nil when it is not over the chart.
 GUI events use `posn-object-x-y' divided by the image :scale; text
-events use the cell under the pointer."
+events use the cell under the pointer (SNAP as in `easel-mode-point-px')."
   (let* ((posn (event-start event)))
     (if (and (posn-image posn) (posn-object-x-y posn))
         (let* ((xy (posn-object-x-y posn))
@@ -55,15 +56,37 @@ events use the cell under the pointer."
                (scale (if (numberp scale) scale 1)))
           (vector (/ (car xy) (float scale)) (/ (cdr xy) (float scale))))
       (when-let* ((pos (posn-point posn)))
-        (easel-mode-point-px pos)))))
+        (easel-mode-point-px pos snap)))))
 
-(defun easel-mode-point-px (&optional pos)
-  "Scene pixels at the centre of the text cell at POS (default point)."
+(defun easel-mode-point-px (&optional pos snap)
+  "Scene pixels at the centre of the text cell at POS (default point).
+With SNAP, the datum drawn in the cell when it holds one: a cell is
+wider than the click slop, so clicks and presses snap to hit what is
+shown.  Hover never snaps; what a cell shows changes as hover redraws."
   (save-excursion
     (goto-char (or pos (point)))
     (let ((cell (easel-mode--cell)))
-      (vector (* (+ (current-column) 0.5) (aref cell 0))
-              (* (+ (1- (line-number-at-pos)) 0.5) (aref cell 1))))))
+      (or (and snap (easel-mode--datum-px (get-text-property (point) 'easel-view)
+                                          (get-text-property (point) 'easel-mark)
+                                          (get-text-property (point) 'easel-datum)
+                                          (current-column) (1- (line-number-at-pos)) cell))
+          (vector (* (+ (current-column) 0.5) (aref cell 0))
+                  (* (+ (1- (line-number-at-pos)) 0.5) (aref cell 1)))))))
+
+(defun easel-mode--datum-px (view-id mark-id datum col row cell)
+  "Pixel of DATUM of MARK-ID in VIEW-ID when it lies in or next to cell COL ROW.
+The text renderer pulls glyphs on the plot's edge one cell inward."
+  (when-let* ((datum)
+              (view (seq-find (lambda (v) (equal (plist-get v :id) view-id))
+                              (plist-get (easel-view-scene easel-mode--view) :views)))
+              (mark (seq-find (lambda (m) (equal (plist-get m :id) mark-id)) (plist-get view :marks))))
+    (cl-loop for item across (plist-get mark :items)
+             for d = (plist-get item :datum)
+             for k = (and (vectorp d) (seq-position d datum))
+             for p = (cond (k (easel-hit--item-point item k)) ((equal d datum) (easel-hit--item-point item nil)))
+             when (and p (<= (abs (- (floor (car p) (aref cell 0)) col)) 1)
+                       (<= (abs (- (floor (cdr p) (aref cell 1)) row)) 1))
+             return (vector (float (car p)) (float (cdr p))))))
 
 (defun easel-mode--send (event)
   "Dispatch EVENT to this buffer's view, reporting failures in the echo area."
@@ -84,7 +107,9 @@ events use the cell under the pointer."
   (with-current-buffer (or buffer (current-buffer))
     (setq easel-mode--timer nil)
     (let* ((view easel-mode--view) (scene (easel-view-scene view))
-           (inhibit-read-only t) (pos (point)))
+           (inhibit-read-only t) (pos (point))
+           ;; Text lines change length as labels change: keep point's cell.
+           (line (line-number-at-pos)) (col (current-column)))
       (let ((old (get-text-property (point-min) 'display)))
         (erase-buffer)
         ;; Each redraw is a new image; without a flush the image cache
@@ -97,7 +122,10 @@ events use the cell under the pointer."
             (insert-image image "[chart]")
             (easel-mode--hot-spot-keys image)))
        (t (insert (easel-text-render scene))))
-      (goto-char (min pos (point-max)))
+      (if (easel-mode--gui-p) (goto-char (min pos (point-max)))
+        (goto-char (point-min))
+        (forward-line (1- line))
+        (move-to-column col))
       (easel-mode--readout))))
 
 (defun easel-mode--insert-static (view)
@@ -160,7 +188,7 @@ events use the cell under the pointer."
 (defun easel-mode-down (event)
   "Translate a mouse press EVENT into pointerdown."
   (interactive "e")
-  (when-let* ((px (easel-mode-event-px event)))
+  (when-let* ((px (easel-mode-event-px event t)))
     (easel-mode--send (list :type "pointerdown" :px px))))
 
 (defun easel-mode-up (event)
@@ -168,14 +196,15 @@ events use the cell under the pointer."
   (interactive "e")
   (when-let* ((px (easel-mode-event-px (if (memq 'drag (event-modifiers event))
                                            (list (car event) (event-end event))
-                                         event))))
+                                         event)
+                                       t)))
     (easel-mode--send (list :type "pointerup" :px px))
     (easel-mode--readout)))
 
 (defun easel-mode-dblclick (event)
   "Translate a double click EVENT into dblclick."
   (interactive "e")
-  (when-let* ((px (easel-mode-event-px event)))
+  (when-let* ((px (easel-mode-event-px event t)))
     (easel-mode--send (list :type "dblclick" :px px))))
 
 (defun easel-mode-wheel (event)
@@ -224,16 +253,22 @@ gesture's start, so each event zooms by its change from the last."
 (defun easel-mode-click-at-point ()
   "Click at point (terminal RET)."
   (interactive)
-  (easel-mode--send (list :type "click" :px (easel-mode-point-px))))
+  (easel-mode--send (list :type "click" :px (easel-mode-point-px nil t))))
 
 (defun easel-mode--post-command ()
-  "In text buffers, moving point is hovering."
+  "In text buffers, moving point is hovering.
+Only a move to another cell hovers: mouse events (xterm-mouse) carry
+their own pointer, and a key pressed after them keeps the mouse's hover."
   (when (and easel-mode--view (not (easel-mode--gui-p)))
-    (let ((px (easel-mode-point-px)))
-      (unless (equal px easel-mode--last-px)
-        (setq easel-mode--last-px px)
-        (easel-mode--send (list :type "pointermove" :px px))
-        (easel-mode--readout)))))
+    (let ((cell (cons (line-number-at-pos) (current-column))))
+      (cond ((consp last-command-event) (setq easel-mode--last-cell cell))
+            ((not (equal cell easel-mode--last-cell))
+             (setq easel-mode--last-cell cell)
+             (let ((px (easel-mode-point-px)))
+               (unless (equal px easel-mode--last-px)
+                 (setq easel-mode--last-px px)
+                 (easel-mode--send (list :type "pointermove" :px px))
+                 (easel-mode--readout))))))))
 
 (defun easel-mode-refresh ()
   "Recompile at the window's size and redraw."

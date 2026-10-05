@@ -4,6 +4,10 @@ Standalone, publishable Emacs package: every financial chart kind
 (candles, area, line, sparkline, payoff, bars) as text or SVG from plain
 Lisp data. README.md is the full reference.
 
+In progress: `easel`, the interactive chart engine growing in
+`src/easel/` (epic `fc-qx1`). Design and layer contracts:
+`docs/design/engine.md`. Tasks: `br ready` in this repo (`.beads/`).
+
 ## Driving it
 
 Ask the package; don't read source to learn its state.

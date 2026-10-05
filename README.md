@@ -484,6 +484,12 @@ text, and `render --backend svg` fails with the same reason code. If
 you want a picture from `bin/chart` in that case, opt in with
 `(setq eas-static-fallback t)`.
 
+A valid Vega-Lite property that the native renderer draws without (an
+axis `labelFont`, a legend `orient: "bottom"`, `config.locale`) does
+not block anything. `check` lists it in `warnings` as
+`UNSUPPORTED_FEATURE` with `"ignored": true`, its JSON path, and
+`native: true`. The chart still opens natively and stays interactive.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

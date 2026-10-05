@@ -19,7 +19,8 @@
 ;; One keymap serves both: + - 0 zoom, [ ] history, < > pan, ESC
 ;; clears selections, RET clicks at point, g redraws, q quits.  In GUI
 ;; buffers the arrows pan; in text buffers they move point (hover) and
-;; S-arrows pan.  Redraws are idle-coalesced, the default the spikes
+;; S-arrows pan.  The wheel (xterm-mouse's mouse-4/5 in terminals) and a
+;; trackpad pinch zoom around the pointer; horizontal scrolling pans.  Redraws are idle-coalesced, the default the spikes
 ;; chose until GUI re-raster latency is measured.
 
 ;;; Code:
@@ -27,10 +28,12 @@
 (require 'easel-view)
 (require 'easel-svg)
 (require 'easel-text)
+(require 'easel-zoom)
 
 (defvar-local easel-mode--view nil "The view this buffer shows.")
 (defvar-local easel-mode--timer nil "Pending idle redraw.")
 (defvar-local easel-mode--last-px nil "Last pointer position sent.")
+(defvar-local easel-mode--pinch nil "Last pinch scale of the current gesture.")
 
 (defun easel-mode--gui-p ()
   "Non-nil when this buffer draws an image."
@@ -173,8 +176,26 @@ events use the cell under the pointer."
   "Translate wheel EVENT into wheel zoom around the pointer."
   (interactive "e")
   (when-let* ((px (easel-mode-event-px event)))
-    (easel-mode--send (list :type "wheel" :px px
-                            :delta (if (memq (event-basic-type event) '(wheel-up mouse-4)) -1 1)))))
+    (easel-mode--send (list :type "wheel" :px px :delta (easel-zoom-wheel-delta event)))))
+
+(defun easel-mode-pinch (event)
+  "Translate a trackpad pinch EVENT into wheel zoom around the pointer.
+EVENT is (pinch POSITION DX DY SCALE ANGLE); SCALE is relative to the
+gesture's start, so each event zooms by its change from the last."
+  (interactive "e")
+  (let ((scale (nth 4 event)))
+    (when (or (null easel-mode--pinch) (and (= scale 1.0) (zerop (nth 2 event)) (zerop (nth 3 event))))
+      (setq easel-mode--pinch 1.0))
+    (let ((delta (easel-zoom-pinch-delta scale easel-mode--pinch)))
+      (setq easel-mode--pinch scale)
+      (when-let* (((/= delta 0)) (px (easel-mode-event-px event)))
+        (easel-mode--send (list :type "wheel" :px px :delta delta))))))
+
+(defun easel-mode-hscroll (event)
+  "Translate horizontal scroll EVENT into a pan along x."
+  (interactive "e")
+  (easel-mode--send (list :type "key" :key (if (memq (event-basic-type event) '(wheel-left mouse-6))
+                                               "left" "right"))))
 
 (defun easel-mode-key ()
   "Send the key that invoked this command as an event/v1 key."
@@ -229,6 +250,8 @@ events use the cell under the pointer."
     (define-key map [drag-mouse-1] #'easel-mode-up)
     (define-key map [double-mouse-1] #'easel-mode-dblclick)
     (dolist (k '([wheel-up] [wheel-down] [mouse-4] [mouse-5])) (define-key map k #'easel-mode-wheel))
+    (dolist (k '([wheel-left] [wheel-right] [mouse-6] [mouse-7])) (define-key map k #'easel-mode-hscroll))
+    (define-key map [pinch] #'easel-mode-pinch)
     map)
   "Keymap shared by GUI and terminal easel buffers.")
 

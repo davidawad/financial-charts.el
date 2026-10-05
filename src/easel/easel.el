@@ -38,6 +38,7 @@
 (require 'easel-text)
 (require 'easel-params)
 (require 'easel-event)
+(require 'easel-zoom)
 (require 'easel-reduce)
 (require 'easel-view)
 (require 'easel-tip)

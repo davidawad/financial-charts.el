@@ -15,6 +15,7 @@
 ;;   :hover    hit plist or nil                     readout and crosshair
 ;;   :drag     in-progress pointer drag
 ;;   :history / :future                             zoom history stack
+;;   :wheel    (VIEW PX DOMAINS) of the last wheel  one history entry per gesture
 ;;   :stream-cursor                                 rows received by push
 
 ;;; Code:
@@ -23,11 +24,12 @@
 (require 'easel-scale)
 (require 'easel-hit)
 (require 'easel-params)
+(require 'easel-zoom)
 
 (defconst easel-reduce-click-slop 3 "Pixels a press may move and still be a click.")
 (defconst easel-reduce-hover-radius 30 "Pixels beyond which hover finds nothing.")
 (defconst easel-reduce-zoom-step 1.25 "Domain scale factor per +/- key.")
-(defconst easel-reduce-wheel-step 1.2 "Domain scale factor per wheel step.")
+(defconst easel-reduce-wheel-step easel-zoom-wheel-step "Domain scale factor per wheel step.")
 (defconst easel-reduce-history-limit 50 "Zoom history entries kept.")
 
 (defun easel-reduce--view (scene id)
@@ -97,21 +99,37 @@ An unzoomed state is recorded as `:none'."
   "Scale VIEW-ID's bound domains by FACTOR around PX (default: the centre)."
   (let ((params (easel-reduce--params scene view-id #'easel-reduce--scales-param-p)))
     (dolist (channel (delete-dups (apply #'append (mapcar #'easel-reduce--channels params))))
-      (when-let* ((scale (easel-reduce--scale scene view-id channel)))
-        (let* ((d (plist-get scale :domain))
-               (anchor (if px (easel-scale-invert scale (aref px (if (eq channel :x) 0 1)))
-                         (/ (+ (aref d 0) (aref d 1)) 2.0))))
-          (setq state (easel-reduce--set-domain
-                       state view-id channel
-                       (vector (+ anchor (* factor (- (aref d 0) anchor)))
-                               (+ anchor (* factor (- (aref d 1) anchor)))))))))
+      (when-let* ((scale (easel-reduce--scale scene view-id channel))
+                  (domain (easel-zoom-domain scale factor (and px (aref px (if (eq channel :x) 0 1))))))
+        (setq state (easel-reduce--set-domain state view-id channel domain))))
     state))
 
 (defun easel-reduce--pan (state scene view-id channel fraction)
-  "Shift VIEW-ID's CHANNEL domain by FRACTION of its span."
-  (if-let* ((scale (easel-reduce--scale scene view-id channel)))
-      (let* ((d (plist-get scale :domain)) (shift (* fraction (- (aref d 1) (aref d 0)))))
-        (easel-reduce--set-domain state view-id channel (vector (+ (aref d 0) shift) (+ (aref d 1) shift))))
+  "Shift VIEW-ID's CHANNEL domain by FRACTION of its range."
+  (if-let* ((scale (easel-reduce--scale scene view-id channel))
+            (domain (easel-zoom-step-domain scale fraction)))
+      (easel-reduce--set-domain state view-id channel domain)
+    state))
+
+(defun easel-reduce--if-moved (state next)
+  "NEXT, or STATE when NEXT leaves the domains as they were.
+Keeps no-op zooms (unbound views, saturated domains) out of the history."
+  (if (equal (plist-get state :domains) (plist-get next :domains)) state next))
+
+(defun easel-reduce--wheel (state scene px delta)
+  "Zoom the view under PX by DELTA wheel steps around PX.
+Consecutive wheel events at one pointer position are one gesture and
+one history entry."
+  (if-let* ((view (easel-reduce--view-at scene px)))
+      (let* ((id (plist-get view :id))
+             (last (plist-get state :wheel))
+             (same (and (equal (nth 0 last) id) (equal (nth 1 last) px)
+                        (equal (nth 2 last) (plist-get state :domains))))
+             (next (easel-reduce--if-moved
+                    state (easel-reduce--zoom (if same state (easel-reduce--remember state)) scene id
+                                              (expt easel-reduce-wheel-step delta) px))))
+        (if (eq next state) state
+          (easel-reduce--put next :wheel (list id px (plist-get next :domains)))))
     state))
 
 ;;; Pointer
@@ -203,12 +221,11 @@ An unzoomed state is recorded as `:none'."
         ("pan" (let ((view-id (plist-get drag :view)))
                  (dolist (channel '(:x :y))
                    (when-let* ((snap (plist-get (plist-get drag :snapshot) channel))
-                               (scale (easel-reduce--scale scene view-id channel)))
-                     (let* ((r (plist-get scale :range)) (i (if (eq channel :x) 0 1))
-                            (shift (* (- (aref px i) (aref start i))
-                                      (/ (- (aref snap 1) (aref snap 0)) (float (- (aref r 1) (aref r 0)))))))
-                       (setq state (easel-reduce--set-domain state view-id channel
-                                                             (vector (- (aref snap 0) shift) (- (aref snap 1) shift)))))))
+                               (scale (easel-reduce--scale scene view-id channel))
+                               (i (if (eq channel :x) 0 1))
+                               (domain (easel-zoom-pan-domain (plist-put (copy-sequence scale) :domain snap)
+                                                              (- (aref px i) (aref start i)))))
+                     (setq state (easel-reduce--set-domain state view-id channel domain))))
                  state))
         (_ state)))))
 
@@ -286,11 +303,7 @@ An unzoomed state is recorded as `:none'."
        (dolist (p (easel-params-of scene "point"))
          (when (easel-reduce--on-p p "pointermove") (setq state (easel-reduce--store state (plist-get p :name) nil))))
        (easel-reduce--put (easel-reduce--put state :hover nil) :drag nil))
-      ("wheel"
-       (if-let* ((view (easel-reduce--view-at scene px)))
-           (easel-reduce--zoom (easel-reduce--remember state) scene (plist-get view :id)
-                               (expt easel-reduce-wheel-step (plist-get event :delta)) px)
-         state))
+      ("wheel" (easel-reduce--wheel state scene px (plist-get event :delta)))
       ("drag"
        (let* ((s (easel-reduce--press state scene (plist-get event :from)))
               (s (easel-reduce--drag-to s scene (plist-get event :to))))
@@ -307,17 +320,19 @@ An unzoomed state is recorded as `:none'."
     (pcase key
       ((or "+" "=" "-")
        (let ((s (easel-reduce--remember state)))
-         (dolist (v views s)
+         (dolist (v views (easel-reduce--if-moved state s))
            (setq s (easel-reduce--zoom s scene v (if (equal key "-") easel-reduce-zoom-step
                                                    (/ 1.0 easel-reduce-zoom-step)))))))
       ("0" (let ((s (easel-reduce--remember state)))
-             (easel-reduce--put s :domains (cl-loop for (k v) on (plist-get s :domains) by #'cddr
-                                                    unless (member (easel-key-name k) views) append (list k v)))))
+             (easel-reduce--if-moved
+              state (easel-reduce--put s :domains (cl-loop for (k v) on (plist-get s :domains) by #'cddr
+                                                           unless (member (easel-key-name k) views)
+                                                           append (list k v))))))
       ((or "left" "right" "up" "down")
        (let ((s (easel-reduce--remember state))
              (channel (if (member key '("left" "right")) :x :y))
              (fraction (if (member key '("left" "down")) -0.1 0.1)))
-         (dolist (v views s) (setq s (easel-reduce--pan s scene v channel fraction)))))
+         (dolist (v views (easel-reduce--if-moved state s)) (setq s (easel-reduce--pan s scene v channel fraction)))))
       ("escape" (easel-reduce--put (easel-reduce--put state :params nil) :hover nil))
       ("[" (if-let* ((prev (car (plist-get state :history))))
                (thread-first state

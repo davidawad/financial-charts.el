@@ -302,12 +302,33 @@ Each area id is a symbol easel:VIEW|MARK|ITEM (or easel-legend:VIEW|CHANNEL|I)."
          (plist-get legend :entries))))
     (nreverse areas)))
 
+(defun easel-svg--scale-map (map scale)
+  "MAP with every coordinate multiplied by SCALE."
+  (if (= scale 1) map
+    (mapcar (lambda (area)
+              (let ((shape (car area)) (s (lambda (v) (round (* v scale)))))
+                (cons (pcase (car shape)
+                        ('rect (cons 'rect (cons (cons (funcall s (car (cadr shape))) (funcall s (cdr (cadr shape))))
+                                                 (cons (funcall s (car (cddr shape))) (funcall s (cdr (cddr shape)))))))
+                        ('circle (cons 'circle (cons (cons (funcall s (car (cadr shape))) (funcall s (cdr (cadr shape))))
+                                                     (funcall s (cddr shape)))))
+                        (_ shape))
+                      (cdr area))))
+            map)))
+
 (defun easel-svg-image (scene &rest props)
   "Return an image descriptor for SCENE with :map hot spots.
-PROPS may include :theme and any image property (:scale, :ascent)."
+PROPS may include :theme and any image property (:scale, :ascent).
+:scale defaults to 1, because the scene is compiled at display pixels
+\(`create-image' would otherwise apply `image-scaling-factor').  :map is
+in display pixels and :original-map in scene pixels; passing both stops
+`create-image' from deriving one from the other through `image-size',
+which rasterizes the SVG twice more (fc-qx1.23: 3x the cost of a redraw)."
   (let* ((theme (plist-get props :theme))
-         (img-props (append (list :map (easel-svg-hot-spots scene))
-                            (easel--plist-without props :theme)
+         (scale (or (plist-get props :scale) 1))
+         (map (easel-svg-hot-spots scene))
+         (img-props (append (list :map (easel-svg--scale-map map scale) :original-map map :scale scale)
+                            (easel--plist-without (easel--plist-without props :theme) :scale)
                             (unless (plist-member props :ascent) (list :ascent 'center))))
          (data (easel-svg-render scene theme)))
     ;; `create-image' signals in a batch NS Emacs ("Window system frame

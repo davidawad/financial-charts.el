@@ -50,7 +50,9 @@ events use the cell under the pointer."
   (let* ((posn (event-start event)))
     (if (and (posn-image posn) (posn-object-x-y posn))
         (let* ((xy (posn-object-x-y posn))
-               (scale (or (plist-get (cdr (posn-image posn)) :scale) 1)))
+               (scale (plist-get (cdr (posn-image posn)) :scale))
+               ;; `create-image' leaves :scale `default' when none is given.
+               (scale (if (numberp scale) scale 1)))
           (vector (/ (car xy) (float scale)) (/ (cdr xy) (float scale))))
       (when-let* ((pos (posn-point posn)))
         (easel-mode-point-px pos)))))
@@ -83,11 +85,15 @@ events use the cell under the pointer."
     (setq easel-mode--timer nil)
     (let* ((view easel-mode--view) (scene (easel-view-scene view))
            (inhibit-read-only t) (pos (point)))
-      (erase-buffer)
+      (let ((old (get-text-property (point-min) 'display)))
+        (erase-buffer)
+        ;; Each redraw is a new image; without a flush the image cache
+        ;; keeps every one (fc-qx1.23: +1.28 MB per 800x400 move).
+        (when (and (eq (car-safe old) 'image) (fboundp 'image-flush)) (image-flush old t)))
       (cond
        ((not (easel-view-interactive view)) (easel-mode--insert-static view))
        ((easel-mode--gui-p)
-          (let ((image (easel-svg-image scene)))
+          (let ((image (easel-svg-image scene :scale 1)))
             (insert-image image "[chart]")
             (easel-mode--hot-spot-keys image)))
        (t (insert (easel-text-render scene))))

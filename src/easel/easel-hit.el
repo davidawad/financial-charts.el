@@ -1,0 +1,158 @@
+;;; easel-hit.el --- hit-test indexes and pointer -> datum -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2026 David Awad
+;; SPDX-License-Identifier: GPL-3.0-or-later
+
+;;; Commentary:
+
+;; Part of L4.  Compile attaches an :index to every data mark:
+;;
+;;   x-sorted  series and rules: :xs ascending, :refs [[ITEM POINT] ...]
+;;   grid      points and text: :size S, :cells [(:cell [CX CY] :items [..])]
+;;   rects     bars and rects: items are tested directly
+;;
+;; `easel-hit' maps a pixel to the nearest datum through them.  Per the
+;; fc-qx1.14 spike a bisect costs ~7 µs, so hover never needs SVG
+;; hot spots for continuous series.
+
+;;; Code:
+
+(require 'easel-core)
+
+(defconst easel-hit-grid-size 20 "Pixel size of a point-index grid cell.")
+
+(defun easel-hit--anchors (item)
+  "Series ITEM's per-datum vertices: :anchors when stepped, else :points."
+  (or (plist-get item :anchors) (plist-get item :points)))
+
+(defun easel-hit--item-point (item k)
+  "Point K of series ITEM as (X . Y), or ITEM's anchor when K is nil."
+  (cond
+   ((and k (easel-hit--anchors item))
+    (let ((p (aref (easel-hit--anchors item) k))) (cons (aref p 0) (aref p 1))))
+   ((plist-member item :x1) (cons (/ (+ (plist-get item :x1) (plist-get item :x2)) 2.0)
+                                  (/ (+ (plist-get item :y1) (plist-get item :y2)) 2.0)))
+   ((plist-member item :w) (cons (+ (plist-get item :x) (/ (plist-get item :w) 2.0))
+                                 (+ (plist-get item :y) (/ (plist-get item :h) 2.0))))
+   (t (cons (plist-get item :x) (plist-get item :y)))))
+
+(defun easel-hit-index (mark)
+  "Return the hit-test index for MARK's items."
+  (let ((items (plist-get mark :items)))
+    (pcase (plist-get mark :mark)
+      ((or "bar" "rect" "brush") (list :kind "rects"))
+      ((or "line" "area" "rule" "tick")
+       (let (entries)
+         (seq-do-indexed
+          (lambda (item i)
+            (if-let* ((pts (easel-hit--anchors item)))
+                (dotimes (k (length pts))
+                  (push (list (aref (aref pts k) 0) i k) entries))
+              (push (list (car (easel-hit--item-point item nil)) i :null) entries)))
+          items)
+         (setq entries (sort entries (lambda (a b) (< (car a) (car b)))))
+         (list :kind "x-sorted" :xs (vconcat (mapcar #'car entries))
+               :refs (vconcat (mapcar (lambda (e) (vector (nth 1 e) (nth 2 e))) entries)))))
+      (_ (let ((cells (make-hash-table :test 'equal)) order)
+           (seq-do-indexed
+            (lambda (item i)
+              (let* ((p (easel-hit--item-point item nil))
+                     (key (vector (floor (car p) easel-hit-grid-size) (floor (cdr p) easel-hit-grid-size))))
+                (unless (gethash key cells) (push key order))
+                (puthash key (cons i (gethash key cells)) cells)))
+            items)
+           (list :kind "grid" :size easel-hit-grid-size
+                 :cells (vconcat (mapcar (lambda (k) (list :cell k :items (vconcat (nreverse (gethash k cells)))))
+                                         (sort order (lambda (a b) (or (< (aref a 0) (aref b 0))
+                                                                       (and (= (aref a 0) (aref b 0))
+                                                                            (< (aref a 1) (aref b 1))))))))))))))
+
+(defun easel-hit--bisect (xs x)
+  "Index of the element of ascending vector XS nearest X."
+  (let ((lo 0) (hi (1- (length xs))))
+    (while (< lo hi)
+      (let ((mid (/ (+ lo hi) 2)))
+        (if (< (aref xs mid) x) (setq lo (1+ mid)) (setq hi mid))))
+    (if (and (> lo 0) (< (- x (aref xs (1- lo))) (- (aref xs lo) x))) (1- lo) lo)))
+
+(defun easel-hit--datum (item k)
+  "Datum index of ITEM (anchor K for series)."
+  (let ((d (plist-get item :datum)))
+    (if (vectorp d) (aref d k) d)))
+
+(defun easel-hit--candidate (mark item-index k px py x-only)
+  "Hit candidate for MARK's item ITEM-INDEX (point K) against PX PY."
+  (let* ((item (aref (plist-get mark :items) item-index))
+         (p (easel-hit--item-point item (if (eq k :null) nil k)))
+         (dx (- px (car p))) (dy (- py (cdr p)))
+         (dist (cond
+                ((plist-member item :w)
+                 (let ((ex (max 0 (- (plist-get item :x) px) (- px (+ (plist-get item :x) (plist-get item :w)))))
+                       (ey (max 0 (- (plist-get item :y) py) (- py (+ (plist-get item :y) (plist-get item :h))))))
+                   (if x-only ex (sqrt (+ (* ex ex) (* ey ey))))))
+                (x-only (abs dx))
+                (t (sqrt (+ (* dx dx) (* dy dy)))))))
+    (list :mark (plist-get mark :id) :item item-index :datum (easel-hit--datum item (if (eq k :null) 0 k))
+          :distance dist :x (car p) :y (cdr p))))
+
+(defun easel-hit-mark (mark px py &optional x-only)
+  "Nearest hit candidate in MARK for PX PY; X-ONLY measures |dx| only."
+  (let ((index (plist-get mark :index)) (items (plist-get mark :items)))
+    (when (> (length items) 0)
+      (pcase (plist-get index :kind)
+        ("x-sorted"
+         (let* ((xs (plist-get index :xs)) (refs (plist-get index :refs))
+                (i (easel-hit--bisect xs px)) best)
+           ;; Points sharing the nearest x (several series) compete on y.
+           (let ((x (aref xs i)) (j i))
+             (while (and (> j 0) (= (aref xs (1- j)) x)) (setq j (1- j)))
+             (while (and (< j (length xs)) (= (aref xs j) x))
+               (let ((c (easel-hit--candidate mark (aref (aref refs j) 0) (aref (aref refs j) 1) px py nil)))
+                 (when (or (null best) (< (plist-get c :distance) (plist-get best :distance))) (setq best c)))
+               (setq j (1+ j))))
+           (if x-only (plist-put best :distance (abs (- px (plist-get best :x)))) best)))
+        (_ (let (best)
+             (dotimes (i (length items))
+               (let ((c (easel-hit--candidate mark i :null px py x-only)))
+                 (when (or (null best) (< (plist-get c :distance) (plist-get best :distance))) (setq best c))))
+             best))))))
+
+(defun easel-hit--contains (bounds px py)
+  "Non-nil when PX PY lies inside BOUNDS [x y w h]."
+  (and (<= (aref bounds 0) px (+ (aref bounds 0) (aref bounds 2)))
+       (<= (aref bounds 1) py (+ (aref bounds 1) (aref bounds 3)))))
+
+(defun easel-hit-view-at (scene px py)
+  "Return the scene view whose plot contains PX PY, else the nearest one."
+  (let ((views (append (plist-get scene :views) nil)))
+    (or (seq-find (lambda (v) (easel-hit--contains (plist-get v :bounds) px py)) views)
+        (car (sort (copy-sequence views)
+                   (lambda (a b)
+                     (cl-flet ((d (v) (let* ((b (plist-get v :bounds))
+                                             (cx (+ (aref b 0) (/ (aref b 2) 2.0)))
+                                             (cy (+ (aref b 1) (/ (aref b 3) 2.0))))
+                                        (+ (abs (- px cx)) (abs (- py cy))))))
+                       (< (d a) (d b)))))))))
+
+(defun easel-hit (scene view px &optional x-only)
+  "Return the datum nearest pixel PX ([X Y]) in SCENE's VIEW.
+VIEW is a view id, a view plist, or nil for the view under PX.  The
+result is (:view ID :mark ID :item I :datum D :distance PX :x :y
+:row ROW), D indexing the mark's :rows, or nil when there is no data.
+With X-ONLY, distance is horizontal (crosshair semantics)."
+  (let* ((px0 (aref px 0)) (py0 (aref px 1))
+         (view (cond ((stringp view) (seq-find (lambda (v) (equal (plist-get v :id) view))
+                                               (plist-get scene :views)))
+                     (view view)
+                     (t (easel-hit-view-at scene px0 py0))))
+         best)
+    (when view
+      (seq-doseq (mark (plist-get view :marks))
+        (unless (plist-get mark :interactive-off)
+          (when-let* ((c (easel-hit-mark mark px0 py0 x-only)))
+            (when (or (null best) (< (plist-get c :distance) (plist-get best :distance)))
+              (setq best (append c (list :row (aref (plist-get mark :rows) (plist-get c :datum)))))))))
+      (when best (append (list :view (plist-get view :id)) best)))))
+
+(provide 'easel-hit)
+;;; easel-hit.el ends here

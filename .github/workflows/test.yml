@@ -21,6 +21,20 @@ jobs:
         with:
           version: ${{ matrix.emacs_version }}
 
+      # Conformance oracle (fc-qx1.21): bin/chart from the chart
+      # runtime plus rsvg-convert.  Set the repository variable
+      # CHART_RUNTIME_URL to a tarball whose bin/chart is the pinned
+      # release; without it the oracle tests are skipped with the reason
+      # printed in the ERT output.
+      - name: Install conformance oracle
+        if: ${{ vars.CHART_RUNTIME_URL != '' }}
+        run: |
+          sudo apt-get install -y librsvg2-bin
+          mkdir -p "$HOME/chart-runtime"
+          curl -fsSL "${{ vars.CHART_RUNTIME_URL }}" -o /tmp/chart-runtime.tgz
+          tar -xzf /tmp/chart-runtime.tgz -C "$HOME/chart-runtime"
+          echo "$HOME/chart-runtime/bin" >> "$GITHUB_PATH"
+
       - name: Run tests
         run: make test
 

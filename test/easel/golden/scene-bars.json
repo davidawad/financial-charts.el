@@ -1,0 +1,289 @@
+{
+  "background": "white",
+  "contract": "scene/v1",
+  "params": [],
+  "size": {
+    "cell": [7, 14],
+    "h": 273,
+    "w": 380
+  },
+  "target": "svg",
+  "title": {"align": "center", "baseline": "top", "fontSize": 13, "text": "Steps per day", "x": 190.0, "y": 5},
+  "views": [
+    {
+      "axes": [
+        {
+          "channel": "x",
+          "discrete": true,
+          "domain-line": [75, 222, 375, 222],
+          "grid": false,
+          "labelAngle": 270,
+          "orient": "bottom",
+          "ticks": [
+            {
+              "align": "right",
+              "baseline": "middle",
+              "label": "Mon",
+              "lx": 105.0,
+              "ly": 229,
+              "pos": 105.0,
+              "tick": [105.0, 222, 105.0, 227],
+              "value": "Mon"
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "label": "Tue",
+              "lx": 165.0,
+              "ly": 229,
+              "pos": 165.0,
+              "tick": [165.0, 222, 165.0, 227],
+              "value": "Tue"
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "label": "Wed",
+              "lx": 225.0,
+              "ly": 229,
+              "pos": 225.0,
+              "tick": [225.0, 222, 225.0, 227],
+              "value": "Wed"
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "label": "Thu",
+              "lx": 285.0,
+              "ly": 229,
+              "pos": 285.0,
+              "tick": [285.0, 222, 285.0, 227],
+              "value": "Thu"
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "label": "Fri",
+              "lx": 345.0,
+              "ly": 229,
+              "pos": 345.0,
+              "tick": [345.0, 222, 345.0, 227],
+              "value": "Fri"
+            }
+          ],
+          "title": "category",
+          "title-mark": {"align": "center", "angle": 0, "baseline": "top", "text": "category", "x": 225.0, "y": 257},
+          "top-gap": {}
+        },
+        {
+          "channel": "y",
+          "discrete": false,
+          "domain-line": [75, 22, 75, 222],
+          "grid": true,
+          "labelAngle": 0,
+          "orient": "left",
+          "ticks": [
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [75, 37.385, 375, 37.385],
+              "label": "12,000",
+              "lx": 68,
+              "ly": 37.385,
+              "pos": 37.385,
+              "tick": [70, 37.385, 75, 37.385],
+              "value": 12000.0
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [75, 68.154, 375, 68.154],
+              "label": "10,000",
+              "lx": 68,
+              "ly": 68.154,
+              "pos": 68.154,
+              "tick": [70, 68.154, 75, 68.154],
+              "value": 10000.0
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [75, 98.923, 375, 98.923],
+              "label": "8,000",
+              "lx": 68,
+              "ly": 98.923,
+              "pos": 98.923,
+              "tick": [70, 98.923, 75, 98.923],
+              "value": 8000.0
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [75, 129.692, 375, 129.692],
+              "label": "6,000",
+              "lx": 68,
+              "ly": 129.692,
+              "pos": 129.692,
+              "tick": [70, 129.692, 75, 129.692],
+              "value": 6000.0
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [75, 160.462, 375, 160.462],
+              "label": "4,000",
+              "lx": 68,
+              "ly": 160.462,
+              "pos": 160.462,
+              "tick": [70, 160.462, 75, 160.462],
+              "value": 4000.0
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [75, 191.231, 375, 191.231],
+              "label": "2,000",
+              "lx": 68,
+              "ly": 191.231,
+              "pos": 191.231,
+              "tick": [70, 191.231, 75, 191.231],
+              "value": 2000.0
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [75, 222.0, 375, 222.0],
+              "label": "0",
+              "lx": 68,
+              "ly": 222.0,
+              "pos": 222.0,
+              "tick": [70, 222.0, 75, 222.0],
+              "value": 0.0
+            }
+          ],
+          "title": "value",
+          "title-mark": {"align": "center", "angle": -90, "baseline": "bottom", "text": "value", "x": 16, "y": 122.0},
+          "top-gap": 15.385
+        }
+      ],
+      "bounds": [75, 22, 300, 200],
+      "clip": false,
+      "frame": {"stroke": "#ddd"},
+      "id": "main",
+      "legends": [],
+      "marks": [
+        {
+          "id": "main/0",
+          "index": {"kind": "rects"},
+          "items": [
+            {
+              "datum": 0,
+              "fill": "#4c78a8",
+              "h": 126.154,
+              "opacity": 1,
+              "orient": "vertical",
+              "stroke": "none",
+              "tooltip": [
+                {"title": "category", "value": "Mon"},
+                {"title": "value", "value": "8200"}
+              ],
+              "w": 54.0,
+              "x": 78.0,
+              "y": 95.846
+            },
+            {
+              "datum": 1,
+              "fill": "#4c78a8",
+              "h": 160.0,
+              "opacity": 1,
+              "orient": "vertical",
+              "stroke": "none",
+              "tooltip": [
+                {"title": "category", "value": "Tue"},
+                {"title": "value", "value": "10400"}
+              ],
+              "w": 54.0,
+              "x": 138.0,
+              "y": 62.0
+            },
+            {
+              "datum": 2,
+              "fill": "#4c78a8",
+              "h": 93.846,
+              "opacity": 1,
+              "orient": "vertical",
+              "stroke": "none",
+              "tooltip": [
+                {"title": "category", "value": "Wed"},
+                {"title": "value", "value": "6100"}
+              ],
+              "w": 54.0,
+              "x": 198.0,
+              "y": 128.154
+            },
+            {
+              "datum": 3,
+              "fill": "#4c78a8",
+              "h": 143.077,
+              "opacity": 1,
+              "orient": "vertical",
+              "stroke": "none",
+              "tooltip": [
+                {"title": "category", "value": "Thu"},
+                {"title": "value", "value": "9300"}
+              ],
+              "w": 54.0,
+              "x": 258.0,
+              "y": 78.923
+            },
+            {
+              "datum": 4,
+              "fill": "#4c78a8",
+              "h": 185.385,
+              "opacity": 1,
+              "orient": "vertical",
+              "stroke": "none",
+              "tooltip": [
+                {"title": "category", "value": "Fri"},
+                {"title": "value", "value": "12050"}
+              ],
+              "w": 54.0,
+              "x": 318.0,
+              "y": 36.615
+            }
+          ],
+          "mark": "bar",
+          "path": "",
+          "rows": [
+            {"_easel_row": 0, "category": "Mon", "value": 8200},
+            {"_easel_row": 1, "category": "Tue", "value": 10400},
+            {"_easel_row": 2, "category": "Wed", "value": 6100},
+            {"_easel_row": 3, "category": "Thu", "value": 9300},
+            {"_easel_row": 4, "category": "Fri", "value": 12050}
+          ]
+        }
+      ],
+      "params": [],
+      "path": "",
+      "scales": {
+        "x": {
+          "bandwidth": 54.0,
+          "domain": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+          "field": "category",
+          "range": [75, 375],
+          "reverse": false,
+          "start": 78.0,
+          "step": 60.0,
+          "type": "band"
+        },
+        "y": {
+          "domain": [0.0, 13000.0],
+          "field": "value",
+          "range": [222, 22],
+          "reverse": false,
+          "type": "linear"
+        }
+      }
+    }
+  ]
+}

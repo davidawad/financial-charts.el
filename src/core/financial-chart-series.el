@@ -24,6 +24,7 @@
 (require 'cl-lib)
 (require 'seq)
 (require 'financial-chart-core)
+(require 'easel-glyph)
 
 (defface financial-chart-up '((t :inherit success))
   "Face for rising series, positive P/L and bid-side depth."
@@ -49,7 +50,7 @@
   "Face for the headline number of a chart (e.g. the last value)."
   :group 'financial-chart)
 
-(defconst financial-chart-blocks " ▁▂▃▄▅▆▇█"
+(defconst financial-chart-blocks easel-glyph-blocks
   "Eighth-height block glyphs, index = filled eighths (0..8).")
 
 (defcustom financial-chart-plot-height 12

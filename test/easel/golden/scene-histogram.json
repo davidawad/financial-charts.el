@@ -1,0 +1,346 @@
+{
+  "background": "white",
+  "contract": "scene/v1",
+  "params": [],
+  "size": {
+    "cell": [7, 14],
+    "h": 347.0,
+    "w": 356
+  },
+  "target": "svg",
+  "views": [
+    {
+      "axes": [
+        {
+          "channel": "x",
+          "discrete": false,
+          "domain-line": [51, 310.0, 351, 310.0],
+          "grid": true,
+          "labelAngle": 0,
+          "orient": "bottom",
+          "ticks": [
+            {
+              "align": "left",
+              "baseline": "top",
+              "grid": [51.0, 10.0, 51.0, 310.0],
+              "label": "1",
+              "lx": 51.0,
+              "ly": 317.0,
+              "pos": 51.0,
+              "tick": [51.0, 310.0, 51.0, 315.0],
+              "value": 1.0
+            },
+            {
+              "align": "center",
+              "baseline": "top",
+              "grid": [88.5, 10.0, 88.5, 310.0],
+              "label": "2",
+              "lx": 88.5,
+              "ly": 317.0,
+              "pos": 88.5,
+              "tick": [88.5, 310.0, 88.5, 315.0],
+              "value": 2.0
+            },
+            {
+              "align": "center",
+              "baseline": "top",
+              "grid": [126.0, 10.0, 126.0, 310.0],
+              "label": "3",
+              "lx": 126.0,
+              "ly": 317.0,
+              "pos": 126.0,
+              "tick": [126.0, 310.0, 126.0, 315.0],
+              "value": 3.0
+            },
+            {
+              "align": "center",
+              "baseline": "top",
+              "grid": [163.5, 10.0, 163.5, 310.0],
+              "label": "4",
+              "lx": 163.5,
+              "ly": 317.0,
+              "pos": 163.5,
+              "tick": [163.5, 310.0, 163.5, 315.0],
+              "value": 4.0
+            },
+            {
+              "align": "center",
+              "baseline": "top",
+              "grid": [201.0, 10.0, 201.0, 310.0],
+              "label": "5",
+              "lx": 201.0,
+              "ly": 317.0,
+              "pos": 201.0,
+              "tick": [201.0, 310.0, 201.0, 315.0],
+              "value": 5.0
+            },
+            {
+              "align": "center",
+              "baseline": "top",
+              "grid": [238.5, 10.0, 238.5, 310.0],
+              "label": "6",
+              "lx": 238.5,
+              "ly": 317.0,
+              "pos": 238.5,
+              "tick": [238.5, 310.0, 238.5, 315.0],
+              "value": 6.0
+            },
+            {
+              "align": "center",
+              "baseline": "top",
+              "grid": [276.0, 10.0, 276.0, 310.0],
+              "label": "7",
+              "lx": 276.0,
+              "ly": 317.0,
+              "pos": 276.0,
+              "tick": [276.0, 310.0, 276.0, 315.0],
+              "value": 7.0
+            },
+            {
+              "align": "center",
+              "baseline": "top",
+              "grid": [313.5, 10.0, 313.5, 310.0],
+              "label": "8",
+              "lx": 313.5,
+              "ly": 317.0,
+              "pos": 313.5,
+              "tick": [313.5, 310.0, 313.5, 315.0],
+              "value": 8.0
+            },
+            {
+              "align": "right",
+              "baseline": "top",
+              "grid": [351.0, 10.0, 351.0, 310.0],
+              "label": "9",
+              "lx": 351.0,
+              "ly": 317.0,
+              "pos": 351.0,
+              "tick": [351.0, 310.0, 351.0, 315.0],
+              "value": 9.0
+            }
+          ],
+          "title": "a (binned)",
+          "title-mark": {"align": "center", "angle": 0, "baseline": "top", "text": "a (binned)", "x": 201.0, "y": 331.0},
+          "top-gap": {}
+        },
+        {
+          "channel": "y",
+          "discrete": false,
+          "domain-line": [51, 10.0, 51, 310.0],
+          "grid": true,
+          "labelAngle": 0,
+          "orient": "left",
+          "ticks": [
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [51, 10.0, 351, 10.0],
+              "label": "2.0",
+              "lx": 44,
+              "ly": 10.0,
+              "pos": 10.0,
+              "tick": [46, 10.0, 51, 10.0],
+              "value": 2.0
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [51, 40.0, 351, 40.0],
+              "label": "1.8",
+              "lx": 44,
+              "ly": 40.0,
+              "pos": 40.0,
+              "tick": [46, 40.0, 51, 40.0],
+              "value": 1.8
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [51, 70.0, 351, 70.0],
+              "label": "1.6",
+              "lx": 44,
+              "ly": 70.0,
+              "pos": 70.0,
+              "tick": [46, 70.0, 51, 70.0],
+              "value": 1.6
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [51, 100.0, 351, 100.0],
+              "label": "1.4",
+              "lx": 44,
+              "ly": 100.0,
+              "pos": 100.0,
+              "tick": [46, 100.0, 51, 100.0],
+              "value": 1.4
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [51, 130.0, 351, 130.0],
+              "label": "1.2",
+              "lx": 44,
+              "ly": 130.0,
+              "pos": 130.0,
+              "tick": [46, 130.0, 51, 130.0],
+              "value": 1.2
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [51, 160.0, 351, 160.0],
+              "label": "1.0",
+              "lx": 44,
+              "ly": 160.0,
+              "pos": 160.0,
+              "tick": [46, 160.0, 51, 160.0],
+              "value": 1.0
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [51, 190.0, 351, 190.0],
+              "label": "0.8",
+              "lx": 44,
+              "ly": 190.0,
+              "pos": 190.0,
+              "tick": [46, 190.0, 51, 190.0],
+              "value": 0.8
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [51, 220.0, 351, 220.0],
+              "label": "0.6",
+              "lx": 44,
+              "ly": 220.0,
+              "pos": 220.0,
+              "tick": [46, 220.0, 51, 220.0],
+              "value": 0.6
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [51, 250.0, 351, 250.0],
+              "label": "0.4",
+              "lx": 44,
+              "ly": 250.0,
+              "pos": 250.0,
+              "tick": [46, 250.0, 51, 250.0],
+              "value": 0.4
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [51, 280.0, 351, 280.0],
+              "label": "0.2",
+              "lx": 44,
+              "ly": 280.0,
+              "pos": 280.0,
+              "tick": [46, 280.0, 51, 280.0],
+              "value": 0.2
+            },
+            {
+              "align": "right",
+              "baseline": "middle",
+              "grid": [51, 310.0, 351, 310.0],
+              "label": "0.0",
+              "lx": 44,
+              "ly": 310.0,
+              "pos": 310.0,
+              "tick": [46, 310.0, 51, 310.0],
+              "value": 0.0
+            }
+          ],
+          "title": "Count of Records",
+          "title-mark": {"align": "center", "angle": -90, "baseline": "bottom", "text": "Count of Records", "x": 16, "y": 160.0},
+          "top-gap": 0.0
+        }
+      ],
+      "bounds": [51, 10.0, 300, 300],
+      "clip": false,
+      "frame": {"stroke": "#ddd"},
+      "id": "main",
+      "legends": [],
+      "marks": [
+        {
+          "id": "main/0",
+          "index": {"kind": "rects"},
+          "items": [
+            {
+              "datum": 0,
+              "fill": "#4c78a8",
+              "h": 150.0,
+              "opacity": 1,
+              "orient": "vertical",
+              "stroke": "none",
+              "w": 36.5,
+              "x": 52.0,
+              "y": 160.0
+            },
+            {
+              "datum": 1,
+              "fill": "#4c78a8",
+              "h": 300.0,
+              "opacity": 1,
+              "orient": "vertical",
+              "stroke": "none",
+              "w": 36.5,
+              "x": 89.5,
+              "y": 10.0
+            },
+            {
+              "datum": 2,
+              "fill": "#4c78a8",
+              "h": 150.0,
+              "opacity": 1,
+              "orient": "vertical",
+              "stroke": "none",
+              "w": 36.5,
+              "x": 277.0,
+              "y": 160.0
+            },
+            {
+              "datum": 3,
+              "fill": "#4c78a8",
+              "h": 150.0,
+              "opacity": 1,
+              "orient": "vertical",
+              "stroke": "none",
+              "w": 36.5,
+              "x": 314.5,
+              "y": 160.0
+            }
+          ],
+          "mark": "bar",
+          "path": "",
+          "rows": [
+            {"__count": 1, "bin_maxbins_10_a": 1.0, "bin_maxbins_10_a_end": 2.0},
+            {"__count": 2, "bin_maxbins_10_a": 2.0, "bin_maxbins_10_a_end": 3.0},
+            {"__count": 1, "bin_maxbins_10_a": 7.0, "bin_maxbins_10_a_end": 8.0},
+            {"__count": 1, "bin_maxbins_10_a": 8.0, "bin_maxbins_10_a_end": 9.0}
+          ]
+        }
+      ],
+      "params": [],
+      "path": "",
+      "scales": {
+        "x": {
+          "domain": [1.0, 9.0],
+          "field": "bin_maxbins_10_a",
+          "range": [51, 351],
+          "reverse": false,
+          "type": "linear"
+        },
+        "y": {
+          "domain": [0.0, 2.0],
+          "field": "__count",
+          "range": [310.0, 10.0],
+          "reverse": false,
+          "type": "linear"
+        }
+      }
+    }
+  ]
+}

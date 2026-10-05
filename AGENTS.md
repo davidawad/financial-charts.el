@@ -37,6 +37,10 @@ for live views.
    (an array replays a log).
 5. For a deliverable: `export ... --vl` is pure Vega-Lite for
    `bin/chart build`. `doctor` checks the install.
+6. In org: `#+begin_src easel :template ohlc :data tbl` (load
+   `ob-easel`) opens view `ohlc:BLOCKNAME` inline; `:as text|vl` or
+   `:results file :file x.svg|x.vl.json|x.png` for documents.
+   `examples/easel.org` shows each.
 
 ### financial-chart kinds
 

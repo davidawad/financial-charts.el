@@ -25,7 +25,7 @@ test:
 test-gallery: $(GALLERY_TARGETS)
 
 $(addprefix test-gallery-,$(GALLERY_GROUPS)): test-gallery-%:
-	EAS_GALLERY_GROUPS=$* $(call ERT,src/eas/eas-vl-gallery-test.el,(tag :gallery))
+	EAS_GALLERY_GROUPS=$* $(call ERT,src/eas/eas-vl-gallery-test.el src/eas/eas-text-parity-test.el,(and (tag :gallery) "^eas-vl-gallery-groups-"))
 
 test-gallery-conformance:
 	$(call ERT,$(TESTS),(and (tag :gallery) (not "^eas-vl-gallery-groups-")))

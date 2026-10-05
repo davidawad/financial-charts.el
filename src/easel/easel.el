@@ -43,6 +43,8 @@
 (require 'easel-view)
 (require 'easel-tip)
 (require 'easel-action)
+(require 'easel-action-org)
+(require 'easel-action-drill)
 (require 'easel-mode)
 (require 'easel-mode-tip)
 (require 'easel-brush)

@@ -5,21 +5,34 @@
 
 ;;; Commentary:
 
-;; Part of L6 (fc-qx1.1; legend and param keys grow in fc-qx1.5).  A
-;; click (mouse-1, RET at point, or a click event an agent sends)
-;; that lands on a datum becomes a click target, recorded in the view
-;; state as :click and shown by `easel-inspect'.  The target then runs
-;; one named action from `easel-actions'.  Which one, first match wins:
+;; Part of L6 (fc-qx1.1, fc-qx1.5).  A click (mouse-1, RET at point,
+;; or a click event an agent sends) that lands on a datum becomes a
+;; click target, recorded in the view state as :click and shown by
+;; `easel-inspect'.  The target then runs one named action from
+;; `easel-actions'.  Which one, first match wins:
 ;;
 ;;   1. `easel-action-bind' on this view, keyed by mark id or param name
-;;   2. the template's "x-easel": {"actions": {KEY: NAME}}, same keys
+;;   2. the template's "x-easel": {"actions": {KEY: BINDING}}, same keys
 ;;   3. key "*" in either
 ;;   4. "open-href" when the datum has an encoding.href
 ;;
-;; A param key matches when the click sits in a view whose point
-;; selection param of that name fires on click.  Built-in actions:
-;; open-href, echo (the tooltip in the echo area) and copy-row (the
-;; row as JSON on the kill ring).  An action receives the target plist
+;; A BINDING is an action name, or {"action": NAME, ...} whose other
+;; members reach the action as the target's :args (drill's template,
+;; notes' directory).  A param key matches when the click sits in a
+;; view whose point selection param of that name fires on click.
+;;
+;; A click on a legend entry toggles a bind: "legend" point selection
+;; (the reducer's job) and becomes a legend target (:legend CHANNEL
+;; :value V :param NAME :selected BOOL); it runs only an action bound
+;; to that param's name or to "legend", never "*" or open-href.  GUI
+;; frames reach legends through their :map areas, terminals through
+;; RET on a legend cell: both are the same click event.
+;;
+;; Built-in actions: open-href (URLs in the browser, anything else as
+;; an org link), echo (the tooltip in the echo area) and copy-row (the
+;; row as JSON on the kill ring); easel-action-org.el adds goto-source
+;; and open-notes, easel-action-drill.el adds drill.  Register more
+;; with `easel-register-action'.  An action receives the target plist
 ;; and the view; what it returns (a string or number) is recorded as
 ;; :result, and a failure as :error (ENGINE_FAILED with :action), so a
 ;; click never breaks dispatch.  Binding an unknown action signals
@@ -34,6 +47,8 @@
 (require 'easel-params)
 (require 'easel-view)
 (require 'easel-tip)
+(require 'easel-hit)
+(require 'easel-scene)
 
 (defvar easel-actions nil
   "Registered actions: alist of (NAME . (:fn FN :doc DOC)).")
@@ -42,18 +57,31 @@
   "Non-nil records each click's action in the view state without running it.")
 
 (defvar easel-action-browse-function #'browse-url
-  "Function the open-href action calls with the URL.")
+  "Function the open-href action calls with a URL.")
+
+(defvar easel-action-org-link-function #'easel-action--org-link-open
+  "Function the open-href action calls with an href that is not a URL.")
+
+(defconst easel-action-url-regexp "\\`\\(?:[a-zA-Z][a-zA-Z0-9+.-]*://\\|mailto:\\)"
+  "Hrefs matching this are URLs for the browser; any other href is an org link.")
 
 (defvar easel-action--bindings (make-hash-table :test 'eq :weakness 'key)
-  "Per-view action bindings: view -> plist of (KEY NAME).")
+  "Per-view action bindings: view -> plist of (KEY BINDING).")
 
-(cl-defun easel-action-define (name fn &key doc)
-  "Register action NAME (a string) running FN with the click target and view.
-FN's string or number return value is recorded as the click's :result."
+(cl-defun easel-register-action (name &key fn doc)
+  "Register action NAME (a string): :fn FN runs with the click target and view.
+The target is the plist `easel-inspect' shows as :click, plus :args
+from the binding.  FN's string or number return value is recorded as
+the click's :result.  DOC is one line for describe.  Re-registering a
+name replaces it."
   (unless (and (stringp name) (functionp fn))
-    (easel-signal "INVALID_INPUT" "An action is a name (string) and a function" :action name))
+    (easel-signal "INVALID_INPUT" "An action is a name (string) and a :fn function" :action name))
   (setf (alist-get name easel-actions nil nil #'equal) (list :fn fn :doc (or doc "")))
   name)
+
+(cl-defun easel-action-define (name fn &key doc)
+  "Register action NAME running FN; see `easel-register-action' (DOC too)."
+  (easel-register-action name :fn fn :doc doc))
 
 (defun easel-action-names ()
   "Sorted names of every registered action."
@@ -72,11 +100,22 @@ FN's string or number return value is recorded as the click's :result."
                           name (string-join (easel-action-names) ", "))
                   :action name)))
 
+(defun easel-action--binding (binding)
+  "BINDING (a name, or an object with :action) as (NAME . ARGS), or nil."
+  (cond ((stringp binding) (list binding))
+        ((and (easel-object-p binding) (stringp (plist-get binding :action)))
+         (cons (plist-get binding :action) (easel--plist-without binding :action)))))
+
 (defun easel-action-bind (view key action)
   "Make clicks on mark or param KEY (or \"*\") in VIEW run ACTION.
-ACTION nil removes the binding.  Returns VIEW's bindings."
+ACTION is a name, or a plist (:action NAME ARG VALUE ...) whose ARGs
+reach the action as :args.  nil removes the binding.  Returns VIEW's
+bindings."
   (let ((view (easel-view-get view)))
-    (when action (easel-action--check action))
+    (when action
+      (easel-action--check (or (car (easel-action--binding action))
+                               (easel-signal "INVALID_INPUT" "An action binding is a name or (:action NAME ...)"
+                                             :action action))))
     (puthash view (if action
                       (easel-plist-put (gethash view easel-action--bindings) (easel-key key) action)
                     (easel--plist-without (gethash view easel-action--bindings) (easel-key key)))
@@ -89,26 +128,39 @@ ACTION nil removes the binding.  Returns VIEW's bindings."
 
 (defun easel-action--keys (view target)
   "Binding keys TARGET in VIEW answers to, most specific first."
+  (if (plist-get target :legend)
+      (list (plist-get target :param) "legend")
+    (easel-action--datum-keys view target)))
+
+(defun easel-action--datum-keys (view target)
+  "Binding keys a datum TARGET in VIEW answers to, most specific first."
   (append (list (plist-get target :mark))
           (mapcar (lambda (p) (plist-get p :name))
                   (seq-filter (lambda (p) (and (equal (plist-get p :view) (plist-get target :view))
                                                (equal (plist-get (plist-get p :def) :type) "point")
-                                               (equal (plist-get (plist-get p :def) :on) "click")))
+                                               (equal (plist-get (plist-get p :def) :on) "click")
+                                               (not (equal (plist-get p :bind) "legend"))))
                               (easel-params-of (easel-view-scene view))))
           (list "*")))
 
-(defun easel-action-for (view target)
-  "The action NAME a click on TARGET in VIEW runs, or nil."
+(defun easel-action-binding-for (view target)
+  "The action a click on TARGET in VIEW runs, as (NAME . ARGS), or nil."
   (let ((tables (list (gethash view easel-action--bindings)
                       (easel-action--template-actions view))))
     (or (cl-loop for key in (easel-action--keys view target)
                  thereis (cl-loop for table in tables
-                                  thereis (plist-get table (easel-key key))))
-        (and (stringp (plist-get target :href)) "open-href"))))
+                                  thereis (and key (easel-action--binding (plist-get table (easel-key key))))))
+        (and (stringp (plist-get target :href)) (list "open-href")))))
+
+(defun easel-action-for (view target)
+  "The action NAME a click on TARGET in VIEW runs, or nil."
+  (car (easel-action-binding-for view target)))
 
 (defun easel-action-run (view target)
   "Run TARGET's action in VIEW; return TARGET with :action and its outcome."
-  (let ((name (easel-action-for view target)))
+  (let* ((binding (easel-action-binding-for view target))
+         (name (car binding))
+         (target (if (cdr binding) (append target (list :args (cdr binding))) target)))
     (append target
             (list :action (or name :null))
             (cond
@@ -126,11 +178,54 @@ ACTION nil removes the binding.  Returns VIEW's bindings."
                                             :message (format "Action %s failed: %s; fix the action function"
                                                              name (error-message-string err)))))))))))
 
+(defun easel-action-legend-hit (scene px)
+  "The symbol legend entry of SCENE at PX bound to a selection, or nil.
+Returns (:view :legend CHANNEL :value V :label L :param NAME :field F)
+for an entry of a legend whose view has a bind: \"legend\" param."
+  (cl-loop
+   for view across (plist-get scene :views)
+   for param = (seq-find (lambda (p) (and (equal (plist-get p :view) (plist-get view :id))
+                                          (equal (plist-get p :bind) "legend")))
+                         (easel-params-of scene))
+   when param
+   thereis (cl-loop
+            for legend across (plist-get view :legends)
+            unless (equal (plist-get legend :type) "gradient")
+            thereis (cl-loop
+                     for entry across (plist-get legend :entries)
+                     when (easel-hit--contains (plist-get entry :bounds) (aref px 0) (aref px 1))
+                     return (list :view (plist-get view :id) :legend (plist-get legend :channel)
+                                  :value (plist-get entry :value) :label (plist-get entry :label)
+                                  :param (plist-get param :name)
+                                  :field (easel-params-channel-field scene (plist-get view :id)
+                                                                     (plist-get legend :channel)))))))
+
+(defun easel-action--legend-target (view px old-scene)
+  "The legend target a click at PX in OLD-SCENE made, given VIEW's new state."
+  (when-let* ((hit (easel-action-legend-hit old-scene px)))
+    (let ((store (plist-get (plist-get (easel-view-state view) :params) (easel-key (plist-get hit :param)))))
+      (append hit (list :px px
+                        :selected (if (and store (easel-params-contains
+                                                  store (list (easel-key (plist-get hit :field)) (plist-get hit :value))))
+                                      t :false))))))
+
+(defun easel-action--source-row (scene target)
+  "Index of TARGET's datum in its view's source rows, from SCENE, or nil."
+  (let* ((mark (easel-scene-mark scene (plist-get target :mark)))
+         (rows (plist-get mark :rows))
+         (datum (plist-get target :datum)))
+    (and (integerp datum) (< datum (length rows))
+         (plist-get (aref rows datum) easel-params-row-key))))
+
 (defun easel-action--on-dispatch (view event old-state old-scene)
   "Record and act on a click EVENT made in OLD-SCENE under OLD-STATE.
 A click on empty space clears :click; other events leave it alone."
-  (when (easel-tip-click-px event old-state)
-    (let ((target (easel-tip-click-target event old-state old-scene (easel-view-plan view))))
+  (when-let* ((px (easel-tip-click-px event old-state)))
+    (let* ((datum (easel-tip-click-target event old-state old-scene (easel-view-plan view)))
+           (target (if datum
+                       (append datum (when-let* ((n (easel-action--source-row old-scene datum)))
+                                       (list :source-row n)))
+                     (easel-action--legend-target view px old-scene))))
       (setf (easel-view-state view)
             (easel-plist-put (easel-view-state view) :click (and target (easel-action-run view target)))))))
 
@@ -138,15 +233,30 @@ A click on empty space clears :click; other events leave it alone."
 
 ;;; Built-in actions
 
-(easel-action-define
- "open-href" (lambda (target _view)
-               (let ((href (plist-get target :href)))
-                 (unless (stringp href)
-                   (easel-signal "ENGINE_FAILED" "This datum has no href; add encoding.href to the mark"
-                                 :action "open-href"))
-                 (funcall easel-action-browse-function href)
-                 href))
- :doc "Open the datum's encoding.href with `easel-action-browse-function'.")
+(declare-function org-link-open-from-string "ol" (s &optional arg))
+
+(defun easel-action--org-link-open (link)
+  "Open org LINK (\"[[file:x.org::*H]]\", \"id:...\", \"*Heading\")."
+  (require 'ol)
+  (org-link-open-from-string (if (string-prefix-p "[[" link) link (format "[[%s]]" link))))
+
+(defun easel-action-open-link (href)
+  "Open HREF: a URL in the browser, anything else as an org link.  Return HREF."
+  (funcall (if (string-match-p easel-action-url-regexp href)
+               easel-action-browse-function
+             easel-action-org-link-function)
+           href)
+  href)
+
+(easel-register-action
+ "open-href"
+ :fn (lambda (target _view)
+       (let ((href (plist-get target :href)))
+         (unless (stringp href)
+           (easel-signal "ENGINE_FAILED" "This datum has no href; add encoding.href to the mark"
+                         :action "open-href"))
+         (easel-action-open-link href)))
+ :doc "Open the datum's encoding.href: URLs in the browser, anything else as an org link.")
 
 (easel-action-define
  "echo" (lambda (target _view)

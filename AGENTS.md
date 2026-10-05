@@ -12,6 +12,34 @@ In progress: `easel`, the interactive chart engine growing in
 
 Ask the package; don't read source to learn its state.
 
+### easel charts: one verb set, one envelope
+
+Every verb answers `{"contract":"chart/v1","ok","data","reason"?,
+"evidence"?,"next":[...]}`; a failure names its reason code (design
+section 5) and evidence (`path`, `index`, `field`), and `next` holds
+runnable commands. Same verbs, three doors:
+`(easel-agent "render" "line" :data B :backend "text")` after
+`(require 'easel-agent)`; `bin/easel render line --data b.json` (batch,
+stateless verbs; `--raw` prints only the data; exit 1 on failure); and
+`emacsclient --eval '(easel-agent-json "inspect" "line:daily")' | jq -r .`
+for live views.
+
+1. `bin/easel describe` (or `describe verbs|templates|events|reasons`)
+   and pick a template, or `check` a hand-written Vega-Lite spec.
+2. `bin/easel example line --raw > b.json` gives bindings that render
+   as-is. Edit them, then `bin/easel check line --data b.json`.
+3. `bin/easel render line --data b.json --raw` to see it (text is
+   deterministic). `explain ... --stage resolve|compile|scene` only
+   when something looks wrong; `bench` for latency.
+4. To show the human: `open line --data b.json --show` in their Emacs,
+   then `inspect`, `log` and `selection` say what they are looking at
+   and picked; `dispatch VIEW EVENT` drives the view with event/v1
+   (an array replays a log).
+5. For a deliverable: `export ... --vl` is pure Vega-Lite for
+   `bin/chart build`. `doctor` checks the install.
+
+### financial-chart kinds
+
 1. Discover: `(financial-chart-describe)` — kinds, shapes, cohorts,
    presets, entry points by verb, whether market-data is loaded. From a
    shell: `bin/financial-chart describe`.

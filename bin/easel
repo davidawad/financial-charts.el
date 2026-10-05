@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# easel from the shell: the stateless agent verbs, chart/v1 envelope on stdout.
+#   easel describe [verbs|templates|...]    easel example line
+#   easel check|explain|render|export|bench SOURCE [--data B] [options] [--raw]
+#   easel doctor
+# SOURCE is a template name or a chart/v1 spec (file, inline JSON, - for stdin).
+# Exit 0 when ok, 1 otherwise.  Live verbs (views, inspect, dispatch, ...) go
+# through emacsclient --eval '(easel-agent-json "VERB" ...)'.  Set EMACS to pick
+# the binary.  "--" stops Emacs taking options such as --name for itself.
+# See src/easel/easel-agent.el.
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec "${EMACS:-emacs}" -Q --batch -L "$here/src/easel" -l easel-agent-cli \
+  -f easel-agent-cli-main -- "$@"

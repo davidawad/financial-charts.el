@@ -40,7 +40,10 @@
 (require 'easel-event)
 (require 'easel-reduce)
 (require 'easel-view)
+(require 'easel-tip)
+(require 'easel-action)
 (require 'easel-mode)
+(require 'easel-mode-tip)
 (require 'easel-chart)
 (require 'easel-conformance)
 

@@ -26,6 +26,7 @@
 (require 'easel-params)
 (require 'easel-adapters)
 (require 'easel-chart)
+(require 'easel-tip)
 
 (defvar easel-views (make-hash-table :test 'equal)
   "Live views by id.")
@@ -35,6 +36,15 @@
 
 (defvar easel-view-changed-functions nil
   "Hook run with a VIEW after dispatch changed its visible output.")
+
+(defvar easel-view-dispatch-functions nil
+  "Hook run with VIEW, EVENT, OLD-STATE and OLD-SCENE after every dispatch.
+It runs once the reducer has updated VIEW and before the inspect is
+taken, so a function may record data in VIEW's state (clicks, fc-qx1.1).")
+
+(defvar easel-view-replaying nil
+  "Non-nil while `easel-replay' re-applies a log.
+Hook functions with side effects (actions, echo) skip them then.")
 
 (cl-defstruct (easel-view (:constructor easel-view--make) (:copier nil))
   id template subject spec spec-hash bindings data size target cell
@@ -163,6 +173,7 @@ or data changed."
   (let* ((event (easel-event-parse event))
          (before (easel-view--visible view))
          (old-state (easel-view-state view))
+         (old-scene (easel-view-scene view))
          (push (equal (plist-get event :type) "push")))
     (when push
       (setf (easel-view-data view) (easel-data-append (easel-view-data view) (vconcat (plist-get event :rows)))))
@@ -171,6 +182,7 @@ or data changed."
     (unless (equal before (easel-view--visible view))
       (setf (easel-view-scene view) (easel-view--compile view (not push) old-state))
       (run-hook-with-args 'easel-view-changed-functions view))
+    (run-hook-with-args 'easel-view-dispatch-functions view event old-state old-scene)
     (easel-inspect view)))
 
 (defun easel-replay (view log)
@@ -181,7 +193,8 @@ LOG may be a vector or list, in order, or a view's own `easel-view-log'
          (entries (if (and (cdr entries) (plist-get (car entries) :seq)
                            (> (plist-get (car entries) :seq) (plist-get (cadr entries) :seq)))
                       (reverse entries) entries))
-         (result (easel-inspect view)))
+         (result (easel-inspect view))
+         (easel-view-replaying t))
     (dolist (entry entries result)
       (setq result (easel-dispatch view (or (plist-get entry :event) entry))))))
 
@@ -254,8 +267,10 @@ LOG may be a vector or list, in order, or a view's own `easel-view-log'
                                     (easel-params-of scene)))
           :hover (if hover (list :view (plist-get hover :view) :mark (plist-get hover :mark)
                                  :datum (plist-get hover :datum)
-                                 :row (easel--plist-without (plist-get hover :row) easel-params-row-key))
+                                 :row (easel--plist-without (plist-get hover :row) easel-params-row-key)
+                                 :tooltip (or (easel-tip-tooltip scene (easel-view-plan view) hover) :null))
                    :null)
+          :click (or (plist-get state :click) :null)
           :warnings (vconcat (easel-view-warnings view))
           :last-event (let ((e (car (easel-view-log view)))) (if e (plist-get e :summary) :null)))))
 

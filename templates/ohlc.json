@@ -1,0 +1,35 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-easel": {
+    "template": "ohlc",
+    "version": "1.0.0",
+    "doc": "Candlesticks from OHLC bars: a low-high wick and an open-close body per bar, up bars green.",
+    "slots": {
+      "bars": {"shape": "bar/v1", "required": true, "doc": "OHLCV bars, oldest first"},
+      "title": {"type": "string", "default": ""},
+      "description": {"type": "string", "default": "Candlesticks from OHLC bars: a low-high wick and an open-close body per bar, up bars green.", "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"}
+    },
+    "actions": {"candles": "echo", "wicks": "echo"},
+    "example": "examples/ohlc.data.json"
+  },
+  "title": {"x-easel:slot": "title"},
+  "description": {"x-easel:slot": "description"},
+  "width": 400,
+  "height": 200,
+  "data": {"name": "bars"},
+  "encoding": {
+    "x": {"field": "time", "type": "temporal", "title": "date"},
+    "color": {"condition": {"test": "datum.open <= datum.close", "value": "#06982d"}, "value": "#ae1325"},
+    "tooltip": [
+      {"field": "time", "type": "temporal", "title": "date"},
+      {"field": "open", "type": "quantitative"},
+      {"field": "high", "type": "quantitative"},
+      {"field": "low", "type": "quantitative"},
+      {"field": "close", "type": "quantitative"}
+    ]
+  },
+  "layer": [
+    {"name": "wicks", "mark": "rule", "encoding": {"y": {"field": "low", "type": "quantitative", "scale": {"zero": false}, "title": "price"}, "y2": {"field": "high"}}},
+    {"name": "candles", "mark": {"type": "bar"}, "encoding": {"y": {"field": "open", "type": "quantitative", "scale": {"zero": false}, "title": "price"}, "y2": {"field": "close"}}}
+  ]
+}

@@ -71,12 +71,13 @@ Numbers are already epoch milliseconds."
   (cond
    ((numberp value) value)
    ((stringp value)
-    (let ((hit (gethash value easel-time--parse-cache)))
+    (let* ((key (if easel-time-zone (cons easel-time-zone value) value))
+           (hit (gethash key easel-time--parse-cache)))
       (if hit (and (not (eq hit :none)) hit)
         (when (>= (hash-table-count easel-time--parse-cache) easel-time--parse-cache-limit)
           (clrhash easel-time--parse-cache))
         (let ((ms (easel-time--parse-string value)))
-          (puthash value (or ms :none) easel-time--parse-cache)
+          (puthash key (or ms :none) easel-time--parse-cache)
           ms))))))
 
 (defun easel-time--parse-string (value)

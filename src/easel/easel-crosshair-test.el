@@ -150,7 +150,7 @@
 
 (ert-deftest easel-crosshair-readout-borrows-a-sibling-marks-tooltip ()
   (easel-crosshair-test--with-view v easel-crosshair-test--sibling-spec
-    (let ((inspect (easel-dispatch v (list :type "pointermove" :px (vector (easel-crosshair-test--x v 3) 10)))))
+    (let ((inspect (easel-dispatch v (list :type "pointermove" :px (vector (easel-crosshair-test--x v 3) (easel-crosshair-test--top v))))))
       ;; The point layer holding the param wins the hit and has no tooltip.
       (should (equal (plist-get (plist-get inspect :hover) :mark) "main/0"))
       (should (equal (easel-crosshair-view-readout v) [(:title "Price" :value "4") (:title "t" :value "3")])))))
@@ -196,7 +196,11 @@
                   ;; and only the crosshair's cells were rewritten.
                   (should (equal-including-properties (buffer-string) (easel-text-render (easel-view-scene view))))
                   (should (= (point) pos))
-                  (should (< 0 written (* 3 (count-lines (point-min) (point-max)))))
+                  ;; The default theme has no frame, so lines are right-trimmed
+                  ;; and a rule past a line's end also writes the blank run to it
+                  ;; (fc-qx1.21): still a fraction of the grid, never a rewrite.
+                  (should (< 0 written (max (* 3 (count-lines (point-min) (point-max)))
+                                            (/ (buffer-size) 5))))
                   (should (= (current-column) (save-excursion (goto-char pos) (current-column))))
                   (should (= (length tooltip) 2))
                   (should (string-suffix-p (easel-crosshair-format tooltip) (format "%s" header-line-format)))

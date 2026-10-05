@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
-  "x-easel": {
+  "x-eas": {
     "template": "ohlc",
     "version": "1.0.0",
     "doc": "Candlesticks from OHLC bars: a low-high wick and an open-close body per bar, up bars green.",
@@ -12,8 +12,8 @@
     "actions": {"candles": "echo", "wicks": "echo"},
     "example": "examples/ohlc.data.json"
   },
-  "title": {"x-easel:slot": "title"},
-  "description": {"x-easel:slot": "description"},
+  "title": {"x-eas:slot": "title"},
+  "description": {"x-eas:slot": "description"},
   "width": 400,
   "height": 200,
   "data": {"name": "bars"},

@@ -4,31 +4,31 @@ Standalone, publishable Emacs package: every financial chart kind
 (candles, area, line, sparkline, payoff, bars) as text or SVG from plain
 Lisp data. README.md is the full reference.
 
-In progress: `easel`, the interactive chart engine growing in
-`src/easel/` (epic `fc-qx1`). Design and layer contracts:
+In progress: `eas`, the interactive chart engine growing in
+`src/eas/` (epic `fc-qx1`). Design and layer contracts:
 `docs/design/engine.md`. Tasks: `br ready` in this repo (`.beads/`).
 
 ## Driving it
 
 Ask the package; don't read source to learn its state.
 
-### easel charts: one verb set, one envelope
+### eas charts: one verb set, one envelope
 
 Every verb answers `{"contract":"chart/v1","ok","data","reason"?,
 "evidence"?,"next":[...]}`; a failure names its reason code (design
 section 5) and evidence (`path`, `index`, `field`), and `next` holds
 runnable commands. Same verbs, three doors:
-`(easel-agent "render" "line" :data B :backend "text")` after
-`(require 'easel-agent)`; `bin/easel render line --data b.json` (batch,
+`(eas-agent "render" "line" :data B :backend "text")` after
+`(require 'eas-agent)`; `bin/eas render line --data b.json` (batch,
 stateless verbs; `--raw` prints only the data; exit 1 on failure); and
-`emacsclient --eval '(easel-agent-json "inspect" "line:daily")' | jq -r .`
+`emacsclient --eval '(eas-agent-json "inspect" "line:daily")' | jq -r .`
 for live views.
 
-1. `bin/easel describe` (or `describe verbs|templates|events|reasons`)
+1. `bin/eas describe` (or `describe verbs|templates|events|reasons`)
    and pick a template, or `check` a hand-written Vega-Lite spec.
-2. `bin/easel example line --raw > b.json` gives bindings that render
-   as-is. Edit them, then `bin/easel check line --data b.json`.
-3. `bin/easel render line --data b.json --raw` to see it (text is
+2. `bin/eas example line --raw > b.json` gives bindings that render
+   as-is. Edit them, then `bin/eas check line --data b.json`.
+3. `bin/eas render line --data b.json --raw` to see it (text is
    deterministic). `explain ... --stage resolve|compile|scene` only
    when something looks wrong; `bench` for latency.
 4. To show the human: `open line --data b.json --show` in their Emacs,
@@ -37,10 +37,10 @@ for live views.
    (an array replays a log).
 5. For a deliverable: `export ... --vl` is pure Vega-Lite for
    `bin/chart build`. `doctor` checks the install.
-6. In org: `#+begin_src easel :template ohlc :data tbl` (load
-   `ob-easel`) opens view `ohlc:BLOCKNAME` inline; `:as text|vl` or
+6. In org: `#+begin_src eas :template ohlc :data tbl` (load
+   `ob-eas`) opens view `ohlc:BLOCKNAME` inline; `:as text|vl` or
    `:results file :file x.svg|x.vl.json|x.png` for documents.
-   `examples/easel.org` shows each.
+   `examples/eas.org` shows each.
 
 ### financial-chart kinds
 
@@ -63,8 +63,8 @@ for live views.
 ## Changing it
 
 - `make test` (offline, no display) and `make compile` (warnings are
-  errors) must pass. `make bench` checks easel latency against
-  `src/easel/bench-budget.json` (`make bench-budget` re-measures; review
+  errors) must pass. `make bench` checks eas latency against
+  `src/eas/bench-budget.json` (`make bench-budget` re-measures; review
   the diff). Golden fixtures: regenerate with
   `FINANCIAL_CHART_UPDATE_GOLDEN=1 make test` and review the diff.
 - New chart kind: renderers in -text/-svg, then one

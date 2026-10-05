@@ -54,7 +54,7 @@
 ;; Keep the package split into functional subdirectories while allowing
 ;; package-vc and a plain load-path entry to load the public entry point.
 (let ((source-directory (file-name-directory (or load-file-name buffer-file-name))))
-  (dolist (directory '("." "easel" "core" "indicators" "renderers" "charts" "integrations" "cli"))
+  (dolist (directory '("." "eas" "core" "indicators" "renderers" "charts" "integrations" "cli"))
     (add-to-list 'load-path (expand-file-name directory source-directory))))
 
 (require 'cl-lib)
@@ -71,7 +71,7 @@
 (require 'financial-chart-returns)
 (require 'financial-chart-depth)
 (require 'financial-chart-matrix)
-(require 'financial-chart-easel)
+(require 'financial-chart-eas)
 
 (defconst financial-chart-version "0.3.0"
   "Version of the financial-chart package.")

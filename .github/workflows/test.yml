@@ -46,20 +46,20 @@ jobs:
         run: make compile
 
       # Performance budget (fc-qx1.9): the byte-compiled 1k/10k/100k
-      # ladder against src/easel/bench-budget.json, whose references were
+      # ladder against src/eas/bench-budget.json, whose references were
       # measured on Emacs 30.1.  Limits scale by a calibration run, so a
       # slower runner is not a regression; a stage past its limit fails
       # with BUDGET_EXCEEDED.
       - name: Benchmark budget
         if: ${{ matrix.emacs_version == '30.1' }}
-        run: BENCH_OUT=easel-bench.json make bench
+        run: BENCH_OUT=eas-bench.json make bench
 
       - name: Upload benchmark
         if: ${{ always() && matrix.emacs_version == '30.1' }}
         uses: actions/upload-artifact@v4
         with:
-          name: easel-bench
-          path: easel-bench.json
+          name: eas-bench
+          path: eas-bench.json
           if-no-files-found: ignore
 
       - name: CLI smoke test

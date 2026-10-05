@@ -17,7 +17,7 @@
 (require 'financial-chart-series)
 (require 'subr-x)
 (require 'financial-chart-core)
-(require 'easel-glyph)
+(require 'eas-glyph)
 (require 'financial-chart-indicators)
 
 (defun financial-chart-text--palette-face (face)
@@ -64,21 +64,21 @@
           text))
     (make-string (length (format financial-chart-axis-format 0.0)) ?\s)))
 
-;; Glyph primitives live in easel-glyph.el; these names are kept for
+;; Glyph primitives live in eas-glyph.el; these names are kept for
 ;; the renderers below and for callers of the old internal API.
-(defconst financial-chart--braille-left-bits easel-glyph-braille-left-bits
+(defconst financial-chart--braille-left-bits eas-glyph-braille-left-bits
   "Braille dot bits for vertical samples, bottom to top, left column.")
 
-(defconst financial-chart--braille-right-bits easel-glyph-braille-right-bits
+(defconst financial-chart--braille-right-bits eas-glyph-braille-right-bits
   "Braille dot bits for vertical samples, bottom to top, right column.")
 
-(defconst financial-chart--eighth-block-candidates easel-glyph-eighth-block-candidates
+(defconst financial-chart--eighth-block-candidates eas-glyph-eighth-block-candidates
   "Unicode block masks available to the eighth-resolution renderer.")
 
-(defalias 'financial-chart--range-mask #'easel-glyph-range-mask)
-(defalias 'financial-chart--point-mask #'easel-glyph-point-mask)
-(defalias 'financial-chart--braille-char #'easel-glyph-braille-char)
-(defalias 'financial-chart--eighths-char #'easel-glyph-eighths-char)
+(defalias 'financial-chart--range-mask #'eas-glyph-range-mask)
+(defalias 'financial-chart--point-mask #'eas-glyph-point-mask)
+(defalias 'financial-chart--braille-char #'eas-glyph-braille-char)
+(defalias 'financial-chart--eighths-char #'eas-glyph-eighths-char)
 
 (defun financial-chart--res-candle-glyph
     (row-low row-high body-low body-high wick-low wick-high style)
@@ -491,7 +491,7 @@ trailing last/range/points line.  Returns nil for no data."
 
 ;; --- braille line ---------------------------------------------------------------
 
-(defconst financial-chart-text--braille-bits easel-glyph-braille-dots
+(defconst financial-chart-text--braille-bits eas-glyph-braille-dots
   "Braille dot bit for [ROW-IN-CELL][COL-IN-CELL], row 0 at the top.")
 
 (cl-defun financial-chart-text-line

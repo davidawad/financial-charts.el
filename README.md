@@ -405,7 +405,7 @@ Source is grouped by responsibility under src/:
 make test      # every src module's *-test.el files, offline, no display
 make compile   # byte-compile with warnings as errors
 make test MARKET_DATA=../market-data.el   # same suite with market-data loaded
-make bench     # easel performance ladder against its regression budget
+make bench     # eas performance ladder against its regression budget
 ```
 
 ERT tests live beside the source modules they cover. Golden text and SVG
@@ -414,12 +414,12 @@ visual change, regenerate them with `FINANCIAL_CHART_UPDATE_GOLDEN=1
 make test` and review the diff. Trailing spaces in fixtures are data;
 `.gitattributes` and `.editorconfig` keep tools from stripping them.
 
-## Performance (the easel engine)
+## Performance (the eas engine)
 
-The interactive engine in `src/easel/` is still in progress (epic
+The interactive engine in `src/eas/` is still in progress (epic
 `fc-qx1`). Its latency is measured, never assumed. `make bench` runs
 the byte-compiled ladder and fails when a stage regresses past
-`src/easel/bench-budget.json`; CI runs it on Emacs 30.1. `bin/easel
+`src/eas/bench-budget.json`; CI runs it on Emacs 30.1. `bin/eas
 bench` prints the same numbers as JSON. Measured on 2026-10-05: 4 vCPU
 AMD EPYC-Rome, GNU Emacs 30.1, batch, byte-compiled, mean ms, an
 800x400 line chart with a crosshair:

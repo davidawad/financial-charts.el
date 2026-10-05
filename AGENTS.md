@@ -36,7 +36,11 @@ for live views.
    and picked; `dispatch VIEW EVENT` drives the view with event/v1
    (an array replays a log).
 5. For a deliverable: `export ... --vl` is pure Vega-Lite for
-   `bin/chart build`. `doctor` checks the install.
+   `bin/chart build`. `doctor` checks the install. bin/chart is never
+   a runtime dependency: it is the conformance oracle (dev/CI; refs
+   are committed) and the static export door. A spec outside the
+   native subset shows `UNSUPPORTED_FEATURE` text unless
+   `eas-static-fallback` is t.
 6. In org: `#+begin_src eas :template ohlc :data tbl` (load
    `ob-eas`) opens view `ohlc:BLOCKNAME` inline; `:as text|vl` or
    `:results file :file x.svg|x.vl.json|x.png` for documents.

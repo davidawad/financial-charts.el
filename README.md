@@ -437,6 +437,25 @@ These are Lisp-side numbers. In a GUI frame librsvg adds about 15 ms
 to show one path on Linux/Xvfb. Method, history and the GUI
 measurements are in `docs/design/engine-spikes.md` (sections 8 and 9).
 
+### bin/chart is not a runtime dependency
+
+eas draws every chart in Emacs Lisp, as SVG or text. The config
+`bin/chart` (a Vega-Lite build door) is used in only two places, and
+eas works without it:
+
+- Test oracle (dev and CI): its PNGs are the committed conformance
+  references (`test/conformance/ref/`, `test/vl-examples/*/ref/`). The
+  tests compare native renders against those files with only
+  `rsvg-convert`; with `bin/chart` on PATH they also rebuild them.
+- Static export: `bin/eas export ... --vl` hands pure Vega-Lite to
+  `bin/chart build`, and org-babel `:file x.png`/`x.pdf` calls it.
+
+A spec that uses Vega-Lite features outside the native subset opens as
+a static view. That view shows its `UNSUPPORTED_FEATURE` findings as
+text, and `render --backend svg` fails with the same reason code. If
+you want a picture from `bin/chart` in that case, opt in with
+`(setq eas-static-fallback t)`.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

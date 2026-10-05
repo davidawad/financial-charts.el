@@ -254,6 +254,23 @@ one history entry."
 
 ;;; Entry point
 
+(defun easel-reduce--zoom-to-brush (state scene)
+  "Zoom every brushed view to its brush's ranges, then clear the brushes.
+The previous domains go on the history, so [ undoes it."
+  (let ((brushes (seq-filter (lambda (p) (and (easel-reduce--brush-p p)
+                                              (plist-get (plist-get state :params) (easel-key (plist-get p :name)))))
+                             (easel-params-of scene))))
+    (if (null brushes) state
+      (let ((s (easel-reduce--remember state)))
+        (dolist (p brushes s)
+          (let ((store (plist-get (plist-get s :params) (easel-key (plist-get p :name)))))
+            (dolist (ch '(:x :y))
+              (when-let* ((r (plist-get store ch))
+                          ((/= (aref r 0) (aref r 1))))
+                (setq s (easel-reduce--set-domain s (plist-get p :view) ch
+                                                  (vector (min (aref r 0) (aref r 1)) (max (aref r 0) (aref r 1)))))))
+            (setq s (easel-reduce--store s (plist-get p :name) nil))))))))
+
 (defun easel-reduce--brush-event (state scene event)
   "Apply an agent's brush EVENT (data-space ranges)."
   (let* ((params (easel-params-of scene "interval"))
@@ -333,6 +350,7 @@ one history entry."
              (channel (if (member key '("left" "right")) :x :y))
              (fraction (if (member key '("left" "down")) -0.1 0.1)))
          (dolist (v views (easel-reduce--if-moved state s)) (setq s (easel-reduce--pan s scene v channel fraction)))))
+      ("z" (easel-reduce--zoom-to-brush state scene))
       ("escape" (easel-reduce--put (easel-reduce--put state :params nil) :hover nil))
       ("[" (if-let* ((prev (car (plist-get state :history))))
                (thread-first state

@@ -15,7 +15,7 @@
 ;;   {"type": "drag", "from": [X, Y], "to": [X, Y]}
 ;;   {"type": "brush", "param"?: NAME, "x"?: [LO, HI], "y"?: [LO, HI]}
 ;;   {"type": "key", "key": "+" | "-" | "0" | "left" | "right" | "up" | "down"
-;;                        | "escape" | "[" | "]"}
+;;                        | "escape" | "[" | "]" | "z"}   (z zooms into the brush)
 ;;   {"type": "push", "rows": [ROW, ...]}
 ;;
 ;; Pixel coordinates are scene pixels.  `easel-event-parse' validates
@@ -30,7 +30,7 @@
     "wheel" "drag" "brush" "key" "push")
   "event/v1 types.")
 
-(defconst easel-event-keys '("+" "=" "-" "0" "left" "right" "up" "down" "escape" "[" "]")
+(defconst easel-event-keys '("+" "=" "-" "0" "left" "right" "up" "down" "escape" "[" "]" "z")
   "Keys the runtime understands.")
 
 (defun easel-event--invalid (field message)
@@ -75,9 +75,11 @@
 (defun easel-event-describe (event)
   "One line describing EVENT for logs and agents."
   (pcase (plist-get event :type)
-    ("brush" (format "brush %s" (mapconcat (lambda (f) (when-let* ((r (plist-get event f)))
-                                                         (format "%s %s..%s" (easel-key-name f) (aref r 0) (aref r 1))))
-                                           '(:x :y) " ")))
+    ("brush" (format "brush %s" (string-join
+                                 (delq nil (mapcar (lambda (f) (when-let* ((r (plist-get event f)))
+                                                                 (format "%s %s..%s" (easel-key-name f) (aref r 0) (aref r 1))))
+                                                   '(:x :y)))
+                                 " ")))
     ("key" (format "key %s" (plist-get event :key)))
     ("push" (format "push %d rows" (length (plist-get event :rows))))
     ("drag" (format "drag %s -> %s" (plist-get event :from) (plist-get event :to)))

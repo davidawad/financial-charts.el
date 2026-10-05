@@ -47,6 +47,7 @@
 (require 'easel-action-drill)
 (require 'easel-mode)
 (require 'easel-mode-tip)
+(require 'easel-crosshair)
 (require 'easel-brush)
 (require 'easel-stream)
 (require 'easel-tty)

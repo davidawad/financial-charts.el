@@ -20,8 +20,10 @@
 ;; clears selections, RET clicks at point, g redraws, q quits.  In GUI
 ;; buffers the arrows pan; in text buffers they move point (hover) and
 ;; S-arrows pan.  The wheel (xterm-mouse's mouse-4/5 in terminals) and a
-;; trackpad pinch zoom around the pointer; horizontal scrolling pans.  Redraws are idle-coalesced, the default the spikes
-;; chose until GUI re-raster latency is measured.
+;; trackpad pinch zoom around the pointer; horizontal scrolling pans.
+;; Redraws are idle-coalesced (spikes 8.8) while the header-line readout
+;; updates on every move; text redraws rewrite only the changed cells
+;; (`easel-mode-patch-text').
 
 ;;; Code:
 
@@ -29,6 +31,8 @@
 (require 'easel-svg)
 (require 'easel-text)
 (require 'easel-zoom)
+(require 'easel-crosshair)
+(require 'easel-mode-patch)
 
 (defvar-local easel-mode--view nil "The view this buffer shows.")
 (defvar-local easel-mode--timer nil "Pending idle redraw.")
@@ -111,17 +115,18 @@ The text renderer pulls glyphs on the plot's edge one cell inward."
            ;; Text lines change length as labels change: keep point's cell.
            (line (line-number-at-pos)) (col (current-column)))
       (let ((old (get-text-property (point-min) 'display)))
-        (erase-buffer)
         ;; Each redraw is a new image; without a flush the image cache
         ;; keeps every one (fc-qx1.23: +1.28 MB per 800x400 move).
         (when (and (eq (car-safe old) 'image) (fboundp 'image-flush)) (image-flush old t)))
       (cond
-       ((not (easel-view-interactive view)) (easel-mode--insert-static view))
+       ((not (easel-view-interactive view)) (erase-buffer) (easel-mode--insert-static view))
        ((easel-mode--gui-p)
           (let ((image (easel-svg-image scene :scale 1)))
+            (erase-buffer)
             (insert-image image "[chart]")
             (easel-mode--hot-spot-keys image)))
-       (t (insert (easel-text-render scene))))
+       ;; Terminal hover moves one column: rewrite only changed cells (fc-qx1.14).
+       (t (easel-mode-patch-text (easel-text-render scene))))
       (if (easel-mode--gui-p) (goto-char (min pos (point-max)))
         (goto-char (point-min))
         (forward-line (1- line))
@@ -150,15 +155,13 @@ The text renderer pulls glyphs on the plot's edge one cell inward."
     (use-local-map map)))
 
 (defun easel-mode--readout ()
-  "Show the hovered datum (or the view id) in the header line."
+  "Show the hovered datum's readout (or the view id) in the header line.
+The readout lists its encoding.tooltip fields (`easel-crosshair-readout')."
   (let* ((inspect (easel-inspect easel-mode--view)) (hover (plist-get inspect :hover)))
     (setq header-line-format
           (if (and hover (not (eq hover :null)))
               (format " %s  %s" (easel-view-id easel-mode--view)
-                      (mapconcat (lambda (pair) (format "%s=%s" (car pair) (cdr pair)))
-                                 (cl-loop for (k v) on (plist-get hover :row) by #'cddr
-                                          collect (cons (easel-key-name k) v))
-                                 "  "))
+                      (easel-crosshair-format (easel-crosshair-view-readout easel-mode--view)))
             (format " %s  %s" (easel-view-id easel-mode--view)
                     (or (plist-get inspect :last-event) ""))))))
 

@@ -179,6 +179,10 @@
                  do (easel-text--put g col row ?─ props prio))))
      (t (easel-text--dot-line g x1 y1 x2 y2 (lambda (_) props) clip)))))
 
+(defun easel-text--inside (bounds x)
+  "X, nudged inside the plot when it lies on BOUNDS' right edge."
+  (if (< (abs (- x (+ (aref bounds 0) (aref bounds 2)))) 0.005) (- x 0.01) x))
+
 (defun easel-text--marks (g view)
   "Draw VIEW's marks into grid G, clipped to its plot."
   (let* ((b (plist-get view :bounds))
@@ -193,7 +197,12 @@
              ((or "line" "area") (easel-text--series g view mark item clip))
              ((or "bar" "rect" "brush") (easel-text--rect g view mark item clip i))
              ((or "rule" "tick")
-              (easel-text--segment g (vector (plist-get item :x1) (plist-get item :y1) (plist-get item :x2) (plist-get item :y2))
+              ;; A rule on the plot's right edge (the last datum's crosshair)
+              ;; belongs to the last column, not the clipped one past it.
+              (easel-text--segment g (if (equal (plist-get mark :mark) "rule")
+                                         (vector (easel-text--inside b (plist-get item :x1)) (plist-get item :y1)
+                                                 (easel-text--inside b (plist-get item :x2)) (plist-get item :y2))
+                                       (vector (plist-get item :x1) (plist-get item :y1) (plist-get item :x2) (plist-get item :y2)))
                                    (easel-text--item-props view mark item (plist-get item :datum)) clip 3))
              ("text" (easel-text--string g (plist-get item :x) (plist-get item :y) (plist-get item :text)
                                          (plist-get item :align)

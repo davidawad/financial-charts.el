@@ -58,12 +58,31 @@ A `decode-time' ZONE such as \"America/Chicago\".")
   (and (stringp value) (string-match-p easel-time--iso-regexp value)
        (> (length value) 4)))
 
+(defvar easel-time--parse-cache (make-hash-table :test 'equal)
+  "Date string -> epoch ms (or :none).  A crosshair tests every row's
+date against the selection on each move (fc-qx1.2), so parse once.")
+
+(defconst easel-time--parse-cache-limit 200000
+  "Entries kept before `easel-time--parse-cache' is emptied.")
+
 (defun easel-time-parse (value)
   "Return VALUE as UTC epoch milliseconds, or nil when it is not a date.
 Numbers are already epoch milliseconds."
   (cond
    ((numberp value) value)
-   ((and (stringp value) (string-match easel-time--iso-regexp value))
+   ((stringp value)
+    (let ((hit (gethash value easel-time--parse-cache)))
+      (if hit (and (not (eq hit :none)) hit)
+        (when (>= (hash-table-count easel-time--parse-cache) easel-time--parse-cache-limit)
+          (clrhash easel-time--parse-cache))
+        (let ((ms (easel-time--parse-string value)))
+          (puthash value (or ms :none) easel-time--parse-cache)
+          ms))))))
+
+(defun easel-time--parse-string (value)
+  "Parse string VALUE as `easel-time-parse' does, uncached."
+  (cond
+   ((string-match easel-time--iso-regexp value)
     (let* ((num (lambda (n default)
                   (if (match-string n value) (string-to-number (match-string n value)) default)))
            (year (funcall num 1 1970)) (month (funcall num 2 1)) (day (funcall num 3 1))

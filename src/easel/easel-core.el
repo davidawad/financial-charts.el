@@ -36,7 +36,8 @@
     ("TRANSFORM_UNKNOWN" easel-transform-unknown "Unknown transform")
     ("VIEW_NOT_FOUND" easel-view-not-found "View not found")
     ("EVENT_INVALID" easel-event-invalid "Invalid event")
-    ("ENGINE_FAILED" easel-engine-failed "Engine failed"))
+    ("ENGINE_FAILED" easel-engine-failed "Engine failed")
+    ("BUDGET_EXCEEDED" easel-budget-exceeded "Benchmark over its regression budget"))
   "Stable reason codes: (CODE ERROR-SYMBOL TITLE).
 Codes shared with bin/chart mean the same thing in both.")
 

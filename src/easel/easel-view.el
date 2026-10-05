@@ -225,12 +225,25 @@ With `easel-push-function' set (easel-stream), the push may be coalesced."
   "Data value V formatted for SCALE (ISO for time)."
   (if (and (member (plist-get scale :type) '("time" "utc")) (numberp v)) (easel-time-iso v) v))
 
+(defvar easel-view--summaries (make-hash-table :test 'eq :weakness 'key)
+  "Mark rows vector -> (KEY . SUMMARY), so a hover does not rescan rows.")
+
 (defun easel-view--visible-summary (scene-view)
-  "n/min/max/first/last/change of the y field over SCENE-VIEW's x domain."
+  "n/min/max/first/last/change of the y field over SCENE-VIEW's x domain.
+Cached per mark rows and domain: hover keeps both (fc-qx1.9)."
   (let* ((scales (plist-get scene-view :scales))
          (xs (plist-get scales :x)) (ys (plist-get scales :y))
          (mark (seq-find (lambda (m) (> (length (plist-get m :rows)) 0)) (plist-get scene-view :marks)))
-         (xf (and (plist-get xs :field) (easel-key (plist-get xs :field))))
+         (key (list (plist-get xs :field) (plist-get xs :type) (plist-get xs :domain) (plist-get ys :field)))
+         (cached (and mark (gethash (plist-get mark :rows) easel-view--summaries))))
+    (if (and cached (equal (car cached) key)) (cdr cached)
+      (let ((summary (easel-view--summarize xs ys mark)))
+        (when mark (puthash (plist-get mark :rows) (cons key summary) easel-view--summaries))
+        summary))))
+
+(defun easel-view--summarize (xs ys mark)
+  "The visible summary of MARK's rows under x scale XS and y scale YS."
+  (let* ((xf (and (plist-get xs :field) (easel-key (plist-get xs :field))))
          (yf (and (plist-get ys :field) (easel-key (plist-get ys :field))))
          (d (plist-get xs :domain))
          (rows (and mark yf

@@ -5,12 +5,15 @@
 
 ;;; Commentary:
 
+;;   bench [--points 1000,10000,100000] [--budget]   the ladder (easel-bench.el)
 ;;   bench SOURCE [--data B] [--n N]   measured resolve, compile, render and hover ms
 ;;   doctor                            eager (:name :status :detail :remediation) rows
 ;;
 ;; bench measures in the Emacs it runs in (batch for bin/easel), so
 ;; its numbers are the Lisp half only; a GUI frame adds rasterization
-;; (docs/design/engine-spikes.md).  doctor status is pass, fail or
+;; (docs/design/engine-spikes.md).  With no SOURCE it runs the fixed
+;; ladder; --budget compares that with bench-budget.json and fails with
+;; BUDGET_EXCEEDED naming each stage over its limit.  doctor status is pass, fail or
 ;; skip; a skip names what is missing and never fails the envelope.
 
 ;;; Code:
@@ -18,6 +21,7 @@
 (require 'easel-agent-core)
 (require 'easel-agent-verbs)
 (require 'easel-view)
+(require 'easel-bench)
 
 ;;; bench
 
@@ -47,7 +51,60 @@
     (if (null points) :null
       (easel-agent--time n (lambda () (easel-dispatch view (list :type "pointermove" :px (pop points))))))))
 
+(defun easel-agent--points (opts)
+  "OPTS's --points as a list of positive integers, or nil when absent."
+  (let ((v (plist-get opts :points)))
+    (when v
+      (let ((ns (cond ((numberp v) (list v))
+                      ((vectorp v) (append v nil))
+                      ((stringp v) (mapcar (lambda (w) (and (string-match-p "\\`[0-9]+\\'" w) (string-to-number w)))
+                                           (split-string v "[, ]+" t))))))
+        (unless (and ns (seq-every-p (lambda (n) (and (integerp n) (> n 1))) ns))
+          (easel-signal "INVALID_INPUT" (format "--points is a comma list of integers above 1, got %S" v)
+                        :option "points"))
+        ns))))
+
+(defun easel-agent--bench-ladder (opts)
+  "Answer bench with no SOURCE: the ladder, checked with --budget."
+  (let* ((points (easel-agent--points opts))
+         (reps (easel-agent-arg-number opts :n))
+         (gc (intern (easel-agent-arg-choice opts :gc '("deferred" "default") "deferred")))
+         (file (plist-get opts :budget-file))
+         (budget (and (or (plist-get opts :budget) file) (easel-bench-read-budget file)))
+         (result (easel-bench-ladder :points points :reps (and reps (max 1 reps)) :gc gc))
+         (verdict (and budget (easel-bench-check result budget)))
+         (data (if verdict (append result (list :budget verdict)) result))
+         (again (apply #'easel-agent-cmd "bench"
+                       (append (and points (list "--points" (mapconcat #'number-to-string points ",")))
+                               (list "--budget")))))
+    (cond
+     ((and verdict (equal (plist-get verdict :status) "fail"))
+      (let ((v (plist-get verdict :violations)))
+        (easel-agent-fail
+         "BUDGET_EXCEEDED"
+         (list :message (format "%d stage(s) over budget: %s" (length v)
+                                (mapconcat (lambda (x) (format "%s at %d points %.1f ms > %.1f ms"
+                                                               (plist-get x :stage) (plist-get x :points)
+                                                               (plist-get x :ms) (plist-get x :limit)))
+                                           v "; "))
+               :path (or file easel-bench-budget-file) :field (plist-get (aref v 0) :stage)
+               :points (plist-get (aref v 0) :points))
+         data again "make bench" "make bench-budget")))
+     ((not (eq (plist-get result :compiled) t))
+      (easel-agent-ok data "make bench" again))
+     (t (easel-agent-ok data (unless budget again))))))
+
 (defun easel-agent-bench (pos opts)
+  "Answer bench [SOURCE] (first of POS) under OPTS: latency per stage.
+Without SOURCE, the fixed ladder at 1k, 10k and 100k points."
+  (if (null pos) (easel-agent--bench-ladder opts)
+    (dolist (key '(:points :budget :budget-file :gc))
+      (when (plist-get opts key)
+        (easel-signal "INVALID_INPUT" (format "--%s is for the ladder: bench with no SOURCE" (easel-key-name key))
+                      :option (easel-key-name key))))
+    (easel-agent--bench-source pos opts)))
+
+(defun easel-agent--bench-source (pos opts)
   "Answer bench SOURCE (first of POS) under OPTS: latency per stage."
   (let* ((n (max 1 (or (easel-agent-arg-number opts :n) 10)))
          (src (easel-agent-resolve-source "bench" pos opts))
@@ -146,9 +203,11 @@
       (easel-agent-ok data (easel-agent-cmd "describe")))))
 
 (easel-agent-register-verb
- "bench" #'easel-agent-bench :doc "Measured resolve, compile, render and hover latency (ms)"
- :usage "bench SOURCE [--data B] [--n N] [--width W --height H]"
- :options (cons :n easel-agent--source-options))
+ "bench" #'easel-agent-bench
+ :doc "Measured latency (ms): the 1k/10k/100k ladder, or one SOURCE's resolve, compile, render and hover"
+ :usage "bench [--points 1000,10000,100000] [--n N] [--gc deferred|default] [--budget] [--budget-file F] | bench SOURCE [--data B] [--n N] [--width W --height H]"
+ :options (append '(:n :points :gc :budget :budget-file) easel-agent--source-options)
+ :flags '(:budget))
 (easel-agent-register-verb
  "doctor" #'easel-agent-doctor :doc "Eager health rows (:name :status pass|fail|skip :detail :remediation)"
  :usage "doctor")

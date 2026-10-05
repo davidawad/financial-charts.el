@@ -110,8 +110,12 @@
   (let* ((points (plist-get item :points))
          (anchors (easel-hit--anchors item))
          (axs (vconcat (mapcar (lambda (p) (aref p 0)) anchors)))
-         (props-fn (lambda (x) (easel-text--item-props
-                                view mark item (aref (plist-get item :datum) (easel-hit--bisect axs x)))))
+         ;; Dots in one braille column share x: look its props up once.
+         (memo (make-hash-table :test 'eql))
+         (props-fn (lambda (x) (or (gethash x memo)
+                                   (puthash x (easel-text--item-props
+                                               view mark item (aref (plist-get item :datum) (easel-hit--bisect axs x)))
+                                            memo))))
          (ch (easel-text--grid-ch g)))
     (if-let* ((base (plist-get item :base)))
         (cl-loop for col from (aref clip 0) below (aref clip 2)

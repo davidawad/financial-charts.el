@@ -24,6 +24,7 @@
 (require 'easel-time)
 (require 'easel-encode)
 (require 'easel-transform)
+(require 'easel-params-index)
 
 (defun easel-params-normalize (param)
   "Return PARAM's selection definition with Vega-Lite defaults filled."
@@ -118,7 +119,10 @@
             (easel-encode-param-test-function
              (lambda (name row empty) (easel-params-test ,s name row empty)))
             (easel-transform-param-predicate
-             (lambda (name row _env empty) (easel-params-test ,s name row empty))))
+             (lambda (name row _env empty) (easel-params-test ,s name row empty)))
+            (easel-transform-param-filter-function
+             (lambda (name rows empty)
+               (easel-params-index-filter (plist-get (plist-get ,s :params) (easel-key name)) rows empty))))
        ,@body)))
 
 (defun easel-params-summary (store)

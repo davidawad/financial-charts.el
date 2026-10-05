@@ -405,6 +405,7 @@ Source is grouped by responsibility under src/:
 make test      # every src module's *-test.el files, offline, no display
 make compile   # byte-compile with warnings as errors
 make test MARKET_DATA=../market-data.el   # same suite with market-data loaded
+make bench     # easel performance ladder against its regression budget
 ```
 
 ERT tests live beside the source modules they cover. Golden text and SVG
@@ -412,6 +413,29 @@ fixtures are in `test/fixtures/`. After an intended
 visual change, regenerate them with `FINANCIAL_CHART_UPDATE_GOLDEN=1
 make test` and review the diff. Trailing spaces in fixtures are data;
 `.gitattributes` and `.editorconfig` keep tools from stripping them.
+
+## Performance (the easel engine)
+
+The interactive engine in `src/easel/` is still in progress (epic
+`fc-qx1`). Its latency is measured, never assumed. `make bench` runs
+the byte-compiled ladder and fails when a stage regresses past
+`src/easel/bench-budget.json`; CI runs it on Emacs 30.1. `bin/easel
+bench` prints the same numbers as JSON. Measured on 2026-10-05: 4 vCPU
+AMD EPYC-Rome, GNU Emacs 30.1, batch, byte-compiled, mean ms, an
+800x400 line chart with a crosshair:
+
+| | 1k points | 10k points | 100k points |
+|---|---|---|---|
+| hover (one pointermove through the engine) | 0.26 | 0.24 | 0.26 |
+| hover + SVG redraw (before librsvg) | 3.7 | 3.7 | 3.4 |
+| hover + text redraw (100x30) | 8.5 | 16.0 | 24.9 |
+| first hover (builds indexes) | 1.2 | 7.7 | 82 |
+| full compile | 4.4 | 31.5 | 357 |
+| hit-test, scatter (one query) | 0.03 | 0.10 | 0.92 |
+
+These are Lisp-side numbers. In a GUI frame librsvg adds about 15 ms
+to show one path on Linux/Xvfb. Method, history and the GUI
+measurements are in `docs/design/engine-spikes.md` (sections 8 and 9).
 
 ## License
 

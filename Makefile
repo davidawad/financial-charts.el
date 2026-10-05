@@ -8,7 +8,7 @@ SOURCES := $(shell find src -type f -name '*.el' ! -name '*-test.el' -print)
 MARKET_DATA ?=
 WITH_MD := $(if $(MARKET_DATA),-L $(MARKET_DATA) --eval "(require 'market-data)")
 
-.PHONY: test compile clean
+.PHONY: test compile clean bench bench-budget
 
 test:
 	$(EMACS) -Q --batch $(LOAD_PATHS) -L test/easel $(WITH_MD) $(foreach t,$(TESTS),-l $(t)) -f ert-run-tests-batch-and-exit
@@ -16,6 +16,14 @@ test:
 compile:
 	$(EMACS) -Q --batch $(LOAD_PATHS) --eval '(setq byte-compile-error-on-warn t)' -f batch-byte-compile $(SOURCES)
 	@find src -name '*.elc' -delete
+
+# Performance ladder (fc-qx1.9), byte-compiled: fails when a stage
+# regresses past src/easel/bench-budget.json.  bench-budget re-measures it.
+bench:
+	scripts/easel-bench.sh
+
+bench-budget:
+	scripts/easel-bench.sh --update
 
 clean:
 	find src -name '*.elc' -delete

@@ -68,7 +68,7 @@
     ("render" ("line" :data ,(lambda () (easel-agent-test--bindings)) :backend "svg")
      (,easel-agent-test--unsupported-spec :backend "text"))
     ("export" ("line" :data ,(lambda () (easel-agent-test--bindings)) :vl t) ("{not json"))
-    ("bench" ("line" :data ,(lambda () (easel-agent-test--bindings)) :n 1) ())
+    ("bench" ("line" :data ,(lambda () (easel-agent-test--bindings)) :n 1) (:points "0"))
     ("doctor" () ("extra" :bogus 1))
     ("views" () (:bogus 1))
     ("open" ("line" :data ,(lambda () (easel-agent-test--bindings)) :subject "s") ("line" :data "[1,2]"))

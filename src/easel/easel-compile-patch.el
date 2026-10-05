@@ -22,6 +22,7 @@
 
 (require 'easel-core)
 (require 'easel-params)
+(require 'easel-params-index)
 (require 'easel-marks)
 (require 'easel-compile)
 (require 'easel-compile-scales)
@@ -79,15 +80,28 @@
            thereis (seq-some (lambda (n) (member n changed))
                               (easel-patch--param-names (plist-get (plist-get unit :encoding) ch)))))
 
+(defvar easel-patch--positions (make-hash-table :test 'eq :weakness 'key)
+  "Unit rows vector -> hash of datum -> position in the unit's items.
+Patching only replaces items in place, so positions hold while the rows
+vector lives; a full compile makes a new one.")
+
+(defun easel-patch--where (rows items)
+  "Datum -> position in ITEMS, for the unit whose rows are ROWS."
+  (or (gethash rows easel-patch--positions)
+      (let ((where (make-hash-table :test 'eql :size (max 1 (length items)))))
+        (dotimes (k (length items)) (puthash (plist-get (aref items k) :datum) k where))
+        (puthash rows where easel-patch--positions))))
+
 (defun easel-patch--items (unit group metrics old new pairs)
-  "UNIT's items with rows whose membership changed (per PAIRS) rebuilt."
+  "UNIT's items with rows whose membership changed (per PAIRS) rebuilt.
+Only the rows a point-selection index names are tested (fc-qx1.9)."
   (let* ((rows (plist-get unit :rows)) (items (copy-sequence (plist-get unit :items)))
-         (where (make-hash-table :test 'eql))
+         (where (easel-patch--where rows items))
+         (changed (easel-params-index-changed rows pairs old new))
          (bounds (vector (plist-get group :x0) (plist-get group :y0) (plist-get group :w) (plist-get group :h))))
-    (seq-do-indexed (lambda (item k) (puthash (plist-get item :datum) k where)) items)
     (easel-marks-with-cache
      (let ((row-fn (easel-marks-row-fn unit (plist-get group :scales) bounds metrics)))
-       (dotimes (i (length rows))
+       (dolist (i (if (eq changed 'all) (number-sequence 0 (1- (length rows))) changed))
          (let ((row (aref rows i)))
            (when (seq-some (lambda (p) (not (eq (not (easel-params-test old (car p) row (cdr p)))
                                                 (not (easel-params-test new (car p) row (cdr p))))))

@@ -59,7 +59,9 @@ for live views.
 ## Changing it
 
 - `make test` (offline, no display) and `make compile` (warnings are
-  errors) must pass. Golden fixtures: regenerate with
+  errors) must pass. `make bench` checks easel latency against
+  `src/easel/bench-budget.json` (`make bench-budget` re-measures; review
+  the diff). Golden fixtures: regenerate with
   `FINANCIAL_CHART_UPDATE_GOLDEN=1 make test` and review the diff.
 - New chart kind: renderers in -text/-svg, then one
   `financial-chart-kinds` entry (or `financial-chart-register-kind`).

@@ -31,6 +31,22 @@ with Vega-Lite selection semantics.")
 
 ;;; filter
 
+(defvar easel-transform-param-filter-function nil
+  "When non-nil, a function (PARAM ROWS EMPTY) answering a bare param filter.
+A bare filter is {\"param\": NAME} with at most \"empty\".  It returns
+the passing ROWS in order, or nil to test row by row with
+`easel-transform-param-predicate'.  The runtime indexes point
+selections here (easel-params-index.el, fc-qx1.9).")
+
+(defun easel-transform--filter (pred rows env)
+  "ROWS satisfying filter PRED under ENV."
+  (or (and easel-transform-param-filter-function
+           (consp pred) (plist-get pred :param)
+           (null (easel--plist-without (easel--plist-without pred :param) :empty))
+           (funcall easel-transform-param-filter-function (plist-get pred :param) rows
+                    (not (eq (plist-get pred :empty) :false))))
+      (seq-filter (lambda (row) (easel-transform-predicate pred row env)) rows)))
+
 (defun easel-transform--field-value (pred row)
   "Value of PRED's field in ROW, truncated by PRED's timeUnit if any."
   (let ((value (plist-get row (easel-key (plist-get pred :field)))))
@@ -183,9 +199,7 @@ ENV is a plist of param values; PATH the array's JSON pointer."
               (vconcat
                (cond
                 ((plist-get tr :x-easel:transform) (easel-transform-apply-domain tr rows tpath))
-                ((plist-member tr :filter)
-                 (seq-filter (lambda (row) (easel-transform-predicate (plist-get tr :filter) row env))
-                             rows))
+                ((plist-member tr :filter) (easel-transform--filter (plist-get tr :filter) rows env))
                 ((plist-get tr :calculate)
                  (let ((as (easel-key (plist-get tr :as))) (expr (plist-get tr :calculate)))
                    (seq-map (lambda (row) (easel-plist-put row as (easel-expr-evaluate expr row env)))

@@ -80,20 +80,76 @@
   (let ((d (plist-get item :datum)))
     (if (vectorp d) (aref d k) d)))
 
+(defun easel-hit--distance (item p px py x-only)
+  "Distance from PX PY to ITEM, whose point is P; X-ONLY measures |dx|."
+  (if (plist-member item :w)
+      (let ((ex (max 0 (- (plist-get item :x) px) (- px (+ (plist-get item :x) (plist-get item :w)))))
+            (ey (max 0 (- (plist-get item :y) py) (- py (+ (plist-get item :y) (plist-get item :h))))))
+        (if x-only ex (sqrt (+ (* ex ex) (* ey ey)))))
+    (let ((dx (- px (car p))) (dy (- py (cdr p))))
+      (if x-only (abs dx) (sqrt (+ (* dx dx) (* dy dy)))))))
+
 (defun easel-hit--candidate (mark item-index k px py x-only)
   "Hit candidate for MARK's item ITEM-INDEX (point K) against PX PY."
   (let* ((item (aref (plist-get mark :items) item-index))
-         (p (easel-hit--item-point item (if (eq k :null) nil k)))
-         (dx (- px (car p))) (dy (- py (cdr p)))
-         (dist (cond
-                ((plist-member item :w)
-                 (let ((ex (max 0 (- (plist-get item :x) px) (- px (+ (plist-get item :x) (plist-get item :w)))))
-                       (ey (max 0 (- (plist-get item :y) py) (- py (+ (plist-get item :y) (plist-get item :h))))))
-                   (if x-only ex (sqrt (+ (* ex ex) (* ey ey))))))
-                (x-only (abs dx))
-                (t (sqrt (+ (* dx dx) (* dy dy)))))))
+         (p (easel-hit--item-point item (if (eq k :null) nil k))))
     (list :mark (plist-get mark :id) :item item-index :datum (easel-hit--datum item (if (eq k :null) 0 k))
-          :distance dist :x (car p) :y (cdr p))))
+          :distance (easel-hit--distance item p px py x-only) :x (car p) :y (cdr p))))
+
+;;; Grid search (fc-qx1.9: a linear scan was 13 ms a query at 10k points)
+
+(defvar easel-hit--grids (make-hash-table :test 'eq :weakness 'key)
+  "Grid :cells vector -> (COLUMNS . BOUNDS): column x -> ((CY . ITEMS) ...).")
+
+(defun easel-hit--grid-table (index)
+  "Column table and cell bounds [CX0 CX1 CY0 CY1] of grid INDEX."
+  (let ((cells (plist-get index :cells)))
+    (or (gethash cells easel-hit--grids)
+        (let ((columns (make-hash-table :test 'eql)) (bounds nil))
+          (seq-doseq (c cells)
+            (let ((cx (aref (plist-get c :cell) 0)) (cy (aref (plist-get c :cell) 1)))
+              (push (cons cy (plist-get c :items)) (gethash cx columns))
+              (setq bounds (if bounds (vector (min cx (aref bounds 0)) (max cx (aref bounds 1))
+                                              (min cy (aref bounds 2)) (max cy (aref bounds 3)))
+                             (vector cx cx cy cy)))))
+          (puthash cells (cons columns bounds) easel-hit--grids)))))
+
+(defun easel-hit--grid (mark px py x-only)
+  "Nearest item of grid-indexed MARK to PX PY, as `easel-hit--scan' finds it.
+Searches square rings of cells outwards (columns only with X-ONLY) and
+stops once no unvisited cell can hold anything nearer."
+  (let* ((index (plist-get mark :index)) (size (plist-get index :size))
+         (table (easel-hit--grid-table index)) (columns (car table)) (b (cdr table))
+         (items (plist-get mark :items))
+         (cx0 (floor px size)) (cy0 (floor py size))
+         (reach (max (abs (- cx0 (aref b 0))) (abs (- cx0 (aref b 1)))
+                     (if x-only 0 (max (abs (- cy0 (aref b 2))) (abs (- cy0 (aref b 3)))))))
+         (best nil) (best-d nil) (r 0))
+    (cl-flet ((visit (cell-items)
+                (seq-doseq (i cell-items)
+                  (let* ((item (aref items i))
+                         (d (easel-hit--distance item (easel-hit--item-point item nil) px py x-only)))
+                    (when (or (null best-d) (< d best-d) (and (= d best-d) (< i best)))
+                      (setq best i best-d d))))))
+      (while (and (<= r reach) (not (and best-d (<= best-d (* (max 0 (1- r)) size)))))
+        (dolist (cx (if (= r 0) (list cx0) (list (- cx0 r) (+ cx0 r))))
+          (dolist (cell (gethash cx columns))
+            (when (or x-only (<= (abs (- (car cell) cy0)) r)) (visit (cdr cell)))))
+        (unless x-only
+          (dolist (cy (if (= r 0) nil (list (- cy0 r) (+ cy0 r))))
+            (cl-loop for cx from (- cx0 (1- r)) to (+ cx0 (1- r))
+                     do (when-let* ((cell (assq cy (gethash cx columns)))) (visit (cdr cell))))))
+        (setq r (1+ r))))
+    (when best (easel-hit--candidate mark best :null px py x-only))))
+
+(defun easel-hit--scan (mark px py x-only)
+  "Nearest of MARK's items to PX PY by testing each; the first on ties."
+  (let ((items (plist-get mark :items)) best best-d)
+    (dotimes (i (length items))
+      (let* ((item (aref items i))
+             (d (easel-hit--distance item (easel-hit--item-point item nil) px py x-only)))
+        (when (or (null best-d) (< d best-d)) (setq best i best-d d))))
+    (easel-hit--candidate mark best :null px py x-only)))
 
 (defun easel-hit-mark (mark px py &optional x-only)
   "Nearest hit candidate in MARK for PX PY; X-ONLY measures |dx| only."
@@ -111,11 +167,10 @@
                  (when (or (null best) (< (plist-get c :distance) (plist-get best :distance))) (setq best c)))
                (setq j (1+ j))))
            (if x-only (plist-put best :distance (abs (- px (plist-get best :x)))) best)))
-        (_ (let (best)
-             (dotimes (i (length items))
-               (let ((c (easel-hit--candidate mark i :null px py x-only)))
-                 (when (or (null best) (< (plist-get c :distance) (plist-get best :distance))) (setq best c))))
-             best))))))
+        ;; Box distance can undercut a cell's bound: only point items use the grid.
+        ("grid" (if (plist-member (aref items 0) :w) (easel-hit--scan mark px py x-only)
+                  (easel-hit--grid mark px py x-only)))
+        (_ (easel-hit--scan mark px py x-only))))))
 
 (defun easel-hit--contains (bounds px py)
   "Non-nil when PX PY lies inside BOUNDS [x y w h]."

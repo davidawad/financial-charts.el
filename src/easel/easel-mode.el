@@ -33,6 +33,7 @@
 (require 'easel-zoom)
 (require 'easel-crosshair)
 (require 'easel-mode-patch)
+(require 'easel-gc)
 
 (defvar-local easel-mode--view nil "The view this buffer shows.")
 (defvar-local easel-mode--timer nil "Pending idle redraw.")
@@ -93,7 +94,9 @@ The text renderer pulls glyphs on the plot's edge one cell inward."
              return (vector (float (car p)) (float (cdr p))))))
 
 (defun easel-mode--send (event)
-  "Dispatch EVENT to this buffer's view, reporting failures in the echo area."
+  "Dispatch EVENT to this buffer's view, reporting failures in the echo area.
+Collection waits until Emacs is idle (`easel-gc-defer')."
+  (easel-gc-defer)
   (condition-case err
       (easel-dispatch easel-mode--view event)
     (easel-error (message "easel: %s" (plist-get (easel-error-plist err) :message)) nil)))

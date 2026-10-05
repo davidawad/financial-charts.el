@@ -45,6 +45,11 @@ taken, so a function may record data in VIEW's state (clicks, fc-qx1.1).")
 (defvar easel-view-replaying nil
   "Non-nil while `easel-replay' re-applies a log.
 Hook functions with side effects (actions, echo) skip them then.")
+  "Hook run with VIEW and the parsed EVENT after every interactive dispatch.")
+
+(defvar easel-push-function nil
+  "When non-nil, `easel-push' calls it with VIEW and ROWS instead of
+dispatching a push now.  easel-stream sets it to coalesce live data.")
 
 (cl-defstruct (easel-view (:constructor easel-view--make) (:copier nil))
   id template subject spec spec-hash bindings data size target cell
@@ -176,14 +181,26 @@ or data changed."
          (old-scene (easel-view-scene view))
          (push (equal (plist-get event :type) "push")))
     (when push
-      (setf (easel-view-data view) (easel-data-append (easel-view-data view) (vconcat (plist-get event :rows)))))
+      (setf (easel-view-data view)
+            (easel-view--window (easel-data-append (easel-view-data view) (vconcat (plist-get event :rows)))
+                                (plist-get event :window))))
     (setf (easel-view-state view) (easel-reduce old-state event (easel-view-scene view)))
     (easel-view--log view event)
-    (unless (equal before (easel-view--visible view))
+    ;; A windowed push can keep the row count while changing the rows.
+    (unless (and (equal before (easel-view--visible view))
+                 (not (and push (> (length (plist-get event :rows)) 0))))
       (setf (easel-view-scene view) (easel-view--compile view (not push) old-state))
       (run-hook-with-args 'easel-view-changed-functions view))
     (run-hook-with-args 'easel-view-dispatch-functions view event old-state old-scene)
+    (run-hook-with-args 'easel-view-dispatch-functions view event)
     (easel-inspect view)))
+
+(defun easel-view--window (data window)
+  "DATA keeping only its last WINDOW rows (all when WINDOW is nil)."
+  (let ((rows (plist-get data :rows)))
+    (if (and window (> (length rows) window))
+        (easel-plist-put data :rows (seq-subseq rows (- (length rows) window)))
+      data)))
 
 (defun easel-replay (view log)
   "Re-apply LOG (events, or log entries with :event) to VIEW, oldest first.
@@ -199,8 +216,10 @@ LOG may be a vector or list, in order, or a view's own `easel-view-log'
       (setq result (easel-dispatch view (or (plist-get entry :event) entry))))))
 
 (defun easel-push (view rows)
-  "Append ROWS to VIEW's data (schema-checked) and redraw; return inspect."
-  (easel-dispatch view (list :type "push" :rows (vconcat rows))))
+  "Append ROWS to VIEW's data (schema-checked) and redraw; return inspect.
+With `easel-push-function' set (easel-stream), the push may be coalesced."
+  (if easel-push-function (funcall easel-push-function view rows)
+    (easel-dispatch view (list :type "push" :rows (vconcat rows)))))
 
 ;;; Inspect and selection
 

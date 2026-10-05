@@ -16,7 +16,7 @@
 ;;   {"type": "brush", "param"?: NAME, "x"?: [LO, HI], "y"?: [LO, HI]}
 ;;   {"type": "key", "key": "+" | "-" | "0" | "left" | "right" | "up" | "down"
 ;;                        | "escape" | "[" | "]" | "z"}   (z zooms into the brush)
-;;   {"type": "push", "rows": [ROW, ...]}
+;;   {"type": "push", "rows": [ROW, ...], "window"?: N}  (keep the last N rows)
 ;;
 ;; Pixel coordinates are scene pixels.  `easel-event-parse' validates
 ;; and signals EVENT_INVALID naming the offending field.
@@ -69,7 +69,10 @@
                (easel-event--invalid "key" (format "Unknown key %S; keys: %s" (plist-get event :key)
                                                    (string-join easel-event-keys " ")))))
       ("push" (unless (or (vectorp (plist-get event :rows)) (listp (plist-get event :rows)))
-                (easel-event--invalid "rows" "push needs rows: [{...}, ...]"))))
+                (easel-event--invalid "rows" "push needs rows: [{...}, ...]"))
+              (let ((window (plist-get event :window)))
+                (when (and window (not (and (natnump window) (> window 0))))
+                  (easel-event--invalid "window" "push window is a positive integer: the rows to keep")))))
     event))
 
 (defun easel-event-describe (event)
@@ -81,7 +84,8 @@
                                                    '(:x :y)))
                                  " ")))
     ("key" (format "key %s" (plist-get event :key)))
-    ("push" (format "push %d rows" (length (plist-get event :rows))))
+    ("push" (format "push %d rows%s" (length (plist-get event :rows))
+                    (if-let* ((w (plist-get event :window))) (format " (window %d)" w) "")))
     ("drag" (format "drag %s -> %s" (plist-get event :from) (plist-get event :to)))
     (type (if (plist-get event :px) (format "%s at %s" type (plist-get event :px)) type))))
 

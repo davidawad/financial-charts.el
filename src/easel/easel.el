@@ -46,6 +46,7 @@
 (require 'easel-mode)
 (require 'easel-mode-tip)
 (require 'easel-brush)
+(require 'easel-stream)
 (require 'easel-chart)
 (require 'easel-conformance)
 

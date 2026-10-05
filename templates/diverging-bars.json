@@ -1,0 +1,106 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "diverging-bars",
+    "version": "1.0.0",
+    "doc": "One horizontal bar per label from a zero line, positive green and negative red, e.g. P/L per position.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {label, value} in display order; financial-chart's labeled adapter lowers (LABEL . VALUE) conses to these"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "One horizontal bar per label from a zero line, positive green and negative red, e.g. P/L per position.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "x_title": {
+        "type": "string",
+        "default": "value",
+        "doc": "value-axis title, e.g. the unit"
+      }
+    },
+    "example": "examples/diverging-bars.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": 400,
+  "height": {
+    "step": 20
+  },
+  "data": {
+    "name": "data"
+  },
+  "layer": [
+    {
+      "name": "bars",
+      "mark": {
+        "type": "bar"
+      },
+      "encoding": {
+        "y": {
+          "field": "label",
+          "type": "nominal",
+          "sort": null,
+          "title": null
+        },
+        "x": {
+          "field": "value",
+          "type": "quantitative",
+          "title": {
+            "x-eas:slot": "x_title"
+          }
+        },
+        "color": {
+          "condition": {
+            "test": "datum.value >= 0",
+            "value": "#06982d"
+          },
+          "value": "#ae1325"
+        },
+        "tooltip": [
+          {
+            "field": "label",
+            "type": "nominal"
+          },
+          {
+            "field": "value",
+            "type": "quantitative",
+            "title": {
+              "x-eas:slot": "x_title"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "zero",
+      "data": {
+        "values": [
+          {
+            "zero": 0
+          }
+        ]
+      },
+      "mark": {
+        "type": "rule",
+        "color": "gray"
+      },
+      "encoding": {
+        "x": {
+          "field": "zero",
+          "type": "quantitative"
+        }
+      }
+    }
+  ]
+}

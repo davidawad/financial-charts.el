@@ -1,0 +1,227 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "payoff",
+    "version": "1.0.0",
+    "doc": "Profit and loss against the underlying price at expiry: gains green, losses red, breakevens marked on the zero line.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {price, pnl} by ascending price; financial-chart's payoff adapter lowers (PRICE PNL) pairs to these"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Profit and loss against the underlying price at expiry: gains green, losses red, breakevens marked on the zero line.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "y_title": {
+        "type": "string",
+        "default": "P/L",
+        "doc": "y-axis title"
+      },
+      "breakevens": {
+        "type": "boolean",
+        "default": true,
+        "doc": "mark where P/L is zero: each point on zero, and each sign change interpolated between its points"
+      }
+    },
+    "example": "examples/payoff.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": 400,
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "layer": [
+    {
+      "name": "gain",
+      "transform": [
+        {
+          "calculate": "max(datum.pnl, 0)",
+          "as": "gain"
+        }
+      ],
+      "mark": {
+        "type": "area",
+        "color": "#06982d",
+        "opacity": 0.25
+      },
+      "encoding": {
+        "x": {
+          "field": "price",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "price"
+        },
+        "y": {
+          "field": "gain",
+          "type": "quantitative",
+          "title": {
+            "x-eas:slot": "y_title"
+          }
+        }
+      }
+    },
+    {
+      "name": "loss",
+      "transform": [
+        {
+          "calculate": "min(datum.pnl, 0)",
+          "as": "loss"
+        },
+        {
+          "calculate": "0",
+          "as": "top"
+        }
+      ],
+      "mark": {
+        "type": "area",
+        "color": "#ae1325",
+        "opacity": 0.25
+      },
+      "encoding": {
+        "x": {
+          "field": "price",
+          "type": "quantitative",
+          "title": "price"
+        },
+        "y": {
+          "field": "top",
+          "type": "quantitative"
+        },
+        "y2": {
+          "field": "loss"
+        }
+      }
+    },
+    {
+      "name": "zero",
+      "data": {
+        "values": [
+          {
+            "zero": 0
+          }
+        ]
+      },
+      "mark": {
+        "type": "rule",
+        "color": "gray",
+        "strokeDash": [
+          2,
+          2
+        ]
+      },
+      "encoding": {
+        "y": {
+          "field": "zero",
+          "type": "quantitative"
+        }
+      }
+    },
+    {
+      "name": "payoff",
+      "mark": {
+        "type": "line",
+        "color": "#4c78a8"
+      },
+      "encoding": {
+        "x": {
+          "field": "price",
+          "type": "quantitative",
+          "title": "price"
+        },
+        "y": {
+          "field": "pnl",
+          "type": "quantitative"
+        },
+        "tooltip": [
+          {
+            "field": "price",
+            "type": "quantitative"
+          },
+          {
+            "field": "pnl",
+            "type": "quantitative",
+            "title": {
+              "x-eas:slot": "y_title"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "x-eas:when": "breakevens",
+      "spec": {
+        "name": "breakevens",
+        "transform": [
+          {
+            "window": [
+              {
+                "op": "lag",
+                "field": "price",
+                "as": "prev_price"
+              },
+              {
+                "op": "lag",
+                "field": "pnl",
+                "as": "prev_pnl"
+              }
+            ],
+            "sort": [
+              {
+                "field": "price"
+              }
+            ]
+          },
+          {
+            "filter": "datum.pnl == 0 || (isValid(datum.prev_pnl) && datum.prev_pnl * datum.pnl < 0)"
+          },
+          {
+            "calculate": "datum.pnl == 0 ? datum.price : datum.prev_price + (0 - datum.prev_pnl) * (datum.price - datum.prev_price) / (datum.pnl - datum.prev_pnl)",
+            "as": "breakeven"
+          },
+          {
+            "calculate": "0",
+            "as": "level"
+          }
+        ],
+        "mark": {
+          "type": "point",
+          "filled": true,
+          "color": "black"
+        },
+        "encoding": {
+          "x": {
+            "field": "breakeven",
+            "type": "quantitative",
+            "title": "price"
+          },
+          "y": {
+            "field": "level",
+            "type": "quantitative"
+          },
+          "tooltip": [
+            {
+              "field": "breakeven",
+              "type": "quantitative",
+              "format": ".2f"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -15,8 +15,13 @@
 ;;   adapters    series payoff labeled matrix order-book payoff-curves
 ;;               multi-series, each validated by financial-chart's own
 ;;               shape validator and lowered to tidy rows
-;;   transform   "indicator", which evaluates any registered indicator
-;;               through `financial-chart-indicator-evaluate' (no copy)
+;;   transforms  "indicator", which evaluates any registered indicator
+;;               through `financial-chart-indicator-evaluate' (no copy);
+;;               "values", a precomputed column; and "volume-profile",
+;;               which bins bars by price through
+;;               `financial-chart-matrix--volume-data'
+;;   templates   templates/financial/, whose templates need those
+;;               transforms (templates/ holds the pure Vega-Lite ones)
 ;;
 ;; eas never refers to financial-chart; dependencies point this way.
 
@@ -27,6 +32,7 @@
 (require 'financial-chart-core)
 (require 'financial-chart-series)
 (require 'financial-chart-indicator-api)
+(require 'financial-chart-matrix)
 
 (defvar financial-chart-shapes)
 
@@ -102,6 +108,17 @@
 
 ;;; indicator transform
 
+(defun financial-chart-eas--pick-output (outputs output name)
+  "The OUTPUTS entry named OUTPUT (else the first) of indicator NAME."
+  (if (not (and output (not (equal output ""))))
+      (car outputs)
+    (or (cl-find output outputs :key (lambda (o) (format "%s" (plist-get o :name)))
+                 :test #'equal)
+        (eas-signal "INVALID_INPUT"
+                    (format "Indicator %s has no output %s; outputs: %s" name output
+                            (mapconcat (lambda (o) (format "%s" (plist-get o :name))) outputs ", "))
+                    :transform "indicator" :indicator (symbol-name name) :field output))))
+
 (defun financial-chart-eas--indicator (rows params)
   "Add indicator PARAMS's output columns to bar ROWS."
   (let* ((name (intern (plist-get params :name)))
@@ -114,6 +131,10 @@
                     (eas-signal "INVALID_INPUT" (format "Indicator %s: %s" name (cadr err))
                                   :transform "indicator" :indicator (plist-get params :name)))))
          (outputs (if (and (consp result) (keywordp (car result))) (list result) result))
+         (outputs (if (eas-true-p (plist-get params :single))
+                      (list (financial-chart-eas--pick-output outputs (plist-get params :output)
+                                                              name))
+                    outputs))
          (columns (mapcar (lambda (out)
                             (cons (eas-key (if (cdr outputs)
                                                  (format "%s_%s" as (plist-get out :name))
@@ -131,8 +152,66 @@
  :doc "Any financial-chart indicator over bar/v1 rows; multi-output indicators add AS_OUTPUT columns."
  :schema '(:name (:type "string" :required t :doc "indicator name, e.g. rsi (see describe)")
            :params (:type "array" :default [] :doc "positional indicator parameters")
-           :as (:type "string" :doc "output column (default: the indicator name)"))
+           :as (:type "string" :doc "output column (default: the indicator name)")
+           :single (:type "boolean" :doc "keep one output (OUTPUT, else the first) as column AS")
+           :output (:type "string" :doc "with single: the output to keep, e.g. upper"))
  :fn #'financial-chart-eas--indicator)
+
+;;; values transform
+
+(defun financial-chart-eas--values (rows params)
+  "Add PARAMS's :values, one per row, to ROWS as column :as."
+  (let ((values (plist-get params :values))
+        (key (eas-key (plist-get params :as))))
+    (unless (= (length values) (length rows))
+      (eas-signal "INVALID_INPUT"
+                    (format "values has %d entries for %d rows; give one per row (null for none)"
+                            (length values) (length rows))
+                    :transform "values" :field (plist-get params :as)))
+    (seq-map-indexed (lambda (row i) (append row (list key (or (aref values i) :null)))) rows)))
+
+(eas-register-transform
+ "values"
+ :doc "A precomputed series as a new column, one value per row (null for none), e.g. an overlay computed elsewhere."
+ :schema '(:values (:type "array" :required t :doc "one value per row")
+           :as (:type "string" :required t :doc "the new column"))
+ :fn #'financial-chart-eas--values)
+
+;;; volume-profile transform
+
+(defun financial-chart-eas--volume-profile (rows params)
+  "Replace bar ROWS by one row per price level of PARAMS's :bins.
+Each row is {bin, low, high, volume, poc, last_close}; poc marks the
+level with the most volume."
+  (let ((profile (condition-case err
+                     (financial-chart-matrix--volume-data (append rows nil) (plist-get params :bins))
+                   (financial-chart-error
+                    (eas-signal "INVALID_INPUT" (format "volume-profile: %s" (cadr err))
+                                  :transform "volume-profile" :field "bins")))))
+    (when profile
+      (cl-loop for volume in (plist-get profile :volumes)
+               for i from 0
+               for low = (+ (plist-get profile :low) (* i (plist-get profile :step)))
+               collect (list :bin i :low low :high (+ low (plist-get profile :step))
+                             :volume volume
+                             :poc (if (eql i (plist-get profile :poc)) t :false)
+                             :last_close (plist-get profile :last-close))))))
+
+(eas-register-transform
+ "volume-profile"
+ :doc "OHLCV bar/v1 rows to one row per price level {bin, low, high, volume, poc, last_close}; each bar's volume spread over its low-high range."
+ :schema '(:bins (:type "integer" :default 24 :doc "price levels"))
+ :fn #'financial-chart-eas--volume-profile)
+
+;;; templates
+
+(defconst financial-chart-eas-template-directory
+  (expand-file-name "../../templates/financial"
+                    (file-name-directory (or load-file-name buffer-file-name)))
+  "Templates that need financial-chart's domain transforms.")
+
+(add-to-list 'eas-template-directories financial-chart-eas-template-directory t)
+(eas-template-reload)
 
 (provide 'financial-chart-eas)
 ;;; financial-chart-eas.el ends here

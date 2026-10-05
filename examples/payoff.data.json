@@ -1,0 +1,26 @@
+{
+  "title": "Long straddle at expiry",
+  "data": [
+    {"price": 80, "pnl": 12},
+    {"price": 82, "pnl": 10},
+    {"price": 84, "pnl": 8},
+    {"price": 86, "pnl": 6},
+    {"price": 88, "pnl": 4},
+    {"price": 90, "pnl": 2},
+    {"price": 92, "pnl": 0},
+    {"price": 94, "pnl": -2},
+    {"price": 96, "pnl": -4},
+    {"price": 98, "pnl": -6},
+    {"price": 100, "pnl": -8},
+    {"price": 102, "pnl": -6},
+    {"price": 104, "pnl": -4},
+    {"price": 106, "pnl": -2},
+    {"price": 108, "pnl": 0},
+    {"price": 110, "pnl": 2},
+    {"price": 112, "pnl": 4},
+    {"price": 114, "pnl": 6},
+    {"price": 116, "pnl": 8},
+    {"price": 118, "pnl": 10},
+    {"price": 120, "pnl": 12}
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "payoff-curves",
+    "version": "1.0.0",
+    "doc": "Several P/L curves on one price grid (strategies, or one strategy at several dates), with a zero line.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {curve, price, pnl}; financial-chart's payoff-curves adapter lowers (LABEL . PAYOFF) entries to these"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Several P/L curves on one price grid (strategies, or one strategy at several dates), with a zero line.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "y_title": {
+        "type": "string",
+        "default": "P/L",
+        "doc": "y-axis title"
+      }
+    },
+    "example": "examples/payoff-curves.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": 400,
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "layer": [
+    {
+      "name": "zero",
+      "data": {
+        "values": [
+          {
+            "zero": 0
+          }
+        ]
+      },
+      "mark": {
+        "type": "rule",
+        "color": "gray",
+        "strokeDash": [
+          2,
+          2
+        ]
+      },
+      "encoding": {
+        "y": {
+          "field": "zero",
+          "type": "quantitative"
+        }
+      }
+    },
+    {
+      "name": "curves",
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "price",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          }
+        },
+        "y": {
+          "field": "pnl",
+          "type": "quantitative",
+          "title": {
+            "x-eas:slot": "y_title"
+          }
+        },
+        "color": {
+          "field": "curve",
+          "type": "nominal",
+          "sort": null,
+          "title": null
+        },
+        "tooltip": [
+          {
+            "field": "curve",
+            "type": "nominal"
+          },
+          {
+            "field": "price",
+            "type": "quantitative"
+          },
+          {
+            "field": "pnl",
+            "type": "quantitative",
+            "title": {
+              "x-eas:slot": "y_title"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

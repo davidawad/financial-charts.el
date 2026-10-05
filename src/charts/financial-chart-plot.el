@@ -265,6 +265,18 @@ that change how DATA is read, e.g. `multi''s :normalize."
 BACKEND nil means `financial-chart-backend'."
   (car (financial-chart--backend-decision backend)))
 
+(defvar financial-chart-plot-route-functions nil
+  "Abnormal hook: functions that may draw a kind with another renderer.
+Each is called with KIND and BACKEND (`text' or `svg') and returns nil
+or a plist (:renderer FN :reason STRING [:template NAME]); FN is called
+like the kind's own renderer, (FN DATA &rest ARGS).  The first non-nil
+answer wins; with none, the kind's registered renderer draws.
+financial-chart-eas-route.el adds the eas templates here.")
+
+(defun financial-chart--route (kind backend)
+  "The `financial-chart-plot-route-functions' answer for KIND on BACKEND."
+  (run-hook-with-args-until-success 'financial-chart-plot-route-functions kind backend))
+
 (defun financial-chart--renderer-args (backend props)
   "The keyword args the BACKEND renderer receives for caller PROPS."
   (if (eq backend 'svg)
@@ -298,17 +310,23 @@ the built-in shapes are handled here."
   "Return the plan `financial-chart-plot' would follow, without rendering.
 A plist: :kind :shape :valid (t, or the error message) :backend and
 :backend-reason :renderer :args (what the renderer receives) :points
-:min :max.  Pure: no I/O, never signals for bad DATA."
+:min :max, plus :template and :route-reason when an eas template
+draws KIND (`financial-chart-plot-route-functions').  Pure: no I/O,
+never signals for bad DATA."
   (let* ((entry (financial-chart--kind kind))
          (shape (plist-get entry :shape))
          (decision (financial-chart--backend-decision (plist-get props :backend)))
          (valid (condition-case err (apply #'financial-chart-validate kind data props)
-                  (error (error-message-string err)))))
+                  (error (error-message-string err))))
+         (route (financial-chart--route kind (car decision))))
     (append
      (list :kind kind :shape shape :valid valid
            :backend (car decision) :backend-reason (cdr decision)
-           :renderer (plist-get entry (if (eq (car decision) 'svg) :svg :text))
+           :renderer (or (plist-get route :renderer)
+                         (plist-get entry (if (eq (car decision) 'svg) :svg :text)))
            :args (financial-chart--renderer-args (car decision) props))
+     (when route
+       (list :template (plist-get route :template) :route-reason (plist-get route :reason)))
      (when (eq valid t) (financial-chart--data-summary shape data props)))))
 
 ;; -- render --
@@ -355,12 +373,14 @@ with `text' it is propertized unicode.  Returns nil when DATA is empty
           (or (plist-get props :palette) financial-chart-color-palette))
          (backend (financial-chart-plot--resolve-backend (plist-get props :backend))))
     (apply #'financial-chart-validate kind data props)
-    (let ((out (apply (plist-get entry (if (eq backend 'svg) :svg :text)) data
-                      (financial-chart--renderer-args backend props))))
+    (let* ((route (financial-chart--route kind backend))
+           (out (apply (or (plist-get route :renderer)
+                           (plist-get entry (if (eq backend 'svg) :svg :text)))
+                       data (financial-chart--renderer-args backend props))))
       (cond
        ((and out (eq backend 'svg))
         (financial-chart--svg-provenance out kind data props))
-       ((eq backend 'text)
+       ((and (eq backend 'text) (not route))
         (financial-chart-text--apply-palette out))
        (t out)))))
 

@@ -1,0 +1,21 @@
+{
+  "title": "Order book depth",
+  "data": [
+    {"side": "bid", "price": 100.9375, "size": 2.0},
+    {"side": "bid", "price": 100.875, "size": 4.0},
+    {"side": "bid", "price": 100.8125, "size": 3.0},
+    {"side": "bid", "price": 100.75, "size": 5.0},
+    {"side": "bid", "price": 100.6875, "size": 2.5},
+    {"side": "bid", "price": 100.625, "size": 6.0},
+    {"side": "bid", "price": 100.5625, "size": 3.5},
+    {"side": "bid", "price": 100.5, "size": 7.0},
+    {"side": "ask", "price": 101.0625, "size": 1.5},
+    {"side": "ask", "price": 101.125, "size": 3.0},
+    {"side": "ask", "price": 101.1875, "size": 2.5},
+    {"side": "ask", "price": 101.25, "size": 4.5},
+    {"side": "ask", "price": 101.3125, "size": 3.0},
+    {"side": "ask", "price": 101.375, "size": 5.5},
+    {"side": "ask", "price": 101.4375, "size": 2.0},
+    {"side": "ask", "price": 101.5, "size": 6.0}
+  ]
+}

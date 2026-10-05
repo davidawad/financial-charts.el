@@ -439,6 +439,32 @@ These are Lisp-side numbers. In a GUI frame librsvg adds about 15 ms
 to show one path on Linux/Xvfb. Method, history and the GUI
 measurements are in `docs/design/engine-spikes.md` (sections 8 and 9).
 
+### Chart kinds as eas templates
+
+Every chart kind also has an eas template: plain Vega-Lite over tidy
+rows in `templates/` (`ohlc`, `area`, `series-line`, `sparkline`,
+`payoff`, `diverging-bars`, `multi`, `payoff-curves`, `drawdown`,
+`histogram`, `heatmap`, `depth`), plus `templates/financial/` for those
+that need financial-chart's transforms (`volume-profile`). `ohlc` takes
+a `volume` pane, `indicators` overlays and `oscillators` panes by
+indicator name, e.g. `bin/eas render ohlc --data b.json` with
+`"indicators": [{"name": "sma", "params": [20], "as": "sma20"}]` (the
+`indicator` transform needs financial-chart loaded).
+
+`financial-chart-plot` keeps its own renderers by default. To draw kinds
+with the templates instead (interactive in an eas view, same API):
+
+```elisp
+(setq financial-chart-eas-route t)        ; every kind at parity
+(setq financial-chart-eas-route '(payoff)) ; just these kinds
+```
+
+`(financial-chart-eas-parity 'drawdown)` checks, as data, that a
+template plots the numbers the kind's renderer plots (drawdowns,
+breakevens, return statistics, cumulative depth, volume per level,
+overlay values); `financial-chart-explain` names the template when a
+kind is routed. All 13 kinds are at parity on their examples.
+
 ### bin/chart is not a runtime dependency
 
 eas draws every chart in Emacs Lisp, as SVG or text. The config

@@ -1,0 +1,190 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "drawdown",
+    "version": "1.0.0",
+    "doc": "Running percent decline from the high-water mark of a value series; the maximum drawdown is marked.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {x, y}, oldest first: x a number (an index or epoch ms) or date, y the value; financial-chart's series adapter lowers a series to these"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Running percent decline from the high-water mark of a value series; the maximum drawdown is marked.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "x_type": {
+        "enum": [
+          "quantitative",
+          "temporal"
+        ],
+        "default": "quantitative",
+        "doc": "temporal when x holds dates or epoch milliseconds"
+      },
+      "x_title": {
+        "type": "string",
+        "default": "x"
+      }
+    },
+    "example": "examples/drawdown.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": 400,
+  "height": 160,
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "window": [
+        {
+          "op": "max",
+          "field": "y",
+          "as": "peak"
+        }
+      ],
+      "sort": [
+        {
+          "field": "x"
+        }
+      ],
+      "frame": [
+        null,
+        0
+      ]
+    },
+    {
+      "calculate": "datum.y / datum.peak - 1",
+      "as": "drawdown"
+    }
+  ],
+  "encoding": {
+    "x": {
+      "field": "x",
+      "type": {
+        "x-eas:slot": "x_type"
+      },
+      "title": {
+        "x-eas:slot": "x_title"
+      }
+    },
+    "y": {
+      "field": "drawdown",
+      "type": "quantitative",
+      "title": "drawdown",
+      "axis": {
+        "format": ".1%"
+      }
+    },
+    "tooltip": [
+      {
+        "field": "x",
+        "type": {
+          "x-eas:slot": "x_type"
+        },
+        "title": {
+          "x-eas:slot": "x_title"
+        }
+      },
+      {
+        "field": "y",
+        "type": "quantitative",
+        "title": "value"
+      },
+      {
+        "field": "peak",
+        "type": "quantitative"
+      },
+      {
+        "field": "drawdown",
+        "type": "quantitative",
+        "format": ".2%"
+      }
+    ]
+  },
+  "layer": [
+    {
+      "name": "band",
+      "transform": [
+        {
+          "calculate": "0",
+          "as": "top"
+        }
+      ],
+      "mark": {
+        "type": "area",
+        "color": "#ae1325",
+        "opacity": 0.3
+      },
+      "encoding": {
+        "y": {
+          "field": "top",
+          "type": "quantitative",
+          "title": "drawdown",
+          "axis": {
+            "format": ".1%"
+          }
+        },
+        "y2": {
+          "field": "drawdown"
+        }
+      }
+    },
+    {
+      "name": "drawdown",
+      "mark": {
+        "type": "line",
+        "color": "#ae1325"
+      }
+    },
+    {
+      "name": "max-drawdown",
+      "transform": [
+        {
+          "joinaggregate": [
+            {
+              "op": "min",
+              "field": "drawdown",
+              "as": "worst"
+            }
+          ]
+        },
+        {
+          "filter": "datum.drawdown == datum.worst && datum.worst < 0"
+        },
+        {
+          "window": [
+            {
+              "op": "row_number",
+              "as": "n"
+            }
+          ],
+          "sort": [
+            {
+              "field": "x"
+            }
+          ]
+        },
+        {
+          "filter": "datum.n == 1"
+        }
+      ],
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "color": "#ae1325"
+      }
+    }
+  ]
+}

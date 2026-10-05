@@ -1,0 +1,158 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "depth",
+    "version": "1.0.0",
+    "doc": "Cumulative order-book depth: bid size summed down from the best bid, ask size up from the best ask, as step areas.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {side: bid|ask, price, size}; financial-chart's order-book adapter lowers :bids/:asks to these"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Cumulative order-book depth: bid size summed down from the best bid, ask size up from the best ask, as step areas.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "x_title": {
+        "type": "string",
+        "default": "price"
+      }
+    },
+    "example": "examples/depth.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": 400,
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "calculate": "datum.side == 'bid' ? -datum.price : datum.price",
+      "as": "distance"
+    },
+    {
+      "window": [
+        {
+          "op": "sum",
+          "field": "size",
+          "as": "cumulative"
+        }
+      ],
+      "groupby": [
+        "side"
+      ],
+      "sort": [
+        {
+          "field": "distance"
+        }
+      ],
+      "frame": [
+        null,
+        0
+      ]
+    }
+  ],
+  "encoding": {
+    "x": {
+      "field": "price",
+      "type": "quantitative",
+      "scale": {
+        "zero": false
+      },
+      "title": {
+        "x-eas:slot": "x_title"
+      }
+    },
+    "y": {
+      "field": "cumulative",
+      "type": "quantitative",
+      "title": "cumulative size"
+    },
+    "tooltip": [
+      {
+        "field": "side",
+        "type": "nominal"
+      },
+      {
+        "field": "price",
+        "type": "quantitative"
+      },
+      {
+        "field": "size",
+        "type": "quantitative"
+      },
+      {
+        "field": "cumulative",
+        "type": "quantitative"
+      }
+    ]
+  },
+  "layer": [
+    {
+      "name": "bids",
+      "transform": [
+        {
+          "filter": "datum.side == 'bid'"
+        }
+      ],
+      "mark": {
+        "type": "area",
+        "interpolate": "step-before",
+        "color": "#06982d",
+        "opacity": 0.4
+      }
+    },
+    {
+      "name": "asks",
+      "transform": [
+        {
+          "filter": "datum.side == 'ask'"
+        }
+      ],
+      "mark": {
+        "type": "area",
+        "interpolate": "step-after",
+        "color": "#ae1325",
+        "opacity": 0.4
+      }
+    },
+    {
+      "name": "bid-edge",
+      "transform": [
+        {
+          "filter": "datum.side == 'bid'"
+        }
+      ],
+      "mark": {
+        "type": "line",
+        "interpolate": "step-before",
+        "color": "#06982d"
+      }
+    },
+    {
+      "name": "ask-edge",
+      "transform": [
+        {
+          "filter": "datum.side == 'ask'"
+        }
+      ],
+      "mark": {
+        "type": "line",
+        "interpolate": "step-after",
+        "color": "#ae1325"
+      }
+    }
+  ]
+}

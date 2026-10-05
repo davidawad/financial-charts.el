@@ -1,0 +1,137 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "volume-profile",
+    "version": "1.0.0",
+    "doc": "Estimated traded volume by price level from OHLCV bars (each bar's volume spread over its low-high range), point of control and last close marked.",
+    "slots": {
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Estimated traded volume by price level from OHLCV bars (each bar's volume spread over its low-high range), point of control and last close marked.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "bars": {
+        "shape": "bar/v1",
+        "required": true,
+        "doc": "OHLCV bars, oldest first"
+      },
+      "bins": {
+        "type": "integer",
+        "default": 24,
+        "doc": "price levels"
+      }
+    },
+    "example": "../examples/volume-profile.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": 300,
+  "height": 240,
+  "data": {
+    "name": "bars"
+  },
+  "transform": [
+    {
+      "x-eas:transform": "volume-profile",
+      "bins": {
+        "x-eas:slot": "bins"
+      }
+    }
+  ],
+  "layer": [
+    {
+      "name": "levels",
+      "transform": [
+        {
+          "calculate": "0",
+          "as": "base"
+        }
+      ],
+      "mark": {
+        "type": "rect"
+      },
+      "encoding": {
+        "y": {
+          "field": "low",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "price"
+        },
+        "y2": {
+          "field": "high"
+        },
+        "x": {
+          "field": "volume",
+          "type": "quantitative",
+          "title": "volume"
+        },
+        "x2": {
+          "field": "base"
+        },
+        "color": {
+          "condition": {
+            "test": "datum.poc",
+            "value": "#4c78a8"
+          },
+          "value": "#9ecae9"
+        },
+        "tooltip": [
+          {
+            "field": "low",
+            "type": "quantitative",
+            "format": ".2f"
+          },
+          {
+            "field": "high",
+            "type": "quantitative",
+            "format": ".2f"
+          },
+          {
+            "field": "volume",
+            "type": "quantitative",
+            "format": ",.0f"
+          }
+        ]
+      }
+    },
+    {
+      "name": "last-close",
+      "transform": [
+        {
+          "filter": "datum.bin == 0"
+        }
+      ],
+      "mark": {
+        "type": "rule",
+        "color": "#ae1325",
+        "strokeDash": [
+          4,
+          2
+        ]
+      },
+      "encoding": {
+        "y": {
+          "field": "last_close",
+          "type": "quantitative"
+        },
+        "tooltip": [
+          {
+            "field": "last_close",
+            "type": "quantitative",
+            "title": "last close"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -72,6 +72,7 @@
 (require 'financial-chart-depth)
 (require 'financial-chart-matrix)
 (require 'financial-chart-eas)
+(require 'financial-chart-eas-route)
 
 (defconst financial-chart-version "0.3.0"
   "Version of the financial-chart package.")

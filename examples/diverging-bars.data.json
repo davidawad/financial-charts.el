@@ -1,0 +1,13 @@
+{
+  "title": "P/L by position",
+  "data": [
+    {"label": "AAPL", "value": 1200},
+    {"label": "VTI", "value": 8000},
+    {"label": "QQQ", "value": 2650},
+    {"label": "TLT", "value": -720},
+    {"label": "GLD", "value": 430},
+    {"label": "MSFT", "value": 980},
+    {"label": "NVDA", "value": 1540},
+    {"label": "CASH", "value": 2100}
+  ]
+}

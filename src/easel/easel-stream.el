@@ -232,8 +232,9 @@ any other view gets the rows at once.  Returns `easel-inspect'."
       (easel-stream--flush stream (funcall easel-stream-clock)))
     (easel-inspect view)))
 
-(defun easel-stream--observe (view event)
-  "Track pointer presence for VIEW's stream from dispatched EVENT."
+(defun easel-stream--observe (view event &rest _)
+  "Track pointer presence for VIEW's stream from dispatched EVENT.
+The hook's OLD-STATE and OLD-SCENE arguments are ignored."
   (when-let* ((stream (easel-stream-get view)))
     (let ((type (plist-get event :type)))
       (cond ((member type easel-stream--pointer-events)

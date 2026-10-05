@@ -45,7 +45,6 @@ taken, so a function may record data in VIEW's state (clicks, fc-qx1.1).")
 (defvar easel-view-replaying nil
   "Non-nil while `easel-replay' re-applies a log.
 Hook functions with side effects (actions, echo) skip them then.")
-  "Hook run with VIEW and the parsed EVENT after every interactive dispatch.")
 
 (defvar easel-push-function nil
   "When non-nil, `easel-push' calls it with VIEW and ROWS instead of
@@ -192,7 +191,6 @@ or data changed."
       (setf (easel-view-scene view) (easel-view--compile view (not push) old-state))
       (run-hook-with-args 'easel-view-changed-functions view))
     (run-hook-with-args 'easel-view-dispatch-functions view event old-state old-scene)
-    (run-hook-with-args 'easel-view-dispatch-functions view event)
     (easel-inspect view)))
 
 (defun easel-view--window (data window)

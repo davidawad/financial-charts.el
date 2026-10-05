@@ -42,6 +42,11 @@ jobs:
       - name: Run tests
         run: make test
 
+      # Gallery and conformance oracle (fc-qx1.47): tests tagged
+      # :gallery, one Emacs per gallery group, in parallel.
+      - name: Run gallery
+        run: make -j"$(nproc)" -O test-gallery
+
       - name: Byte-compile
         run: make compile
 

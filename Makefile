@@ -8,10 +8,27 @@ SOURCES := $(shell find src -type f -name '*.el' ! -name '*-test.el' -print)
 MARKET_DATA ?=
 WITH_MD := $(if $(MARKET_DATA),-L $(MARKET_DATA) --eval "(require 'market-data)")
 
-.PHONY: test compile clean bench bench-budget
+# Tests tagged :gallery (the official Vega-Lite gallery and the
+# conformance oracle, minutes of work) run in test-gallery, not test.
+# One Emacs per gallery group, so `make -j4 test-gallery' parallelizes;
+# test-gallery-GROUP runs just that group.
+GALLERY_GROUPS := $(sort $(patsubst test/vl-examples/%/status.json,%,$(wildcard test/vl-examples/*/status.json)))
+GALLERY_TARGETS := test-gallery-conformance $(addprefix test-gallery-,$(GALLERY_GROUPS))
+ERT = $(EMACS) -Q --batch $(LOAD_PATHS) -L test/eas $(WITH_MD) $(foreach t,$(1),-l $(t)) \
+	--eval '(ert-run-tests-batch-and-exit (quote $(2)))'
+
+.PHONY: test test-gallery $(GALLERY_TARGETS) compile clean bench bench-budget
 
 test:
-	$(EMACS) -Q --batch $(LOAD_PATHS) -L test/eas $(WITH_MD) $(foreach t,$(TESTS),-l $(t)) -f ert-run-tests-batch-and-exit
+	$(call ERT,$(TESTS),(not (tag :gallery)))
+
+test-gallery: $(GALLERY_TARGETS)
+
+$(addprefix test-gallery-,$(GALLERY_GROUPS)): test-gallery-%:
+	EAS_GALLERY_GROUPS=$* $(call ERT,src/eas/eas-vl-gallery-test.el,(tag :gallery))
+
+test-gallery-conformance:
+	$(call ERT,$(TESTS),(and (tag :gallery) (not "^eas-vl-gallery-groups-")))
 
 compile:
 	$(EMACS) -Q --batch $(LOAD_PATHS) --eval '(setq byte-compile-error-on-warn t)' -f batch-byte-compile $(SOURCES)

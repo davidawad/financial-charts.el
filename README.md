@@ -402,7 +402,9 @@ Source is grouped by responsibility under src/:
 ## Tests
 
 ```sh
-make test      # every src module's *-test.el files, offline, no display
+make test      # every src module's *-test.el files, offline, no display (< 1 min)
+make -j4 test-gallery   # Vega-Lite gallery + conformance oracle (tests tagged :gallery)
+make test-gallery-bar   # one gallery group; test-gallery-conformance for the oracle
 make compile   # byte-compile with warnings as errors
 make test MARKET_DATA=../market-data.el   # same suite with market-data loaded
 make bench     # eas performance ladder against its regression budget

@@ -1,9 +1,0 @@
-ASK CUMULATIVE DEPTH
-   PRICE  DEPTH                       CUM SIZE
-    $101  █████████████████                  4
-  $100.5  ████                               1
-──────── mid $100.25 | spread $0.5 (0.50%) ─────────
-BID CUMULATIVE DEPTH
-   PRICE  DEPTH                       CUM SIZE
-    $100  █████████                          2
-   $99.5  ██████████████████████████         6

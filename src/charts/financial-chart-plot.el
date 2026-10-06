@@ -1,4 +1,4 @@
-;;; financial-chart-plot.el --- One entry point for every chart kind: text or SVG -*- lexical-binding: t; -*-
+;;; financial-chart-plot.el --- One entry point for every chart kind, drawn by eas -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026 David Awad
 
@@ -10,23 +10,33 @@
 ;;; Commentary:
 
 ;; `financial-chart-plot' KIND DATA &rest PROPS returns a chart as a string
-;; (propertized unicode in a terminal, an SVG document in a GUI);
+;; (propertized text in a terminal, an SVG document in a GUI);
 ;; `-plot-insert' puts it at point and `-plot-view' shows it in a
 ;; `financial-chart-plot-mode' buffer.  KIND is a key of
-;; `financial-chart-kinds'.
+;; `financial-chart-kinds'; each kind names a data shape and the eas
+;; template that draws it.  DATA is validated against the shape, lowered
+;; to the template's bindings and drawn by eas.  The candlestick entry
+;; points (`financial-chart-render', `-render-svg', `-view', `-export-svg',
+;; `-export-png') are the `ohlc' kind with the candle defcustoms.
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'subr-x)
+(require 'eas)
+(require 'financial-chart-core)
 (require 'financial-chart-series)
-(require 'financial-chart-text)
-(require 'financial-chart-svg)
+(require 'financial-chart-validate)
+(require 'financial-chart-indicators)
+
+;; The adapters and transforms the kinds' templates use are registered
+;; by financial-chart-eas, which needs every shape and so loads after
+;; the kind modules (financial-chart.el loads it).
 
 (defcustom financial-chart-backend 'auto
   "Rendering backend: `text', `svg', or `auto'.
 `auto' uses SVG images when the selected frame can display them, else
-unicode text -- so the same call looks right in a GUI and a terminal."
+text -- so the same call looks right in a GUI and a terminal."
   :type '(choice (const auto) (const text) (const svg))
   :group 'financial-chart)
 
@@ -36,19 +46,9 @@ unicode text -- so the same call looks right in a GUI and a terminal."
   :group 'financial-chart)
 
 ;; -----------------------------------------------------------------------
-;; Errors: (MESSAGE . PLIST), where
-;; the message names the fix and the plist carries :code plus locators.
-;; -----------------------------------------------------------------------
-
-(define-error 'financial-chart-unknown-kind
-  "financial-chart: unknown chart kind" 'financial-chart-error)
-(define-error 'financial-chart-invalid-data
-  "financial-chart: invalid chart data" 'financial-chart-error)
-
-;; -----------------------------------------------------------------------
 ;; Shapes and kinds -- registries, so the whole surface is enumerable.
-;; A kind names a data shape and one renderer per backend; adding a kind
-;; is `financial-chart-register-kind', no dispatch code changes.
+;; A kind names a data shape and the eas template that draws it; adding
+;; a kind is `financial-chart-register-kind', no dispatch code changes.
 ;; -----------------------------------------------------------------------
 
 (defconst financial-chart--example-price-changes
@@ -107,12 +107,14 @@ CHANGES is a vector of repeating daily moves, defaulting to
      :validator financial-chart--validate-labeled)
     (ohlc
      :doc "bar/v1 plists (:open :high :low :close [:volume] [:time]), oldest
-first; supplied :volume is non-negative and :time is epoch milliseconds."
+first: high >= max(open, close) >= min(open, close) >= low, :volume
+non-negative, :time epoch milliseconds, on every bar or none, strictly
+increasing."
      :example ((:open 100 :high 103 :low 99 :close 102 :volume 12000 :time 1700000000000)
                (:open 102 :high 104 :low 101 :close 101.5 :volume 9500 :time 1700086400000))
      :validator financial-chart--validate-ohlc))
   "Data shapes chart kinds accept: (SHAPE :doc :example :validator
-[:values FN] [:from-json FN]).
+\[:values FN] [:from-json FN] [:to-json FN]).
 :values (DATA PROPS -> numbers) feeds explain and SVG provenance;
 :from-json (parsed JSON DATA -> Lisp DATA) is for callers that parse JSON.
 Both are optional, so a module adding a shape never edits this file.")
@@ -128,30 +130,43 @@ Both are optional, so a module adding a shape never edits this file.")
       (financial-chart--example-ohlc))
 
 (defvar financial-chart-kinds
-  '((area :shape series :text financial-chart-text-area :svg financial-chart-svg-area
-          :doc "Eighth-block area chart of a price or value history.")
-    (line :shape series :text financial-chart-text-line :svg financial-chart-svg-line
-          :doc "Braille text or unfilled SVG line chart.")
-    (sparkline :shape series :text financial-chart-text-sparkline
-               :svg financial-chart-svg-sparkline
-               :doc "One-row sparkline for tables and mode lines.")
-    (payoff :shape payoff :text financial-chart-text-payoff
-            :svg financial-chart-svg-payoff
+  '((area :shape series :template "area" :adapter "series"
+          :bindings financial-chart--series-bindings :check financial-chart--check-scale
+          :doc "Area chart of a price or value history.")
+    (line :shape series :template "series-line" :adapter "series"
+          :bindings financial-chart--series-bindings :check financial-chart--check-scale
+          :doc "Line chart of a price or value history.")
+    (sparkline :shape series :template "sparkline" :adapter "series"
+               :bindings financial-chart--series-bindings
+               :doc "Compact sparkline for tables and mode lines.")
+    (payoff :shape payoff :template "payoff" :adapter "payoff"
             :doc "Zero-anchored P/L-vs-price diagram with breakevens.")
-    (bars :shape labeled :text financial-chart-text-bars :svg financial-chart-svg-bars
+    (bars :shape labeled :template "diverging-bars" :adapter "labeled"
           :doc "Diverging horizontal bars, e.g. P/L per position.")
-    (ohlc :shape ohlc :text financial-chart-text-ohlc :svg financial-chart-svg-ohlc
-          :doc "Candlesticks with optional volume panel, X-axis and indicators."))
-  "Chart kinds: (KIND :shape SHAPE :text FN :svg FN :doc STRING).
-Each renderer is called as (FN DATA &rest PROPS) and returns a string.")
+    (ohlc :shape ohlc :template "ohlc" :slot :bars :bindings financial-chart--ohlc-bindings
+          :doc "Candlesticks with optional volume pane, indicator overlays and oscillators."))
+  "Chart kinds: (KIND :shape SHAPE :template NAME [:slot SLOT]
+\[:adapter ADAPTER] [:props ((PROP . SLOT) ...)] [:bindings FN] [:check FN]
+:doc STRING).  DATA is validated by SHAPE, lowered by eas adapter
+ADAPTER (else passed as is) into template slot SLOT (default :data);
+each PROP given becomes SLOT.  :bindings (FN DATA PROPS) returns more
+bindings; :check (FN DATA PROPS) validates props that change how DATA
+is read.")
 
 (defun financial-chart-register-kind (kind &rest spec)
-  "Register (or replace) chart KIND with SPEC (:shape :text :svg :doc).
-:shape must name an entry of `financial-chart-shapes'."
+  "Register (or replace) chart KIND with SPEC.
+SPEC is (:shape SHAPE :template NAME :doc DOC [:slot :adapter :props
+:bindings :check]) as in `financial-chart-kinds'.  :shape must name an
+entry of `financial-chart-shapes' and :template an eas template."
   (unless (assq (plist-get spec :shape) financial-chart-shapes)
     (signal 'financial-chart-error
             (list (format "unknown shape %S; known: %S" (plist-get spec :shape)
-                          (mapcar #'car financial-chart-shapes)))))
+                          (mapcar #'car financial-chart-shapes))
+                  :code "unknown_shape")))
+  (unless (stringp (plist-get spec :template))
+    (signal 'financial-chart-error
+            (list (format "kind %S needs :template, the eas template that draws it" kind)
+                  :code "missing_template")))
   (setf (alist-get kind financial-chart-kinds) spec)
   kind)
 
@@ -165,71 +180,18 @@ Each renderer is called as (FN DATA &rest PROPS) and returns a string.")
 
 ;; -- validation --
 
-(defun financial-chart--invalid (index fmt &rest args)
-  "Signal `financial-chart-invalid-data' at element INDEX; FMT/ARGS the reason."
-  (signal 'financial-chart-invalid-data
-          (list (format "element %d: %s" index (apply #'format fmt args))
-                :code "invalid_data" :index index)))
-
-(defun financial-chart--validate-series (data)
-  "Signal unless DATA is a SERIES."
-  (unless (or (listp data) (vectorp data))
-    (signal 'financial-chart-invalid-data
-            (list (format "series must be a list or vector, got %S" data) :code "invalid_data")))
-  (let ((i 0))
-    (seq-doseq (p data)
-      (unless (or (numberp p)
-                  (and (consp p) (let ((y (financial-chart-series--point-y p)))
-                                   (or (null y) (numberp y)))))
-        (financial-chart--invalid i "expected a number, (X Y) or (X . Y) with numeric Y, got %S" p))
-      (cl-incf i))))
-
-(defun financial-chart--validate-payoff (data)
-  "Signal unless DATA is a PAYOFF: numeric (PRICE PNL), ascending price."
-  (financial-chart--validate-series data)
-  (let ((i 0) prev)
-    (seq-doseq (p data)
-      (let ((x (financial-chart-series--point-x p)))
-        (unless (and (numberp x) (numberp (financial-chart-series--point-y p)))
-          (financial-chart--invalid i "payoff points need numeric (PRICE PNL), got %S" p))
-        (when (and prev (< x prev))
-          (financial-chart--invalid i "prices must ascend; %s follows %s (sort by price)" x prev))
-        (setq prev x))
-      (cl-incf i))))
-
-(defun financial-chart--validate-labeled (data)
-  "Signal unless DATA is a list of (LABEL . NUMBER)."
-  (unless (listp data)
-    (signal 'financial-chart-invalid-data
-            (list (format "labeled data must be a list, got %S" data) :code "invalid_data")))
-  (cl-loop for p in data for i from 0
-           unless (and (consp p) (numberp (cdr p)))
-           do (financial-chart--invalid i "expected (LABEL . NUMBER), got %S" p)))
-
-(defun financial-chart--validate-ohlc (data)
-  "Signal unless DATA is a list of valid bar/v1 plists with non-negative volume."
-  (unless (listp data)
-    (signal 'financial-chart-invalid-data
-            (list (format "bars must be a list, got %S" data) :code "invalid_data")))
-  (cl-loop for bar in data for i from 0
-           do (unless (and (listp bar) (cl-evenp (length bar)))
-                (financial-chart--invalid i "bar is not a plist: %S" bar))
-           (dolist (key '(:open :high :low :close))
-             (unless (numberp (plist-get bar key))
-               (financial-chart--invalid i "required key %s missing or non-number" key))))
-  (cl-loop for bar in data
-           for i from 0
-           for volume = (plist-get bar :volume)
-           when (and volume (not (and (numberp volume) (>= volume 0))))
-           do (financial-chart--invalid i ":volume must be a non-negative number when present")))
+(defun financial-chart--check-scale (data props)
+  "Validate PROPS' :scale against series DATA."
+  (financial-chart--validate-scale data (plist-get props :scale)))
 
 ;;;###autoload
 (defun financial-chart-validate (kind data &rest props)
   "Return t when DATA fits KIND's shape, else signal a typed error.
-`financial-chart-invalid-data' carries the offending element's :index.
-Empty DATA is valid: it renders as \"no data\".  A kind whose registry
-entry has :check (a function of DATA and PROPS) also validates the props
-that change how DATA is read, e.g. `multi''s :normalize."
+`financial-chart-invalid-data' carries :code, the offending element's
+:index and :field (`financial-chart-error-data' reads them).  Empty DATA
+is valid: it renders as \"no data\".  A kind whose registry entry has
+:check (a function of DATA and PROPS) also validates the props that
+change how DATA is read, e.g. `multi''s :normalize."
   (let* ((entry (financial-chart--kind kind))
          (shape (plist-get entry :shape)))
     (when data
@@ -237,6 +199,13 @@ that change how DATA is read, e.g. `multi''s :normalize."
       (when-let* ((check (plist-get entry :check)))
         (funcall check data props)))
     t))
+
+;;;###autoload
+(defun financial-chart-check (kind data &rest props)
+  "Like `financial-chart-validate', but answer as data, never signal.
+Returns t, or (:code :index :field :message) for the first problem."
+  (condition-case err (apply #'financial-chart-validate kind data props)
+    (financial-chart-error (financial-chart-error-data err))))
 
 ;; -- backend --
 
@@ -260,26 +229,104 @@ that change how DATA is read, e.g. `multi''s :normalize."
 BACKEND nil means `financial-chart-backend'."
   (car (financial-chart--backend-decision backend)))
 
-(defvar financial-chart-plot-route-functions nil
-  "Abnormal hook: functions that may draw a kind with another renderer.
-Each is called with KIND and BACKEND (`text' or `svg') and returns nil
-or a plist (:renderer FN :reason STRING [:template NAME]); FN is called
-like the kind's own renderer, (FN DATA &rest ARGS).  The first non-nil
-answer wins; with none, the kind's registered renderer draws.
-financial-chart-eas-route.el adds the eas templates here.")
-
-(defun financial-chart--route (kind backend)
-  "The `financial-chart-plot-route-functions' answer for KIND on BACKEND."
-  (run-hook-with-args-until-success 'financial-chart-plot-route-functions kind backend))
-
 (defun financial-chart--renderer-args (backend props)
-  "The keyword args the BACKEND renderer receives for caller PROPS."
+  "The props `financial-chart-eas-render' receives on BACKEND for caller PROPS.
+SVG takes :width and :height in pixels (:pixel-width/:pixel-height,
+default 600x240); text takes :width columns and :height rows."
   (if (eq backend 'svg)
       (append (list :width (or (plist-get props :pixel-width) 600)
                     :height (or (plist-get props :pixel-height) 240))
               (financial-chart-plot--plist-drop props :backend :width :height
                                                 :pixel-width :pixel-height))
     (financial-chart-plot--plist-drop props :backend)))
+
+;; -- eas bindings --
+
+(defun financial-chart-eas--json-value (value)
+  "VALUE as a slot value: symbols become strings."
+  (if (and (symbolp value) value (not (keywordp value)) (not (eq value t)))
+      (symbol-name value)
+    value))
+
+(defun financial-chart--temporal-p (data)
+  "Non-nil when every X in series DATA is epoch milliseconds."
+  (let ((xs (delq nil (mapcar #'financial-chart-series--point-x (append data nil)))))
+    (and xs (cl-every (lambda (x) (and (numberp x) (> x 1e11))) xs))))
+
+(defun financial-chart--series-bindings (data props)
+  "Series slots for DATA: x_type, y_title from :unit, scale from :scale."
+  (append (when (financial-chart--temporal-p data) (list :x_type "temporal"))
+          (let ((unit (plist-get props :unit)))
+            (when (and (stringp unit) (not (string-empty-p unit))) (list :y_title unit)))
+          (when (eq (plist-get props :scale) 'log) (list :scale "log"))))
+
+(defun financial-chart--overlay-items (bars specs)
+  "SPECS (`financial-chart-indicators' entries) as precomputed template items."
+  (let (seen)
+    (cl-loop for series in (financial-chart--compute-series bars specs)
+             for i from 1
+             for label = (plist-get series :label)
+             ;; Each overlay is its own colour, so a repeated label gets its index.
+             do (when (member label seen) (setq label (format "%s %d" label i)))
+             (push label seen)
+             collect (list :transform "values"
+                           :values (vconcat (plist-get series :series))
+                           :as label))))
+
+(defun financial-chart--ohlc-bindings (bars _props)
+  "ohlc slots: the windowed bars, volume pane, overlays and oscillators."
+  (let ((bars (financial-chart--window-bars bars)))
+    (list :bars bars
+          :volume (if (and financial-chart-show-volume (cl-some (lambda (b) (plist-get b :volume)) bars))
+                      t :false)
+          :indicators (vconcat (financial-chart--overlay-items bars financial-chart-indicators))
+          :oscillators (vconcat (financial-chart--overlay-items bars financial-chart-oscillators)))))
+
+(defun financial-chart-eas-bindings (kind data &optional props)
+  "Bindings for KIND's eas template that draw DATA with PROPS."
+  (let* ((entry (financial-chart--kind kind))
+         (adapter (plist-get entry :adapter))
+         (slot (or (plist-get entry :slot) :data))
+         (extra (when-let* ((fn (plist-get entry :bindings))) (funcall fn data props)))
+         (bindings (list slot (if adapter (eas-data-rows (eas-data-from adapter data)) data))))
+    (when (stringp (plist-get props :title))
+      (setq bindings (plist-put bindings :title (plist-get props :title))))
+    (dolist (pair (plist-get entry :props))
+      (when-let* ((value (plist-get props (car pair))))
+        (setq bindings (plist-put bindings (cdr pair) (financial-chart-eas--json-value value)))))
+    (cl-loop for (key value) on extra by #'cddr
+             do (setq bindings (plist-put bindings key value)))
+    bindings))
+
+(defun financial-chart-eas-resolve (kind data &optional props)
+  "The pure Vega-Lite spec KIND's template resolves to for DATA and PROPS.
+PROPS' :font, when a string, becomes the spec's config.font."
+  (let ((spec (eas-resolve (plist-get (financial-chart--kind kind) :template)
+                           (financial-chart-eas-bindings kind data props)))
+        (font (plist-get props :font)))
+    (if (stringp font)
+        (plist-put spec :config (plist-put (copy-sequence (plist-get spec :config)) :font font))
+      spec)))
+
+(defun financial-chart-eas-scene (kind data backend &optional props)
+  "KIND's scene for DATA on BACKEND (`text' or `svg') sized by PROPS.
+Text takes :width columns and :height rows; svg :width and :height
+pixels (what `financial-chart--renderer-args' hands over)."
+  (let ((w (plist-get props :width)) (h (plist-get props :height)))
+    (eas-compile (financial-chart-eas-resolve kind data props)
+                 :target backend
+                 :size (if (eq backend 'text)
+                           (list :cols (or w 60) :rows (or h financial-chart-plot-height))
+                         (and w h (cons w h))))))
+
+(defun financial-chart-eas-render (kind data backend &rest props)
+  "KIND drawn from DATA by its eas template on BACKEND, as a string.
+Text keeps eas's text properties (help-echo, datum); svg is a document.
+nil for empty DATA (\"\" for a sparkline)."
+  (if (or (null data) (and (vectorp data) (zerop (length data))))
+      (if (eq kind 'sparkline) "" nil)
+    (let ((scene (financial-chart-eas-scene kind data backend props)))
+      (if (eq backend 'text) (eas-text-render scene) (eas-svg-render scene)))))
 
 ;; -- explain: the pure plan --
 
@@ -303,25 +350,20 @@ the built-in shapes are handled here."
 ;;;###autoload
 (defun financial-chart-explain (kind data &rest props)
   "Return the plan `financial-chart-plot' would follow, without rendering.
-A plist: :kind :shape :valid (t, or the error message) :backend and
-:backend-reason :renderer :args (what the renderer receives) :points
-:min :max, plus :template and :route-reason when an eas template
-draws KIND (`financial-chart-plot-route-functions').  Pure: no I/O,
-never signals for bad DATA."
+A plist: :kind :shape :template :valid (t, or the error as
+`financial-chart-error-data') :backend and :backend-reason :renderer
+:args :points :min :max.  (apply RENDERER KIND DATA BACKEND ARGS) draws
+exactly what `financial-chart-plot' returns before its SVG provenance.
+Pure: no I/O, never signals for bad DATA."
   (let* ((entry (financial-chart--kind kind))
          (shape (plist-get entry :shape))
          (decision (financial-chart--backend-decision (plist-get props :backend)))
-         (valid (condition-case err (apply #'financial-chart-validate kind data props)
-                  (error (error-message-string err))))
-         (route (financial-chart--route kind (car decision))))
+         (valid (apply #'financial-chart-check kind data props)))
     (append
-     (list :kind kind :shape shape :valid valid
+     (list :kind kind :shape shape :template (plist-get entry :template) :valid valid
            :backend (car decision) :backend-reason (cdr decision)
-           :renderer (or (plist-get route :renderer)
-                         (plist-get entry (if (eq (car decision) 'svg) :svg :text)))
+           :renderer 'financial-chart-eas-render
            :args (financial-chart--renderer-args (car decision) props))
-     (when route
-       (list :template (plist-get route :template) :route-reason (plist-get route :reason)))
      (when (eq valid t) (financial-chart--data-summary shape data props)))))
 
 ;; -- render --
@@ -354,30 +396,23 @@ An agent reading the file alone knows what it shows."
 (defun financial-chart-plot (kind data &rest props)
   "Render DATA as a KIND chart and return it as a string.
 KIND is a key of `financial-chart-kinds' (`financial-chart-list-kinds');
-DATA must fit its shape (`financial-chart-validate').  PROPS: :backend
-\(text, svg or auto -- see `financial-chart-backend'), :width/:height
-\(text columns/rows), :pixel-width/:pixel-height (SVG), :unit, :title,
-per-renderer options such as :up-face/:down-face, and :scale `linear' or
-`log' for area/line series.  :palette selects `default' or
-`colorblind-safe' for this call.  With `svg' the
-string is an SVG document carrying a <title>/<desc> provenance block;
-with `text' it is propertized unicode.  Returns nil when DATA is empty
+DATA must fit its shape (`financial-chart-validate').  KIND's eas
+template draws it.  PROPS: :backend (text, svg or auto -- see
+`financial-chart-backend'), :width/:height (text columns/rows),
+:pixel-width/:pixel-height (SVG), :unit, :title, :font (SVG font
+family), :scale `linear' or `log' for area/line series, and the
+kind's own props such as `multi''s :normalize.  With `svg' the string
+is an SVG document carrying a <title>/<desc> provenance block; with
+`text' it is propertized text.  Returns nil when DATA is empty
 \(sparkline: \"\").  `financial-chart-explain' shows the plan first."
-  (let* ((entry (financial-chart--kind kind))
-         (financial-chart-color-palette
-          (or (plist-get props :palette) financial-chart-color-palette))
-         (backend (financial-chart-plot--resolve-backend (plist-get props :backend))))
+  (financial-chart--kind kind)
+  (let ((backend (financial-chart-plot--resolve-backend (plist-get props :backend))))
     (apply #'financial-chart-validate kind data props)
-    (let* ((route (financial-chart--route kind backend))
-           (out (apply (or (plist-get route :renderer)
-                           (plist-get entry (if (eq backend 'svg) :svg :text)))
-                       data (financial-chart--renderer-args backend props))))
-      (cond
-       ((and out (eq backend 'svg))
-        (financial-chart--svg-provenance out kind data props))
-       ((and (eq backend 'text) (not route))
-        (financial-chart-text--apply-palette out))
-       (t out)))))
+    (let ((out (apply #'financial-chart-eas-render kind data backend
+                      (financial-chart--renderer-args backend props))))
+      (if (and out (eq backend 'svg))
+          (financial-chart--svg-provenance out kind data props)
+        out))))
 
 ;;;###autoload
 (defun financial-chart-plot-spec (spec)
@@ -390,32 +425,35 @@ A chart as plain data, convenient to build from parsed JSON."
 
 ;;;###autoload
 (defun financial-chart-list-kinds ()
-  "Every chart kind as (KIND :shape SHAPE :doc DOC), registry order."
+  "Every chart kind as (KIND :shape SHAPE :template NAME :doc DOC), registry order."
   (mapcar (lambda (e) (list (car e) :shape (plist-get (cdr e) :shape)
+                            :template (plist-get (cdr e) :template)
                             :doc (plist-get (cdr e) :doc)))
           financial-chart-kinds))
 
 ;;;###autoload
 (defun financial-chart-describe-kind (kind)
-  "KIND's full description: shape doc, example data, renderers, and
-whether both renderers are defined right now."
+  "KIND's full description: shape doc, example data, its eas template,
+and whether that template is registered right now."
   (let* ((entry (financial-chart--kind kind))
          (shape (alist-get (plist-get entry :shape) financial-chart-shapes)))
     (list :kind kind :doc (plist-get entry :doc)
           :shape (plist-get entry :shape) :shape-doc (plist-get shape :doc)
           :example (plist-get shape :example)
-          :text (plist-get entry :text) :svg (plist-get entry :svg)
-          :renderers-defined (and (fboundp (plist-get entry :text))
-                                  (fboundp (plist-get entry :svg)) t))))
+          :template (plist-get entry :template)
+          :template-defined (and (member (plist-get entry :template) (eas-template-names)) t))))
 
 ;;;###autoload
 (defun financial-chart-sparkline (series &rest props)
-  "One-row unicode sparkline string for SERIES (PROPS: :width :face)."
-  (apply #'financial-chart-text-sparkline series props))
+  "Compact text sparkline string for SERIES, drawn by eas's sparkline.
+PROPS: :width columns (default 20) and :height rows (default 2)."
+  (financial-chart-plot 'sparkline series :backend 'text
+                        :width (or (plist-get props :width) 20)
+                        :height (or (plist-get props :height) 2)))
 
 ;;;###autoload
 (defun financial-chart-plot-insert (kind data &rest props)
-  "Insert DATA as a KIND chart at point: an SVG image or unicode text.
+  "Insert DATA as a KIND chart at point: an SVG image or text.
 PROPS as in `financial-chart-plot'.
 Inserts `financial-chart-empty-text' for no data.  When SVG is requested
 but this Emacs cannot display SVG images, inserts the text chart with a
@@ -447,8 +485,11 @@ one-line note instead of failing."
 (defvar-local financial-chart-plot--zoom-window nil
   "Visible series index range as a cons (START . END), or nil for all data.")
 
+(defvar-local financial-chart-plot--base-index 0
+  "Source index of the first visible series point.")
+
 (defvar-local financial-chart-plot--last-inspected-point nil
-  "Last point shown in the echo area, to avoid redundant messages.")
+  "Last tooltip shown in the echo area, to avoid redundant messages.")
 
 (defun financial-chart-plot--stop-refresh ()
   "Cancel this buffer's live refresh timer."
@@ -492,7 +533,7 @@ one-line note instead of failing."
 \\[financial-chart-plot-toggle-backend] flips text/SVG; \\
 \\[financial-chart-plot-toggle-refresh] toggles live refresh; \\
 \\[financial-chart-plot-zoom-in]/\\[financial-chart-plot-zoom-out] zoom the series around point or latest data; \\
-\\[financial-chart-plot-zoom-reset] shows all data.  Point on a text chart column to inspect X/Y."
+\\[financial-chart-plot-zoom-reset] shows all data.  Point on a text chart shows that datum."
   (add-hook 'post-command-hook #'financial-chart-plot--inspect-point nil t)
   (add-hook 'kill-buffer-hook #'financial-chart-plot--stop-refresh nil t))
 
@@ -509,80 +550,6 @@ one-line note instead of failing."
               (list :height (max 6 (min 20 (- rows 6)))))
             (unless (plist-member props :pixel-width)
               (list :pixel-width (if win (window-body-width win t) 600))))))
-
-(defun financial-chart-plot--series-points (data base-index)
-  "Return DATA as point plists, preserving each source index from BASE-INDEX."
-  (let ((index base-index) points)
-    (dolist (point (append data nil))
-      (let ((y (financial-chart-series--point-y point)))
-        (when y
-          (push (list :x (or (financial-chart-series--point-x point) index)
-                      :y y :index index)
-                points)))
-      (cl-incf index))
-    (nreverse points)))
-
-(defun financial-chart-plot--merge-points (points)
-  "Combine resampled POINTS as one visible column's X, Y, and source index."
-  (let ((xs (mapcar (lambda (point) (plist-get point :x)) points))
-        (ys (mapcar (lambda (point) (plist-get point :y)) points))
-        (indices (mapcar (lambda (point) (plist-get point :index)) points)))
-    (list :x (if (cl-every #'numberp xs)
-                 (/ (apply #'+ xs) (float (length xs)))
-               (nth (/ (length xs) 2) xs))
-          :y (/ (apply #'+ ys) (float (length ys)))
-          :index (round (/ (apply #'+ indices) (float (length indices)))))))
-
-(defun financial-chart-plot--series-columns (data width base-index)
-  "Resample DATA into WIDTH metadata columns, matching text renderer buckets."
-  (let* ((points (financial-chart-plot--series-points data base-index))
-         (n (length points))
-         (width (max 1 (or width n 1)))
-         (per (max 1 (/ (float n) width))))
-    (cl-loop for column from 0 below (min width n)
-             for start = (floor (* column per))
-             for end = (max (1+ start) (floor (* (1+ column) per)))
-             for group = (cl-subseq points (min start (1- n)) (min end n))
-             collect (financial-chart-plot--merge-points group))))
-
-(defun financial-chart-plot--line-columns (data width base-index)
-  "Return braille line columns for DATA, matching its two samples per cell."
-  (let ((samples (financial-chart-plot--series-columns data (* 2 width) base-index))
-        columns)
-    (while samples
-      (push (if (cdr samples)
-                (financial-chart-plot--merge-points (list (car samples) (cadr samples)))
-              (car samples))
-            columns)
-      (setq samples (cddr samples)))
-    (nreverse columns)))
-
-(defun financial-chart-plot--annotate-row (text row-start offset columns)
-  "Add X/Y properties for COLUMNS after OFFSET characters from ROW-START."
-  (let ((start (+ row-start offset)))
-    (cl-loop for point in columns for column from 0
-             for pos = (+ start column)
-             while (< pos (length text))
-             do (put-text-property pos (1+ pos) 'financial-chart-point point text))))
-
-(defun financial-chart-plot--annotate-series (kind data props text base-index)
-  "Add `financial-chart-point' properties to text chart columns in TEXT."
-  (when (and (stringp text) (not (equal text "")))
-    (let* ((width (or (plist-get props :width) 60))
-           (height (or (plist-get props :height) financial-chart-plot-height))
-           (columns (pcase kind
-                      ('area (financial-chart-plot--series-columns data width base-index))
-                      ('line (financial-chart-plot--line-columns data width base-index))
-                      ('sparkline (financial-chart-plot--series-columns data width base-index)))))
-      (if (eq kind 'sparkline)
-          (financial-chart-plot--annotate-row text 0 0 columns)
-        (let ((row-start 0))
-          (dotimes (_ height)
-            (when-let* ((newline (string-match "\n" text row-start)))
-              (financial-chart-plot--annotate-row
-               text row-start (- (- newline row-start) (length columns)) columns)
-              (setq row-start (1+ newline))))))))
-  text)
 
 (defun financial-chart-plot--visible-window (length)
   "Return this buffer's clamped visible series range within LENGTH."
@@ -609,22 +576,26 @@ one-line note instead of failing."
        (eq (plist-get (financial-chart--kind (car financial-chart-plot--spec)) :shape)
            'series)))
 
-(defun financial-chart-plot--point-at-point ()
-  "Return point metadata under point, or nil."
-  (and (< (point) (point-max))
-       (get-text-property (point) 'financial-chart-point)))
+(defun financial-chart-plot--index-at-point ()
+  "Source index of the series point under point, or nil.
+eas marks each text cell with `eas-datum', the index of its row in the
+mark; the series adapter keeps the visible slice's order (dropping nil
+Ys), so that row is the slice's Nth plotted point."
+  (when-let* ((datum (and (< (point) (point-max)) (get-text-property (point) 'eas-datum)))
+              ((integerp datum)))
+    (let* ((visible (car (financial-chart-plot--visible-data
+                          (car financial-chart-plot--spec) (nth 1 financial-chart-plot--spec))))
+           (plotted (cl-loop for p in visible for i from 0
+                             when (financial-chart-series--point-y p) collect i)))
+      (when-let* ((position (nth datum plotted)))
+        (+ financial-chart-plot--base-index position)))))
 
 (defun financial-chart-plot--inspect-point ()
-  "Show the X and Y at point when point is on a text chart column."
-  (let ((point-data (financial-chart-plot--point-at-point)))
-    (unless (equal point-data financial-chart-plot--last-inspected-point)
-      (setq financial-chart-plot--last-inspected-point point-data)
-      (if point-data
-          (let ((x (plist-get point-data :x)))
-            (message "X: %s  Y: %s"
-                     (if (numberp x) (financial-chart-fmt x) x)
-                     (financial-chart-fmt (plist-get point-data :y))))
-        (message nil)))))
+  "Show the tooltip of the datum at point in the echo area."
+  (let ((tip (and (< (point) (point-max)) (get-text-property (point) 'help-echo))))
+    (unless (equal tip financial-chart-plot--last-inspected-point)
+      (setq financial-chart-plot--last-inspected-point tip)
+      (if (stringp tip) (message "%s" tip) (message nil)))))
 
 (defun financial-chart-plot--render ()
   "Render this plot buffer's current data and visible series slice."
@@ -637,7 +608,8 @@ one-line note instead of failing."
                (out (apply #'financial-chart-plot kind visible-data :backend backend render-props)))
     (when financial-chart-plot--last-inspected-point
       (message nil))
-    (setq financial-chart-plot--last-inspected-point nil)
+    (setq financial-chart-plot--last-inspected-point nil
+          financial-chart-plot--base-index base-index)
     (let ((inhibit-read-only t))
       (erase-buffer)
       (when-let* ((title (plist-get props :title)))
@@ -650,11 +622,7 @@ one-line note instead of failing."
         (insert (propertize financial-chart-empty-text 'face 'financial-chart-dim)))
        ((eq backend 'svg)
         (insert-image (create-image out 'svg t :ascent 'center) "[chart]"))
-       (t
-        (when (eq (plist-get (financial-chart--kind kind) :shape) 'series)
-          (setq out (financial-chart-plot--annotate-series
-                     kind visible-data render-props out base-index)))
-        (insert out)))
+       (t (insert out)))
       (goto-char (point-min)))))
 
 (defun financial-chart-plot-refresh ()
@@ -702,9 +670,7 @@ for a real timer."
            (start (car window))
            (end (cdr window))
            (span (- end start))
-           (point-data (financial-chart-plot--point-at-point))
-           (anchor (or (and point-data (plist-get point-data :index))
-                       (1- end)))
+           (anchor (or (financial-chart-plot--index-at-point) (1- end)))
            (new-span (if (< direction 0)
                          (max 1 (floor (* span 0.8)))
                        (min length (max (1+ span) (ceiling (* span 1.25)))))))
@@ -748,7 +714,7 @@ for a real timer."
 (defun financial-chart-plot-view (kind data &rest props)
   "Show DATA as a KIND chart in a `financial-chart-plot-mode' buffer.
 Return the buffer.  PROPS as in `financial-chart-plot', plus :buffer
-(name, default \"*financial-chart*\"), :refresh-fn (function returning
+\(name, default \"*financial-chart*\"), :refresh-fn (function returning
 fresh DATA), and :refresh-interval (positive timer interval in seconds).
 A configured timer starts automatically and refreshes while visible."
   (let ((refresh-fn (plist-get props :refresh-fn))
@@ -772,6 +738,110 @@ A configured timer starts automatically and refreshes while visible."
         (financial-chart-plot--start-refresh))
       buf)))
 
+;; --- candlesticks -----------------------------------------------------------------
+
+(defun financial-chart--require-bars (bars caller)
+  "Signal unless BARS is non-empty; CALLER names the entry point."
+  (unless bars
+    (financial-chart--invalid nil nil "no_data" "%s: no bars to render; pass bar/v1 plists" caller)))
+
+;;;###autoload
+(defun financial-chart-render (bars &optional height width)
+  "Render BARS as a text candlestick chart string, oldest bar first.
+BARS is a list of bar/v1 plists (:open :high :low :close [:volume]
+\[:time]).  HEIGHT (rows, default `financial-chart-height') and WIDTH
+\(columns, default `financial-chart-plot-width' or 80) size it.  The
+bar window, volume pane, overlays and oscillators follow
+`financial-chart-max-bars', `financial-chart-show-volume',
+`financial-chart-indicators' and `financial-chart-oscillators'."
+  (financial-chart--require-bars bars "financial-chart-render")
+  (financial-chart-plot 'ohlc bars :backend 'text
+                        :height (or height financial-chart-height)
+                        :width (or width financial-chart-plot-width 80)))
+
+;;;###autoload
+(defun financial-chart-render-svg (bars &optional title font-family)
+  "Render BARS as an SVG candlestick chart, returned as an XML string.
+TITLE heads the chart; FONT-FAMILY sets the SVG font for this call.
+Configured like `financial-chart-render'."
+  (financial-chart--require-bars bars "financial-chart-render-svg")
+  (apply #'financial-chart-plot 'ohlc bars :backend 'svg
+         (append (when title (list :title title))
+                 (when font-family (list :font font-family)))))
+
+;;;###autoload
+(defun financial-chart-view (bars &optional title height)
+  "Show BARS as candlesticks in a `financial-chart-plot-mode' buffer.
+TITLE, if given, heads the chart; HEIGHT overrides `financial-chart-height'."
+  (financial-chart--require-bars bars "financial-chart-view")
+  (apply #'financial-chart-plot-view 'ohlc bars
+         :height (or height financial-chart-height)
+         (when title (list :title title))))
+
+(defcustom financial-chart-png-converter nil
+  "How `financial-chart-export-png' rasterizes SVG to PNG: nil
+auto-detects the first available of `rsvg-convert'/`convert'/`magick'
+via `executable-find'; a symbol names one of those explicitly; a
+function is called as (FN SVG-FILE PNG-FILE) and does the conversion
+itself (e.g. to shell out to some other tool, or convert in-process)."
+  :type '(choice (const :tag "Auto-detect" nil)
+                 (const rsvg-convert) (const convert) (const magick)
+                 function)
+  :group 'financial-chart)
+
+;;;###autoload
+(defun financial-chart-export-svg (bars file &optional title font-family)
+  "Write BARS as an SVG candlestick chart to FILE.  Returns FILE.
+TITLE and FONT-FAMILY are as in `financial-chart-render-svg'."
+  (let ((svg (financial-chart-render-svg bars title font-family)))
+    (with-temp-file file (insert svg)))
+  file)
+
+(defun financial-chart--resolve-png-converter ()
+  "Return the converter `financial-chart-export-png' should use."
+  (or financial-chart-png-converter
+      (cl-find-if (lambda (name) (executable-find (symbol-name name)))
+                  '(rsvg-convert convert magick))
+      (signal 'financial-chart-error
+              (list "No SVG->PNG converter found (looked for rsvg-convert/convert/magick); install one (e.g. librsvg) or set financial-chart-png-converter"
+                    :code "no_png_converter"))))
+
+(defun financial-chart--run-png-converter (converter svg-file png-file width height)
+  "Invoke external CONVERTER to rasterize SVG-FILE to PNG-FILE.
+WIDTH and HEIGHT (pixels) reach rsvg-convert only."
+  (let* ((args
+          (pcase converter
+            ('rsvg-convert
+             (append (list "-o" png-file)
+                     (when width (list "-w" (number-to-string width)))
+                     (when height (list "-h" (number-to-string height)))
+                     (list svg-file)))
+            ((or 'convert 'magick)
+             (list svg-file png-file))))
+         (status (apply #'call-process (symbol-name converter) nil nil nil args)))
+    (unless (zerop status)
+      (signal 'financial-chart-error
+              (list (format "financial-chart-export-png: %s exited %s" converter status)
+                    :code "png_converter_failed")))))
+
+;;;###autoload
+(defun financial-chart-export-png (bars file &optional title width height font-family)
+  "Write BARS as a PNG candlestick chart to FILE.  Returns FILE.
+Renders to SVG (`financial-chart-export-svg') then rasterizes via
+`financial-chart-png-converter', the one external process this package
+runs.  WIDTH/HEIGHT (pixels) reach converters that take them
+\(rsvg-convert); TITLE and FONT-FAMILY are as in `-render-svg'."
+  (let ((svg-file (make-temp-file "financial-chart" nil ".svg"))
+        (converter (financial-chart--resolve-png-converter)))
+    (unwind-protect
+        (progn
+          (financial-chart-export-svg bars svg-file title font-family)
+          (if (functionp converter)
+              (funcall converter svg-file file)
+            (financial-chart--run-png-converter converter svg-file file width height)))
+      (delete-file svg-file))
+    file))
+
 ;;;###autoload
 (defun financial-chart-demo ()
   "Show every financial-chart kind over built-in sample data."
@@ -792,7 +862,7 @@ A configured timer starts automatically and refreshes while visible."
           (insert (propertize (car spec) 'face 'bold) "\n")
           (apply #'financial-chart-plot-insert (nth 1 spec) (nth 2 spec) :height 8 (nthcdr 3 spec))
           (insert "\n\n"))
-        (insert "sparkline " (financial-chart-sparkline series :width 40) "\n")
+        (insert "sparkline\n" (financial-chart-sparkline series :width 40) "\n")
         (goto-char (point-min))))
     (unless noninteractive (pop-to-buffer buf))
     buf))
@@ -816,14 +886,15 @@ backends, and whether this frame can show SVG inline.  No I/O."
                                  :example))
              (err (condition-case e
                       (progn
-                        (financial-chart-plot kind example :backend 'text :width 20 :height 4)
+                        (financial-chart-plot kind example :backend 'text :width 40 :height 8)
                         (financial-chart-plot kind example :backend 'svg)
                         nil)
                     (error (error-message-string e)))))
         (financial-chart--check
          (format "kind %s renders" kind) (null err)
-         (or err "example renders as text and svg")
-         (format "(financial-chart-describe-kind '%s) and fix its renderers" kind))))
+         (or err (format "example renders as text and svg through eas template %s"
+                         (plist-get (cdr entry) :template)))
+         (format "(financial-chart-describe-kind '%s) and check its template" kind))))
     financial-chart-kinds)
    (list (list :name "inline svg display"
                :status (if (image-type-available-p 'svg) 'pass 'skip)

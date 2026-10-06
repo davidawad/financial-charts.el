@@ -9,7 +9,6 @@
        (output-dir (expand-file-name "docs/images/indicators" root)))
   (add-to-list 'load-path (expand-file-name "src" root))
   (require 'financial-chart)
-  (require 'financial-chart-svg)
   (let* ((lines (with-temp-buffer
                   (insert-file-contents csv-file)
                   (split-string (string-trim (buffer-string)) "\n" t)))
@@ -29,15 +28,11 @@
                           :time time)))
                 (cdr lines))))
     (make-directory output-dir t)
-    (let ((financial-chart-show-volume t)
-          (financial-chart-show-x-axis t)
-          (financial-chart-svg-price-height 430)
-          (financial-chart-svg-oscillator-height 150))
+    (let ((financial-chart-show-volume t))
       (cl-labels
-          ((save-candle (file title overlays oscillators &optional bands)
+          ((save-candle (file title overlays oscillators)
              (let ((financial-chart-indicators overlays)
-                   (financial-chart-oscillators oscillators)
-                   (financial-chart-indicator-bands bands))
+                   (financial-chart-oscillators oscillators))
                (financial-chart-export-png
                 bars (expand-file-name file output-dir) title 1280 760)))
            (save-plot (file title chart-spec)
@@ -74,7 +69,7 @@
                      :label "SMA 8" :face 'font-lock-keyword-face)
                (list :fn (lambda (data) (financial-chart-ema data 5))
                      :label "EMA 5" :face 'font-lock-function-name-face))
-         nil nil)
+         nil)
         (save-candle
          "bollinger-bands.png" "TSMC — Bollinger Bands"
          (list (list :fn (lambda (data)
@@ -92,9 +87,7 @@
                                       :values))
                      :label "Upper Band" :face 'font-lock-warning-face
                      :color "#4c9f70"))
-         nil
-         (list (financial-chart-bollinger-band-spec
-                10 2 "#4c9f70" "#c45b6a" 0.16)))
+         nil)
         (save-candle
          "oscillators.png" "TSMC — RSI and Stochastic"
          nil

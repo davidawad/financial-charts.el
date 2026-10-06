@@ -1,4 +1,4 @@
-;;; financial-chart-test.el --- rendering + Schwab bridge contract -*- lexical-binding: t; -*-
+;;; financial-chart-test.el --- candlestick entry points, indicators, cohorts -*- lexical-binding: t; -*-
 
 (require 'ert)
 (require 'financial-chart)
@@ -8,47 +8,9 @@
 standard value, so tests don't leak customizations across each other."
   `(let ((financial-chart-height 20)
          (financial-chart-max-bars 80)
-         (financial-chart-candle-width 1)
-         (financial-chart-candle-gap 1)
-         (financial-chart-up-face 'success)
-         (financial-chart-down-face 'error)
-         (financial-chart-wick-face nil)
-         (financial-chart-axis-face nil)
-         (financial-chart-glyph-full-block ?█)
-         (financial-chart-glyph-upper-half ?▀)
-         (financial-chart-glyph-lower-half ?▄)
-         (financial-chart-glyph-wick ?│)
-         (financial-chart-glyph-empty ?\s)
-         (financial-chart-glyph-indicator ?•)
-         (financial-chart-glyph-volume-bar ?█)
-         (financial-chart-scale 'linear)
-         (financial-chart-axis-label-count 3)
-         (financial-chart-axis-format "%7.2f ")
          (financial-chart-show-volume t)
-         (financial-chart-volume-height 5)
-         (financial-chart-volume-up-face nil)
-         (financial-chart-volume-down-face nil)
-         (financial-chart-volume-axis-label-count 2)
-         (financial-chart-volume-axis-format "%7.0f ")
-         (financial-chart-show-x-axis t)
-         (financial-chart-x-axis-label-count 4)
-         (financial-chart-x-axis-format "%m/%d")
          (financial-chart-indicators nil)
-         (financial-chart-svg-candle-width 6)
-         (financial-chart-svg-candle-gap 3)
-         (financial-chart-svg-wick-width 1)
-         (financial-chart-svg-price-height 400)
-         (financial-chart-svg-volume-height 100)
-         (financial-chart-svg-margin-left 55)
-         (financial-chart-svg-margin-right 20)
-         (financial-chart-svg-margin-top 40)
-         (financial-chart-svg-margin-bottom 30)
-         (financial-chart-svg-font-size 12)
-         (financial-chart-svg-font-family
-          "DejaVu Sans Mono, Menlo, Consolas, monospace")
-         (financial-chart-svg-background nil)
-         (financial-chart-svg-text-color nil)
-         (financial-chart-export-directory "~/Desktop")
+         (financial-chart-oscillators nil)
          (financial-chart-png-converter nil))
      ,@body))
 
@@ -60,61 +22,10 @@ standard value, so tests don't leak customizations across each other."
                          :volume (* 1000 (1+ i))
                          :time (* i 86400000))))
 
-;; -- glyph selection --
-
-(ert-deftest financial-chart-glyph-full-body-row ()
-  (financial-chart-test--with-defaults
-   (should (equal (financial-chart--glyph 0.0 1.0 -1.0 2.0 -2.0 3.0)
-                  (cons 'body ?█)))))
-
-(ert-deftest financial-chart-glyph-upper-half-body-row ()
-  (financial-chart-test--with-defaults
-   (should (equal (financial-chart--glyph 0.0 1.0 0.6 1.4 0.6 1.4)
-                  (cons 'body ?▀)))))
-
-(ert-deftest financial-chart-glyph-lower-half-body-row ()
-  (financial-chart-test--with-defaults
-   (should (equal (financial-chart--glyph 0.0 1.0 -0.4 0.4 -0.4 0.4)
-                  (cons 'body ?▄)))))
-
-(ert-deftest financial-chart-glyph-wick-only-row ()
-  (financial-chart-test--with-defaults
-   (should (equal (financial-chart--glyph 5.0 6.0 0.0 1.0 -1.0 10.0)
-                  (cons 'wick ?│)))))
-
-(ert-deftest financial-chart-glyph-empty-row ()
-  (financial-chart-test--with-defaults
-   (should (equal (financial-chart--glyph 50.0 51.0 0.0 1.0 -1.0 10.0)
-                  (cons 'empty ?\s)))))
-
-(ert-deftest financial-chart-glyph-respects-custom-characters ()
-  (financial-chart-test--with-defaults
-   (let ((financial-chart-glyph-full-block ?#)
-         (financial-chart-glyph-wick ?|))
-     (should (equal (financial-chart--glyph 0.0 1.0 -1.0 2.0 -2.0 3.0)
-                    (cons 'body ?#)))
-     (should (equal (financial-chart--glyph 5.0 6.0 0.0 1.0 -1.0 10.0)
-                    (cons 'wick ?|))))))
-
-;; -- candle face --
-
-(ert-deftest financial-chart-candle-face-up-vs-down ()
-  (financial-chart-test--with-defaults
-   (should
-    (eq (financial-chart--candle-face '(:open 10 :high 12 :low 9 :close 11))
-        'success))
-   (should
-    (eq (financial-chart--candle-face '(:open 11 :high 12 :low 9 :close 10))
-        'error))
-   (should
-    (eq (financial-chart--candle-face '(:open 10 :high 12 :low 9 :close 10))
-        'success))))
-
-;; -- render basics / errors --
-
 (ert-deftest financial-chart-render-errors-on-no-bars ()
   (financial-chart-test--with-defaults
-   (should-error (financial-chart-render nil) :type 'user-error)))
+   (let ((err (should-error (financial-chart-render nil) :type 'financial-chart-invalid-data)))
+     (should (equal (plist-get (cddr err) :code) "no_data")))))
 
 (ert-deftest financial-chart-render-tolerates-zero-range-bars ()
   (financial-chart-test--with-defaults
@@ -126,172 +37,20 @@ standard value, so tests don't leak customizations across each other."
 (ert-deftest financial-chart-max-bars-trims-to-most-recent ()
   (financial-chart-test--with-defaults
    (let* ((financial-chart-max-bars 3)
-          (financial-chart-show-volume nil)
-          (financial-chart-show-x-axis nil)
           (bars (financial-chart-test--bars 10))
-          (rendered (financial-chart-render bars 5))
-          (line (car (split-string rendered "\n"))))
-     ;; 3 kept bars * (1 width + 1 gap) - 1 trailing gap = 5 glyph chars,
-     ;; plus the axis label prefix.
-     (should (= (length (substring-no-properties line 8)) 5)))))
+          (bindings (financial-chart-eas-bindings 'ohlc bars)))
+     (should (equal (plist-get bindings :bars) (last bars 3)))
+     (should (stringp (financial-chart-render bars 12))))))
 
 (ert-deftest financial-chart-max-bars-nil-disables-windowing ()
   (financial-chart-test--with-defaults
    (let* ((financial-chart-max-bars nil)
-          (financial-chart-show-volume nil)
-          (financial-chart-show-x-axis nil)
-          (bars (financial-chart-test--bars 10))
-          (rendered (financial-chart-render bars 5))
-          (line (car (split-string rendered "\n"))))
-     ;; 10 bars * 2 cols - 1 trailing gap = 19
-     (should (= (length (substring-no-properties line 8)) 19)))))
-
-;; -- candle width / gap --
-
-(ert-deftest financial-chart-candle-width-expands-each-column ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-candle-width 3)
-          (financial-chart-candle-gap 0)
-          (financial-chart-show-volume nil)
-          (financial-chart-show-x-axis nil)
-          (bars (financial-chart-test--bars 2))
-          (rendered (financial-chart-render bars 5))
-          (line (car (split-string rendered "\n"))))
-     (should (= (length (substring-no-properties line 8)) 6)))))
-
-(ert-deftest financial-chart-candle-gap-adds-space-between-columns ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-candle-width 1)
-          (financial-chart-candle-gap 2)
-          (financial-chart-show-volume nil)
-          (financial-chart-show-x-axis nil)
-          (bars (financial-chart-test--bars 3))
-          (rendered (financial-chart-render bars 5))
-          (line (car (split-string rendered "\n"))))
-     ;; 3 candles (1 wide) + 2 gaps (2 wide) between them = 3 + 4 = 7
-     (should (= (length (substring-no-properties line 8)) 7)))))
-
-;; -- log scale --
-
-(ert-deftest financial-chart-log-scale-does-not-error-and-differs-from-linear ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-show-volume nil)
-          (financial-chart-show-x-axis nil)
-          (bars
-           (list '(:open 10 :high 12 :low 9 :close 11)
-                 '(:open 100 :high 120 :low 90 :close 110)
-                 '(:open 1000 :high 1200 :low 900 :close 1100)))
-          (linear (let ((financial-chart-scale 'linear))
-                    (financial-chart-render bars 10)))
-          (logged (let ((financial-chart-scale 'log))
-                    (financial-chart-render bars 10))))
-     (should (stringp logged))
-     (should-not (equal linear logged)))))
-
-;; -- faces --
-
-(ert-deftest financial-chart-wick-face-override ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-wick-face 'shadow)
-          (cell (financial-chart--candle-cell
-                 5.0 6.0 '(:open 0 :high 10 :low -1 :close 1))))
-     (should (eq (cdr cell) 'shadow)))))
-
-(ert-deftest financial-chart-wick-face-nil-falls-back-to-candle-face ()
-  (financial-chart-test--with-defaults
-   (let ((cell (financial-chart--candle-cell
-                5.0 6.0 '(:open 0 :high 10 :low -1 :close 1))))
-     (should (eq (cdr cell) 'success)))))
-
-;; -- axis label count --
-
-(ert-deftest financial-chart-axis-label-rows-honors-count ()
-  (financial-chart-test--with-defaults
-   (should (= (length (financial-chart--axis-label-rows 20 3)) 3))
-   (should (= (length (financial-chart--axis-label-rows 20 5)) 5))
-   (should (member 0 (financial-chart--axis-label-rows 20 5)))
-   (should (member 19 (financial-chart--axis-label-rows 20 5)))))
-
-;; -- volume panel --
-
-(ert-deftest financial-chart-volume-panel-present-when-volume-data-exists ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-show-x-axis nil)
-          (bars (financial-chart-test--bars 5))
-          (rendered (financial-chart-render bars 5)))
-     ;; price panel (5 rows) + volume panel (default height 5) = 10 lines
-     (should (= (length (split-string rendered "\n")) 10)))))
-
-(ert-deftest financial-chart-volume-panel-absent-without-volume-data ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-show-x-axis nil)
-          (bars (list '(:open 1 :high 2 :low 0 :close 1)
-                      '(:open 1 :high 2 :low 0 :close 1)))
-          (rendered (financial-chart-render bars 5)))
-     (should (= (length (split-string rendered "\n")) 5)))))
-
-(ert-deftest financial-chart-show-volume-nil-suppresses-panel-even-with-data ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-show-volume nil)
-          (financial-chart-show-x-axis nil)
-          (bars (financial-chart-test--bars 5))
-          (rendered (financial-chart-render bars 5)))
-     (should (= (length (split-string rendered "\n")) 5)))))
-
-;; -- X-axis --
-
-(ert-deftest financial-chart-x-axis-present-when-time-data-exists ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-show-volume nil)
-          (bars (financial-chart-test--bars 5))
-          (rendered (financial-chart-render bars 5))
-          (lines (split-string rendered "\n")))
-     (should (= (length lines) 6))
-     ;; epoch 0 -> some date label should appear somewhere on the axis line
-     (should (> (length (string-trim (car (last lines)))) 0)))))
-
-(ert-deftest financial-chart-x-axis-absent-without-time-data ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-show-volume nil)
-          (bars (list '(:open 1 :high 2 :low 0 :close 1)
-                      '(:open 1 :high 2 :low 0 :close 1)))
-          (rendered (financial-chart-render bars 5)))
-     (should (= (length (split-string rendered "\n")) 5)))))
-
-(ert-deftest financial-chart-show-x-axis-nil-suppresses-axis-even-with-data ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-show-volume nil)
-          (financial-chart-show-x-axis nil)
-          (bars (financial-chart-test--bars 5))
-          (rendered (financial-chart-render bars 5)))
-     (should (= (length (split-string rendered "\n")) 5)))))
-
-;; -- indicator overlays --
-
-(ert-deftest financial-chart-indicator-overlay-appears-at-its-value-row ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-show-volume nil)
-          (financial-chart-show-x-axis nil)
-          (financial-chart-candle-width 1)
-          (financial-chart-candle-gap 0)
-          (bars (list '(:open 0 :high 10 :low 0 :close 0)))
-          ;; constant series pinned to the exact middle of the range
-          (financial-chart-indicators
-           (list (list :fn (lambda (_bars) '(5.0)) :glyph ?X :face 'bold)))
-          (rendered (financial-chart-render bars 10)))
-     (should (string-match-p "X" rendered)))))
-
-(ert-deftest financial-chart-no-indicators-means-no-overlay-glyph ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-show-volume nil)
-          (financial-chart-show-x-axis nil)
-          (bars (list '(:open 0 :high 10 :low 0 :close 0)))
-          (rendered (financial-chart-render bars 10)))
-     (should-not (string-match-p "X" rendered)))))
+          (bars (financial-chart-test--bars 10)))
+     (should (equal (plist-get (financial-chart-eas-bindings 'ohlc bars) :bars) bars)))))
 
 (ert-deftest financial-chart-render-svg-errors-on-no-bars ()
   (financial-chart-test--with-defaults
-   (should-error (financial-chart-render-svg nil) :type 'user-error)))
+   (should-error (financial-chart-render-svg nil) :type 'financial-chart-invalid-data)))
 
 (ert-deftest financial-chart-render-svg-produces-well-formed-xml ()
   (financial-chart-test--with-defaults
@@ -302,154 +61,6 @@ standard value, so tests don't leak customizations across each other."
      (should (string-match-p "<rect" svg))
      (should (string-match-p "<text" svg))
      (should (string-match-p "TEST" svg)))))
-
-(ert-deftest financial-chart-render-svg-uses-default-font-family-on-every-text ()
-  (financial-chart-test--with-defaults
-   (let* ((bars (financial-chart-test--bars 5))
-          (svg (financial-chart-render-svg bars "TEST")))
-     (should (string-match-p "font-family=\"DejaVu Sans Mono" svg))
-     ;; every <text> element carries a font-family, none left unstyled
-     (should
-      (cl-every
-       (lambda (chunk) (string-match-p "font-family=" chunk))
-       (cdr (split-string svg "<text")))))))
-
-(ert-deftest financial-chart-render-svg-font-family-param-overrides-defcustom ()
-  (financial-chart-test--with-defaults
-   (let* ((bars (financial-chart-test--bars 5))
-          (svg (financial-chart-render-svg bars "TEST" "Hack")))
-     (should (string-match-p "font-family=\"Hack\"" svg))
-     (should-not (string-match-p "DejaVu" svg))
-     ;; overriding via the param must not leak into the defcustom itself
-     (should (equal financial-chart-svg-font-family
-                    "DejaVu Sans Mono, Menlo, Consolas, monospace")))))
-
-(ert-deftest financial-chart-render-svg-font-family-defcustom-override ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-svg-font-family "Hack")
-          (bars (financial-chart-test--bars 5))
-          (svg (financial-chart-render-svg bars "TEST")))
-     (should (string-match-p "font-family=\"Hack\"" svg)))))
-
-(ert-deftest financial-chart-render-svg-loads-google-font-by-name ()
-  (let* ((financial-chart-svg-google-font "Open Sans")
-         (svg (financial-chart-render-svg (financial-chart-test--bars 3) "TEST")))
-    (should (string-match-p
-             (regexp-quote
-              "@import url(\"https://fonts.googleapis.com/css2?family=Open+Sans&amp;display=swap\");")
-             svg))
-    (should (string-match-p "font-family=\"Open Sans\"" svg))))
-
-(ert-deftest financial-chart-render-svg-embeds-local-font-file ()
-  (let ((font-file (make-temp-file "financial-chart-font-" nil ".woff2")))
-    (unwind-protect
-        (progn
-          (with-temp-buffer
-            (set-buffer-multibyte nil)
-            (insert "font-data")
-            (write-region (point-min) (point-max) font-file nil 'silent))
-          (let* ((financial-chart-svg-font-file font-file)
-                 (family (file-name-base font-file))
-                 (svg (financial-chart-render-svg
-                       (financial-chart-test--bars 3) "TEST")))
-            (should (string-match-p
-                     (regexp-quote
-                      (format "@font-face{font-family:\"%s\";src:url(data:font/woff2;base64,Zm9udC1kYXRh);"
-                              family))
-                     svg))
-            (should (string-match-p
-                     (regexp-quote (format "font-family=\"%s\"" family)) svg))))
-      (delete-file font-file))))
-
-(ert-deftest financial-chart-render-svg-rejects-unsupported-font-file-type ()
-  (let ((font-file (make-temp-file "financial-chart-font-" nil ".txt")))
-    (unwind-protect
-        (let ((financial-chart-svg-font-file font-file))
-          (should-error (financial-chart-render-svg
-                         (financial-chart-test--bars 3))
-                        :type 'user-error))
-      (delete-file font-file))))
-
-;; -- regression: integer-division truncation in the pixel-Y mapping --
-;;
-;; `financial-chart-test--bars' (used by nearly every test above) already
-;; generates plain-integer OHLC values, yet none of those tests caught
-;; this: they all assert on SVG *structure* (rect/text counts, declared
-;; width, a font-family attribute) rather than the actual pixel geometry,
-;; so a bug that collapsed every candle but the topmost to the panel's
-;; bottom pixel produced a well-formed, plausible-looking SVG with the
-;; right element counts and passed every one of them. These two tests
-;; check real Y-coordinates specifically to close that gap.
-
-(ert-deftest financial-chart-svg-y-uses-float-division-for-integer-bounds ()
-  (financial-chart-test--with-defaults
-   (should (= (financial-chart--svg-y 97 97 130 40 400) 440.0))
-   (should (= (financial-chart--svg-y 130 97 130 40 400) 40.0))
-   ;; (/ 6 33) truncates to 0 under plain integer division, which used to
-   ;; collapse this to 440.0 (the panel bottom) instead of ~367.27
-   (let ((y (financial-chart--svg-y 103 97 130 40 400)))
-     (should (< (abs (- y 367.27)) 0.1)))))
-
-(ert-deftest financial-chart-render-svg-integer-prices-produce-distinct-wick-heights ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-show-volume nil)
-          (financial-chart-show-x-axis nil)
-          (bars (financial-chart-test--bars 10))
-          (svg (financial-chart-render-svg bars))
-          (y1-values
-           (delq nil
-                 (mapcar
-                  (lambda (chunk)
-                    (when (string-match "y1=\"\\([0-9.]+\\)\"" chunk)
-                      (string-to-number (match-string 1 chunk))))
-                  (split-string svg "<line ")))))
-     ;; a real price ladder produces mostly-distinct wick heights; the
-     ;; integer-division bug collapsed all but one to the same value
-     (should (> (length (delete-dups y1-values)) 5)))))
-
-(ert-deftest financial-chart-render-svg-includes-volume-and-x-axis-when-present ()
-  (financial-chart-test--with-defaults
-   (let* ((bars (financial-chart-test--bars 5))
-          (svg (financial-chart-render-svg bars)))
-     ;; 5 bars * 2 candles-worth of rects (body) + volume bars = at least 10
-     (should (>= (cl-count-if (lambda (_) t) (split-string svg "<rect")) 10))
-     ;; a date-formatted label like "01/01" should appear on the X-axis
-     (should (string-match-p "[0-9][0-9]/[0-9][0-9]" svg)))))
-
-(ert-deftest financial-chart-render-svg-omits-volume-without-volume-data ()
-  (financial-chart-test--with-defaults
-   (let* ((bars (list '(:open 1 :high 2 :low 0 :close 1)
-                      '(:open 1 :high 2 :low 0 :close 1)))
-          (with-volume (financial-chart-render-svg (financial-chart-test--bars 5)))
-          (without-volume (financial-chart-render-svg bars)))
-     (should (string-match-p "[0-9][0-9]/[0-9][0-9]" with-volume))
-     ;; fewer rects: no volume-panel bars for a 2-bar chart with no :volume
-     (should (< (length without-volume) (length with-volume))))))
-
-(ert-deftest financial-chart-render-svg-respects-custom-margins-and-size ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-svg-margin-left 100)
-          (financial-chart-svg-candle-width 20)
-          (bars (financial-chart-test--bars 3))
-          (svg (financial-chart-render-svg bars))
-          (expected-width
-           (+ financial-chart-svg-margin-left financial-chart-svg-margin-right
-              (max financial-chart-svg--ohlc-min-plot-width
-                   (* 3 (+ financial-chart-svg-candle-width
-                          financial-chart-svg-candle-gap))))))
-     (should
-      (string-match-p (format "width=\"%d\"" expected-width) svg)))))
-
-(ert-deftest financial-chart-render-svg-draws-indicator-polyline ()
-  (financial-chart-test--with-defaults
-   (let* ((financial-chart-indicators
-           (list (list :fn (lambda (bars) (make-list (length bars) 100.0))
-                       :face 'success)))
-          (bars (financial-chart-test--bars 5))
-          (svg (financial-chart-render-svg bars)))
-     (should (string-match-p "<polyline" svg)))))
-
-;; -- SVG export --
 
 (ert-deftest financial-chart-export-svg-writes-file ()
   (financial-chart-test--with-defaults
@@ -463,21 +74,6 @@ standard value, so tests don't leak customizations across each other."
              (should (string-match-p "AAPL" (buffer-string)))
              (should (string-match-p "<svg" (buffer-string)))))
        (delete-file file)))))
-
-(ert-deftest financial-chart-export-svg-font-family-param ()
-  (financial-chart-test--with-defaults
-   (let ((file (make-temp-file "financial-chart-test" nil ".svg")))
-     (unwind-protect
-         (progn
-           (financial-chart-export-svg
-            (financial-chart-test--bars 5) file "AAPL" "Hack")
-           (with-temp-buffer
-             (insert-file-contents file)
-             (should (string-match-p "font-family=\"Hack\"" (buffer-string)))))
-       (delete-file file)))))
-
-;; -- PNG export (converter mocked -- no dependency on a real rsvg-convert/
-;; ImageMagick install being present on the test machine) --
 
 (ert-deftest financial-chart-export-png-invokes-function-converter ()
   (financial-chart-test--with-defaults
@@ -519,7 +115,8 @@ standard value, so tests don't leak customizations across each other."
 (ert-deftest financial-chart-resolve-png-converter-errors-when-none-found ()
   (financial-chart-test--with-defaults
    (cl-letf (((symbol-function 'executable-find) (lambda (_) nil)))
-     (should-error (financial-chart--resolve-png-converter) :type 'user-error))))
+     (let ((err (should-error (financial-chart--resolve-png-converter) :type 'financial-chart-error)))
+       (should (equal (plist-get (cddr err) :code) "no_png_converter"))))))
 
 (ert-deftest financial-chart-resolve-png-converter-auto-detect-uses-real-executable-find ()
   ;; Regression test: `executable-find' takes a STRING, and the auto-detect
@@ -635,13 +232,16 @@ standard value, so tests don't leak customizations across each other."
   ;; Confirms the documented usage pattern actually works end to end.
   (financial-chart-test--with-defaults
    (let* ((financial-chart-show-volume nil)
-          (financial-chart-show-x-axis nil)
           (financial-chart-indicators
            (list (list :fn (lambda (bars) (financial-chart-sma bars 3))
-                       :face 'font-lock-keyword-face)))
+                       :label "SMA 3")))
           (bars (financial-chart-test--bars 10))
-          (svg (financial-chart-render-svg bars)))
-     (should (string-match-p "<polyline" svg)))))
+          (bindings (financial-chart-eas-bindings 'ohlc bars))
+          (item (aref (plist-get bindings :indicators) 0)))
+     (should (eq (plist-get bindings :volume) :false))
+     (should (equal (plist-get item :as) "SMA 3"))
+     (should (equal (append (plist-get item :values) nil) (financial-chart-sma bars 3)))
+     (should (string-match-p "<path" (financial-chart-render-svg bars))))))
 
 ;; -- indicator cohorts --
 

@@ -4,7 +4,6 @@
        (root (expand-file-name "../.." here)))
   (add-to-list 'load-path (expand-file-name "src" root))
   (require 'financial-chart)
-  (require 'financial-chart-svg)
   (require 'subr-x)
   (let* ((csv-file (expand-file-name "examples/tsmc-daily.csv" root))
          (output-file (expand-file-name "images/tsmc-candlestick.png" root))
@@ -28,8 +27,7 @@
                      :time time)))
            (cdr lines))))
     (make-directory (file-name-directory output-file) t)
-    (let ((financial-chart-show-volume t)
-          (financial-chart-show-x-axis t))
+    (let ((financial-chart-show-volume t))
       (financial-chart-export-png
        bars output-file "TSMC (NYSE: TSM) — Daily candles" 1280 760))
     (princ (format "Wrote %s from %d daily bars\n" output-file (length bars)))))

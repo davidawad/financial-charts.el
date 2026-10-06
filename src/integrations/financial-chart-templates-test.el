@@ -2,10 +2,10 @@
 
 ;;; Commentary:
 
-;; fc-qx1.36: every financial-chart kind has an eas template that plots
-;; the kind's own numbers (parity), `financial-chart-plot' routes to the
-;; templates only when asked, and the templates' text renderings are
-;; goldens (EAS_UPDATE_GOLDEN=1 rewrites them).
+;; Every financial-chart kind is drawn by an eas template that plots
+;; the numbers financial-chart computes (parity), `financial-chart-plot'
+;; draws with it, and the templates' text renderings are goldens
+;; (EAS_UPDATE_GOLDEN=1 rewrites them).
 
 ;;; Code:
 
@@ -24,12 +24,11 @@
 
 (ert-deftest financial-chart-templates-cover-every-kind ()
   (dolist (kind (mapcar #'car financial-chart-kinds))
-    (let ((entry (alist-get kind financial-chart-eas-kinds)))
-      (should (cons kind entry))
-      (should (eas-template-get (plist-get entry :template))))))
+    (should (eas-template-get (plist-get (financial-chart--kind kind) :template)))
+    (should (alist-get kind financial-chart-eas-parity-checks))))
 
 (ert-deftest financial-chart-templates-are-at-parity ()
-  (dolist (kind (mapcar #'car financial-chart-eas-kinds))
+  (dolist (kind (mapcar #'car financial-chart-eas-parity-checks))
     (let ((parity (financial-chart-eas-parity kind)))
       (should (equal (list kind (financial-chart-templates-test--failures parity)) (list kind nil)))
       ;; Every kind checks its numbers, not just that it draws.
@@ -85,7 +84,7 @@
   (let* ((bars (financial-chart-templates-test--example 'ohlc))
          (rows (eas-transform-run [(:x-eas:transform "volume-profile" :bins 6)]
                                   (eas-data-rows (eas-data-from "bar/v1" bars))))
-         (profile (financial-chart-matrix--volume-data bars 6)))
+         (profile (financial-chart-volume-profile bars 6)))
     (should (= (length rows) 6))
     (should (equal (mapcar (lambda (r) (plist-get r :volume)) rows) (plist-get profile :volumes)))
     (should (= (cl-count t rows :key (lambda (r) (plist-get r :poc))) 1))
@@ -104,40 +103,33 @@
         (unless (string-prefix-p financial-chart-eas-templates-root (plist-get template :path))
           (should (eas-resolve name (eas-template-example name))))))))
 
-(ert-deftest financial-chart-templates-route-is-opt-in ()
-  (let ((financial-chart-eas-route nil)
-        (data (financial-chart-templates-test--example 'payoff)))
-    (should (equal (financial-chart-plot 'payoff data :backend 'text :width 40 :height 8)
-                   (financial-chart-text-payoff data :width 40 :height 8)))
-    (should-not (plist-get (financial-chart-explain 'payoff data :backend 'text) :template)))
-  (let* ((financial-chart-eas-route '(payoff))
-         (data (financial-chart-templates-test--example 'payoff))
+(ert-deftest financial-chart-templates-plot-draws-with-the-template ()
+  (let* ((data (financial-chart-templates-test--example 'payoff))
          (text (financial-chart-plot 'payoff data :backend 'text :width 40 :height 8))
-         (plan (financial-chart-explain 'payoff data :backend 'text)))
+         (plan (financial-chart-explain 'payoff data :backend 'text :width 40 :height 8)))
     (should (equal text (financial-chart-eas-render 'payoff data 'text :width 40 :height 8)))
+    (should (equal text (apply (plist-get plan :renderer) 'payoff data 'text (plist-get plan :args))))
     (should (text-property-not-all 0 (length text) 'eas-datum nil text))
     (should (equal (plist-get plan :template) "payoff"))
-    (should (string-match-p "lists this kind" (plist-get plan :route-reason)))
     (should (string-match-p "<title>payoff chart</title>"
                             (financial-chart-plot 'payoff data :backend 'svg)))
-    ;; Unrouted kinds keep their own renderer.
-    (should-not (plist-get (financial-chart-explain 'area '(1 2 3) :backend 'text) :template))
-    (should (equal (financial-chart-plot 'sparkline nil :backend 'text) ""))))
+    (should (equal (financial-chart-plot 'sparkline nil :backend 'text) ""))
+    (should-not (financial-chart-plot 'area nil :backend 'text))))
 
-(ert-deftest financial-chart-templates-route-t-needs-parity ()
-  (let* ((financial-chart-eas-route t)
-         (financial-chart-eas--parity-cache (make-hash-table :test 'eq))
-         (financial-chart-eas-kinds (copy-tree financial-chart-eas-kinds)))
-    (should (financial-chart-eas-routed-p 'drawdown))
-    (setf (plist-get (alist-get 'heatmap financial-chart-eas-kinds) :parity)
+(ert-deftest financial-chart-templates-parity-is-a-doctor-row ()
+  (should (cl-every (lambda (row) (eq (plist-get row :status) 'pass))
+                    (financial-chart-eas-parity-doctor-checks)))
+  (let ((financial-chart-eas-parity-checks (copy-tree financial-chart-eas-parity-checks)))
+    (setf (alist-get 'heatmap financial-chart-eas-parity-checks)
           (lambda (_data _props _scene) (list (list "cells" '(1) '(2)))))
-    (should-not (financial-chart-eas-routed-p 'heatmap))
-    (should-not (plist-get (financial-chart-explain 'heatmap (financial-chart-templates-test--example 'heatmap)
-                                                    :backend 'text)
-                           :template))))
+    (should-not (plist-get (financial-chart-eas-parity 'heatmap) :pass))
+    (should (eq 'fail (plist-get (cl-find "kind heatmap template parity"
+                                          (financial-chart-eas-parity-doctor-checks)
+                                          :key (lambda (r) (plist-get r :name)) :test #'equal)
+                                 :status)))))
 
 (ert-deftest financial-chart-templates-text-goldens ()
-  (dolist (kind (mapcar #'car financial-chart-eas-kinds))
+  (dolist (kind (mapcar #'car financial-chart-eas-parity-checks))
     (financial-chart-test-golden (format "template-%s.txt" kind)
                      (substring-no-properties
                       (financial-chart-eas-render kind (financial-chart-templates-test--example kind)

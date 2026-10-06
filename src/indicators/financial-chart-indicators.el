@@ -9,13 +9,14 @@
 
 ;;; Commentary:
 
-;; Overlay plumbing, the built-in SMA/EMA/RSI/VWAP functions, and
+;; Overlay evaluation, the built-in SMA/EMA/RSI/VWAP functions, and
 ;; indicator cohorts (named, data-only indicator sets resolved against
 ;; built-ins or the core-resource indicator catalog).
 
 ;;; Code:
 
 (require 'financial-chart-core)
+(require 'financial-chart-validate)
 (require 'financial-chart-indicator-api)
 
 ;; -----------------------------------------------------------------------
@@ -23,57 +24,18 @@
 ;; -----------------------------------------------------------------------
 
 (defun financial-chart--compute-series (bars specs)
-  "Evaluate every spec in SPECS over BARS, returning normalized series specs."
+  "Evaluate every spec in SPECS over BARS: a list of (:label :series).
+Each spec's :fn must return one number-or-nil per bar; a spec that does
+not signals `financial-chart-invalid-data' (`indicator_length')."
   (mapcar
    (lambda (spec)
-     (list :label (or (plist-get spec :label)
+     (let ((label (or (plist-get spec :label)
                       (let ((fn (plist-get spec :fn)))
-                        (if (symbolp fn) (symbol-name fn) "Indicator")))
-           :glyph (or (plist-get spec :glyph) financial-chart-glyph-indicator)
-           :face (or (plist-get spec :face) 'default)
-           :color (plist-get spec :color)
-           :series (funcall (plist-get spec :fn) bars)))
+                        (if (symbolp fn) (symbol-name fn) "Indicator"))))
+           (series (funcall (plist-get spec :fn) bars)))
+       (financial-chart-validate-indicator-series series bars label)
+       (list :label label :series (append series nil))))
    specs))
-
-(defun financial-chart--compute-indicator-series (bars)
-  "Evaluate every `financial-chart-indicators' spec over BARS."
-  (financial-chart--compute-series bars financial-chart-indicators))
-
-(defun financial-chart--compute-oscillator-series (bars)
-  "Evaluate every `financial-chart-oscillators' spec over BARS."
-  (financial-chart--compute-series bars financial-chart-oscillators))
-
-(defun financial-chart--compute-indicator-bands (bars)
-  "Evaluate configured indicator bands over BARS."
-  (mapcar
-   (lambda (spec)
-     (let ((upper (funcall (plist-get spec :upper-fn) bars))
-           (lower (funcall (plist-get spec :lower-fn) bars)))
-       (unless (and (= (length upper) (length bars))
-                    (= (length lower) (length bars)))
-         (signal 'financial-chart-error
-                 (list "indicator band values must align with bars")))
-       (list :upper upper :lower lower
-             :upper-color (plist-get spec :upper-color)
-             :lower-color (plist-get spec :lower-color)
-             :opacity (plist-get spec :opacity))))
-   financial-chart-indicator-bands))
-
-(defun financial-chart--indicator-overlay (row-low row-high index series-list)
-  "Return (TEXT . FACE), the last SERIES-LIST entry landing in this row
-at bar INDEX, or nil when none do."
-  (let (result)
-    (dolist (spec series-list)
-      (let ((value (nth index (plist-get spec :series))))
-        (when (and value
-                   (let ((scaled (financial-chart--to-scale value)))
-                     (and (<= scaled row-high) (>= scaled row-low))))
-          (setq result
-                (cons
-                 (financial-chart--cell-string
-                  (plist-get spec :glyph) financial-chart-candle-width t)
-                 (plist-get spec :face))))))
-    result))
 
 ;; -----------------------------------------------------------------------
 ;; Built-in indicator functions -- ready-made `:fn' values for

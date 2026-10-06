@@ -12,21 +12,6 @@
 (defconst financial-chart-returns-test--series
   '(("Jan" 100) ("Feb" 120) ("Mar" 90) ("Apr" 105) ("May" 80) ("Jun" 110)))
 
-(defun financial-chart-returns-test--golden (name actual)
-  "Compare ACTUAL with the text fixture NAME, ignoring properties."
-  (let ((file (expand-file-name (concat "../../test/fixtures/" name)
-                                financial-chart-returns-test--dir))
-        (text (substring-no-properties actual)))
-    (when (getenv "FINANCIAL_CHART_UPDATE_GOLDEN")
-      (let ((coding-system-for-write 'utf-8-unix))
-        (write-region text nil file)))
-    (should (file-exists-p file))
-    (let ((expected (with-temp-buffer
-                      (let ((coding-system-for-read 'utf-8-unix))
-                        (insert-file-contents file))
-                      (buffer-string))))
-      (should (equal text expected)))))
-
 (ert-deftest financial-chart-returns-drawdowns-preserve-coordinates ()
   (let ((drawdowns (financial-chart-drawdowns financial-chart-returns-test--series)))
     (should (= (length drawdowns) 6))
@@ -43,13 +28,6 @@
   (let ((err (should-error (financial-chart-drawdowns '(0 1))
                            :type 'financial-chart-invalid-data)))
     (should (= (plist-get (cddr err) :index) 0))))
-
-(ert-deftest financial-chart-returns-formats-numeric-time-coordinates ()
-  (should (equal (financial-chart-returns--location
-                  '(:x 1700000000000 :index 2))
-                 "2023-11-14"))
-  (should (equal (financial-chart-returns--location '(:x 4 :index 3))
-                 "index 4")))
 
 (ert-deftest financial-chart-returns-calculates-consecutive-simple-returns ()
   (let ((returns (financial-chart-returns financial-chart-returns-test--series)))
@@ -81,50 +59,25 @@
   (should-error (financial-chart-histogram-bins '(1 2) 0)
                 :type 'financial-chart-invalid-data))
 
-(ert-deftest financial-chart-returns-text-drawdown-golden ()
-  (financial-chart-returns-test--golden
-   "drawdown.txt"
-   (financial-chart-plot 'drawdown financial-chart-returns-test--series
-                         :backend 'text :width 24 :height 6)))
-
-(ert-deftest financial-chart-returns-text-histogram-golden ()
-  (financial-chart-returns-test--golden
-   "histogram.txt"
-   (financial-chart-plot 'histogram financial-chart-returns-test--series
-                         :backend 'text :width 36 :height 6 :bins 8)))
-
-(ert-deftest financial-chart-returns-drawdown-has-zero-at-the-top ()
-  (let* ((chart (financial-chart-text-drawdown '(100 120 90 105) :width 12 :height 5))
-         (first-row (car (split-string chart "\n"))))
-    (should (string-prefix-p "     0% " first-row))
-    (should (string-match-p "max drawdown -25% at index 2" chart)))
-  (let* ((chart (financial-chart-text-drawdown '(10 11 12) :width 8 :height 4))
-         (first-row (car (split-string chart "\n"))))
-    (should (string-match-p "⠉" first-row))))
+(ert-deftest financial-chart-returns-kinds-validate-their-math ()
+  (let ((err (should-error (financial-chart-validate 'drawdown '(100 -5 90))
+                           :type 'financial-chart-invalid-data)))
+    (should (equal (plist-get (cddr err) :code) "negative_price"))
+    (should (= (plist-get (cddr err) :index) 1)))
+  (let ((err (should-error (financial-chart-validate 'histogram '(100 0 90))
+                           :type 'financial-chart-invalid-data)))
+    (should (equal (plist-get (cddr err) :code) "zero_price"))
+    (should (= (plist-get (cddr err) :index) 2))))
 
 (ert-deftest financial-chart-returns-registered-and-doctor-ready ()
   (dolist (kind '(drawdown histogram))
     (let ((description (financial-chart-describe-kind kind)))
-      (should (plist-get description :renderers-defined))
+      (should (plist-get description :template-defined))
       (should (eq t (financial-chart-validate kind
                                               (plist-get description :example))))))
   (should (stringp (financial-chart-plot 'drawdown '(100 90) :backend 'text)))
   (should (string-match-p "kind drawdown renders" (format "%S" (financial-chart-doctor-checks))))
   (should (string-match-p "kind histogram renders" (format "%S" (financial-chart-doctor-checks)))))
-
-(ert-deftest financial-chart-returns-svg-parses-and-has-summary ()
-  (dolist (kind '(drawdown histogram))
-    (let ((svg (financial-chart-plot kind financial-chart-returns-test--series
-                                     :backend 'svg :pixel-width 500 :pixel-height 260
-                                     :bins 8)))
-      (should (string-prefix-p "<svg " svg))
-      (should (string-match-p
-               (if (eq kind 'drawdown) "max drawdown" "mean") svg))
-      (when (fboundp 'libxml-parse-xml-region)
-        (with-temp-buffer
-          (insert svg)
-          (should (eq 'svg (car (libxml-parse-xml-region
-                                 (point-min) (point-max))))))))))
 
 (provide 'financial-chart-returns-test)
 ;;; financial-chart-returns-test.el ends here

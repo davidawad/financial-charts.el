@@ -19,7 +19,7 @@
 ;;               through `financial-chart-indicator-evaluate' (no copy);
 ;;               "values", a precomputed column; and "volume-profile",
 ;;               which bins bars by price through
-;;               `financial-chart-matrix--volume-data'
+;;               `financial-chart-volume-profile'
 ;;   templates   templates/ (ohlc, panes, depth, payoff, payoff-curves,
 ;;               drawdown, diverging-bars) and templates/financial/
 ;;               (volume-profile), added to `eas-template-directories';
@@ -35,9 +35,12 @@
 (require 'financial-chart-core)
 (require 'financial-chart-series)
 (require 'financial-chart-indicator-api)
+(require 'financial-chart-validate)
+(require 'financial-chart-plot)
+(require 'financial-chart-payoff-curves)
+(require 'financial-chart-multi)
+(require 'financial-chart-depth)
 (require 'financial-chart-matrix)
-
-(defvar financial-chart-shapes)
 
 (defun financial-chart-eas--validate (shape data)
   "Validate DATA with SHAPE's financial-chart validator, failing as eas data."
@@ -187,7 +190,7 @@
 Each row is {bin, low, high, volume, poc, last_close}; poc marks the
 level with the most volume."
   (let ((profile (condition-case err
-                     (financial-chart-matrix--volume-data (append rows nil) (plist-get params :bins))
+                     (financial-chart-volume-profile (append rows nil) (plist-get params :bins))
                    (financial-chart-error
                     (eas-signal "INVALID_INPUT" (format "volume-profile: %s" (cadr err))
                                   :transform "volume-profile" :field "bins")))))

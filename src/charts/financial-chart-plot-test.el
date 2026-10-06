@@ -1,52 +1,14 @@
-;;; financial-chart-plot-test.el --- ERT tests for financial-chart -*- lexical-binding: t; -*-
+;;; financial-chart-plot-test.el --- ERT tests for financial-chart-plot -*- lexical-binding: t; -*-
 
-;; Pure data -> chart tests: no network, no windows, no broker.  Rendered
-;; charts are compared against golden fixtures in test/fixtures/ (text
-;; without properties, SVG as the serialized document); faces are
-;; asserted separately.  Regenerate the goldens after an intended visual
-;; change with FINANCIAL_CHART_UPDATE_GOLDEN=1 and review the fixture diff.
+;; Pure data -> chart tests: no network, no windows.  Every kind draws
+;; through its eas template; the template text goldens live in
+;; test/golden/eas-templates/ (financial-chart-templates-test.el).
 
 ;;; Code:
 
 (require 'ert)
 (require 'cl-lib)
-(defvar financial-chart-plot-test--dir
-  (file-name-directory (or load-file-name buffer-file-name)))
-(add-to-list 'load-path (expand-file-name ".." financial-chart-plot-test--dir))
 (require 'financial-chart)
-
-(defconst financial-chart-plot-test--fixtures (expand-file-name "../../test/fixtures" financial-chart-plot-test--dir))
-
-(defun financial-chart-plot-test--golden (name actual)
-  "Compare ACTUAL (a string, properties ignored) with fixture NAME."
-  (let ((file (expand-file-name name financial-chart-plot-test--fixtures))
-        (text (substring-no-properties actual)))
-    (when (getenv "FINANCIAL_CHART_UPDATE_GOLDEN")
-      (let ((coding-system-for-write 'utf-8-unix))
-        (write-region text nil file)))
-    (should (file-exists-p file))
-    (let ((expected (with-temp-buffer
-                      (let ((coding-system-for-read 'utf-8-unix))
-                        (insert-file-contents file))
-                      (buffer-string))))
-      (should (equal (financial-chart-plot-test--normalize name text)
-                     (financial-chart-plot-test--normalize name expected))))))
-
-(defun financial-chart-plot-test--normalize (name s)
-  "S, with whitespace around SVG tags dropped when NAME is an .svg fixture.
-svg.el's printer puts whitespace between elements in some Emacs builds
-and not others; text fixtures stay byte-exact."
-  (if (string-suffix-p ".svg" name)
-      (replace-regexp-in-string "[ \t\n]*\\(<\\|>\\)[ \t\n]*" "\\1" s)
-    s))
-
-(defconst financial-chart-plot-test--series
-  '(40.0 45.0 50.0 42.0 47.5 39.0 41.0)
-  "The legacy text/SVG golden fixture as plain values without X.")
-
-(defconst financial-chart-plot-test--wave
-  (cl-loop for i from 0 below 200 collect (+ 50 (* 10 (sin (/ i 7.0)))))
-  "A longer X-less series that forces resampling.")
 
 (defconst financial-chart-plot-test--payoff
   (cl-loop for p from 90 to 110 collect (list p (- (* 10 (max 0 (- p 100))) 25)))
@@ -55,16 +17,12 @@ and not others; text fixtures stay byte-exact."
 (defconst financial-chart-plot-test--straddle
   '((90 50) (95 0) (100 -100) (105 0) (110 50)))
 
-(defconst financial-chart-plot-test--bars '(("AAPL" . 1200) ("VTI" . 8000) ("TSLA" . -950)))
+(defun financial-chart-plot-test--example (kind)
+  "The example data of KIND's shape."
+  (plist-get (alist-get (plist-get (financial-chart--kind kind) :shape) financial-chart-shapes)
+             :example))
 
-(defmacro financial-chart-plot-test--svg-env (&rest body)
-  "Run BODY with a fixed palette and font so SVG output is deterministic."
-  `(let ((financial-chart-svg-palette financial-chart-svg--fallback-palette)
-         (financial-chart-svg-font-family "monospace")
-         (financial-chart-svg-font-size 11))
-     ,@body))
-
-;; --- core -----------------------------------------------------------------------
+;; --- pure helpers ---------------------------------------------------------------
 
 (ert-deftest financial-chart-plot-test-series-values-accepts-every-shape ()
   (should (equal (financial-chart-series-values '(1 2 3)) '(1 2 3)))
@@ -74,32 +32,10 @@ and not others; text fixtures stay byte-exact."
   (should (equal (financial-chart-series-values '((a 1) (b nil) (c 3))) '(1 3)))
   (should (equal (financial-chart-series-xs '((a 1) (b nil) (c 3))) '(a c))))
 
-(ert-deftest financial-chart-plot-test-resample-averages ()
-  ;; ported from tradeboard's chart-columns tests: same semantics
-  (should (equal (financial-chart-resample '(10.0 20.0 30.0 40.0) 2) '(15.0 35.0)))
-  (should (equal (financial-chart-resample '(10.0 20.0) 80) '(10.0 20.0)))
-  (should (null (financial-chart-resample nil 10))))
-
-(ert-deftest financial-chart-plot-test-interpolate-adds-resolution-only ()
-  (should (equal (financial-chart-interpolate '((0 0) (10 10)) 3) '(0.0 5.0 10.0)))
-  (should (equal (financial-chart-interpolate '((0 0) (5 10) (10 0)) 5) '(0.0 5.0 10.0 5.0 0.0)))
-  ;; at least WIDTH points (or no numeric X): plain resampling
-  (should (equal (financial-chart-interpolate '((0 1) (1 2) (2 3) (3 4)) 2) '(1.5 3.5)))
-  (should (equal (financial-chart-interpolate '(1 2) 4) '(1.0 2.0))))
-
 (ert-deftest financial-chart-plot-test-fmt ()
   (should (equal (financial-chart-fmt 89.3333) "89.3"))
   (should (equal (financial-chart-fmt 89.0) "89"))
-  (should (equal (financial-chart-fmt 0.25) "0.2"))
-  (should (equal (financial-chart-fmt-money 75 "$") "+$75"))
-  (should (equal (financial-chart-fmt-money -25.5 "$") "-$25.5"))
-  (should (equal (financial-chart-fmt-money 0) "0")))
-
-(ert-deftest financial-chart-plot-test-range-and-direction ()
-  (should (equal (financial-chart-range '(3 1 2)) '(1 . 3)))
-  (should (equal (financial-chart-range '(3 1 2) t) '(0 . 3)))
-  (should (eq (financial-chart-direction-face '(1 2) 'up 'down) 'up))
-  (should (eq (financial-chart-direction-face '(2 1) 'up 'down) 'down)))
+  (should (equal (financial-chart-fmt 0.25) "0.2")))
 
 (ert-deftest financial-chart-plot-test-breakevens ()
   (should (equal (financial-chart-payoff-breakevens financial-chart-plot-test--payoff) '(102.5)))
@@ -111,129 +47,106 @@ and not others; text fixtures stay byte-exact."
   (should (equal (financial-chart-ohlc-closes '((:open 1 :high 2 :low 0 :close 1.5 :time 10)))
                  '((10 1.5)))))
 
-;; --- text backend -----------------------------------------------------------------
+;; --- every kind through eas ----------------------------------------------------
 
-(ert-deftest financial-chart-plot-test-area-golden ()
-  (financial-chart-plot-test--golden "area.txt"
-                         (financial-chart-text-area financial-chart-plot-test--series :width 20 :height 8 :unit "c"))
-  (financial-chart-plot-test--golden "area-resampled.txt"
-                         (financial-chart-text-area financial-chart-plot-test--wave :width 40 :height 6)))
-
-(ert-deftest financial-chart-plot-test-area-footer-and-empty ()
-  (let ((s (financial-chart-text-area financial-chart-plot-test--series :width 20 :height 4 :unit "¢")))
-    (should (string-match-p "last 41¢   range 39–50¢   7 pts\\'" s)))
-  (should-not (string-match-p "pts" (financial-chart-text-area '(1 2) :width 4 :height 2 :footer nil)))
-  (should (null (financial-chart-text-area nil))))
-
-(ert-deftest financial-chart-plot-test-area-faces-are-caller-supplied ()
-  (let* ((s (financial-chart-text-area '(1 2 3) :width 3 :height 2
-                                :up-face 'my-up :down-face 'my-down
-                                :dim-face 'my-dim :accent-face 'my-accent))
-         (block (string-match "█" s)))
-    (should (eq (get-text-property 0 'face s) 'my-dim))
-    (should (eq (get-text-property block 'face s) 'my-up))
-    (should (eq (get-text-property (string-match "last" s) 'face s) 'my-accent)))
-  (let ((s (financial-chart-text-area '(3 2 1) :width 3 :height 2)))
-    (should (eq (get-text-property (string-match "█" s) 'face s) 'financial-chart-down))))
-
-(ert-deftest financial-chart-plot-test-line-golden ()
-  (financial-chart-plot-test--golden "line.txt"
-                         (financial-chart-text-line financial-chart-plot-test--wave :width 40 :height 5)))
-
-(ert-deftest financial-chart-plot-test-line-uses-braille ()
-  (let ((s (financial-chart-text-line '(1 2 3 4) :width 2 :height 1 :footer nil)))
-    (should (cl-every (lambda (c) (or (<= #x2800 c #x28ff) (memq c '(?\s ?\n ?. ?0 ?1 ?2 ?3 ?4))))
-                      s))))
-
-(ert-deftest financial-chart-plot-test-sparkline ()
-  (should (equal (substring-no-properties (financial-chart-sparkline '(1 2 3 2 5 4 8))) "▁▂▃▂▅▄█"))
-  (should (equal (substring-no-properties (financial-chart-sparkline '(5 5 5))) "▄▄▄"))
-  (should (equal (financial-chart-sparkline nil) ""))
-  (should (= 4 (length (financial-chart-sparkline financial-chart-plot-test--wave :width 4))))
-  (should (eq (get-text-property 0 'face (financial-chart-sparkline '(3 1))) 'financial-chart-down)))
-
-(ert-deftest financial-chart-plot-test-payoff-golden ()
-  (financial-chart-plot-test--golden "payoff.txt"
-                         (financial-chart-text-payoff financial-chart-plot-test--payoff :width 21 :height 6))
-  (financial-chart-plot-test--golden "payoff-straddle.txt"
-                         (financial-chart-text-payoff financial-chart-plot-test--straddle :width 21 :height 6)))
-
-(ert-deftest financial-chart-plot-test-payoff-zero-split-shares-one-scale ()
-  ;; -25..75 in 6 rows: 2 loss rows at 18.75/row fits both signs best
-  (should (equal (financial-chart-text--zero-split -25 75 6) '(2 . 18.75)))
-  (should (equal (car (financial-chart-text--zero-split 5 10 4)) 0))
-  (should (equal (car (financial-chart-text--zero-split -10 -5 4)) 4)))
-
-(ert-deftest financial-chart-plot-test-payoff-faces-by-sign ()
-  (let ((s (financial-chart-text-payoff financial-chart-plot-test--straddle :width 5 :height 4 :footer nil)))
-    (should (memq 'financial-chart-up
-                  (cl-loop for i below (length s) collect (get-text-property i 'face s))))
-    (should (memq 'financial-chart-down
-                  (cl-loop for i below (length s) collect (get-text-property i 'face s))))))
-
-(ert-deftest financial-chart-plot-test-bars-golden ()
-  (financial-chart-plot-test--golden "bars.txt" (financial-chart-text-bars financial-chart-plot-test--bars :width 40 :unit "$")))
-
-(ert-deftest financial-chart-plot-test-depth-bar-sqrt-scale ()
-  (should (equal (financial-chart-depth-bar 20 20 16) (make-string 16 ?█)))
-  (should (= 8 (length (financial-chart-depth-bar 5 20 16))))
-  (should (= 1 (length (financial-chart-depth-bar 0 20 16))))
-  (should (eq (get-text-property 0 'face (financial-chart-depth-bar 1 1 4 'x)) 'x)))
-
-(ert-deftest financial-chart-plot-test-ohlc-delegates-to-candles ()
-  (let ((bars '((:open 1 :high 2 :low 0.5 :close 1.5 :time 1)
-                (:open 1.5 :high 3 :low 1 :close 2.5 :time 2))))
-    (cl-letf (((symbol-function 'financial-chart-render)
-               (lambda (b h) (format "CANDLES %d %d" (length b) h))))
-      (should (equal (financial-chart-text-ohlc bars :height 7) "CANDLES 2 7")))))
-
-;; --- SVG backend ------------------------------------------------------------------------
-
-(ert-deftest financial-chart-plot-test-svg-golden ()
-  (financial-chart-plot-test--svg-env
-   (financial-chart-plot-test--golden "area.svg" (financial-chart-svg-area financial-chart-plot-test--series :width 300 :height 120
-                                                        :unit "c" :title "area"))
-   (financial-chart-plot-test--golden "payoff.svg" (financial-chart-svg-payoff financial-chart-plot-test--straddle
-                                                            :width 300 :height 140))
-   (financial-chart-plot-test--golden "bars.svg" (financial-chart-svg-bars financial-chart-plot-test--bars :width 300 :unit "$"))))
-
-(ert-deftest financial-chart-plot-test-svg-is-well-formed ()
-  (financial-chart-plot-test--svg-env
-   (dolist (svg (list (financial-chart-svg-area financial-chart-plot-test--wave)
-                      (financial-chart-svg-payoff financial-chart-plot-test--payoff)
-                      (financial-chart-svg-bars financial-chart-plot-test--bars)))
-     (should (string-prefix-p "<svg " svg))
-     (when (fboundp 'libxml-parse-xml-region)
-       (with-temp-buffer
-         (insert svg)
-         (should (eq 'svg (car (libxml-parse-xml-region (point-min) (point-max))))))))))
-
-(ert-deftest financial-chart-plot-test-svg-palette-fallback-in-batch ()
-  (let ((financial-chart-svg-palette nil))
-    (unless (display-graphic-p)
-      (should (equal (financial-chart-svg--color 'up) "#2e7d32")))
-    (let ((financial-chart-svg-palette '((up . "#123456"))))
-      (should (equal (financial-chart-svg--color 'up) "#123456")))))
-
-(ert-deftest financial-chart-plot-test-svg-ohlc-delegates-when-loaded ()
-  (cl-letf (((symbol-function 'financial-chart-render-svg)
-             (lambda (bars title) (format "<svg>%d %s</svg>" (length bars) title))))
-    (should (equal (financial-chart-svg-ohlc '((:close 1)) :title "T") "<svg>1 T</svg>"))))
-
-;; --- dispatch / buffer ----------------------------------------------------------------
+(ert-deftest financial-chart-plot-test-every-kind-is-an-eas-template ()
+  (dolist (entry financial-chart-kinds)
+    (let* ((kind (car entry))
+           (data (financial-chart-plot-test--example kind))
+           (text (financial-chart-plot kind data :backend 'text :width 50 :height 10))
+           (svg (financial-chart-plot kind data :backend 'svg)))
+      (should (eas-template-get (plist-get (cdr entry) :template)))
+      (should (equal text (financial-chart-eas-render kind data 'text :width 50 :height 10)))
+      ;; eas text keeps the datum behind each cell
+      (should (text-property-not-all 0 (length text) 'eas-datum nil text))
+      (should (string-prefix-p "<svg" svg))
+      (should (string-match-p (format "<desc>financial-chart %s: " kind) svg)))))
 
 (ert-deftest financial-chart-plot-test-render-dispatches-by-backend ()
-  (should (string-match-p "last" (financial-chart-plot 'area '(1 2 3) :backend 'text :width 3 :height 2)))
-  (financial-chart-plot-test--svg-env
-   (should (string-prefix-p "<svg width=\"320\""
-                            (financial-chart-plot 'area '(1 2 3) :backend 'svg :pixel-width 320))))
+  (should-not (string-prefix-p "<svg" (financial-chart-plot 'area '(1 2 3) :backend 'text)))
+  (should (string-match-p "width=\"320\""
+                          (financial-chart-plot 'area '(1 2 3) :backend 'svg :pixel-width 320)))
   (should-error (financial-chart-plot 'pie '(1 2)) :type 'financial-chart-unknown-kind))
+
+(ert-deftest financial-chart-plot-test-svg-is-well-formed ()
+  (when (fboundp 'libxml-parse-xml-region)
+    (dolist (kind '(area payoff bars ohlc))
+      (with-temp-buffer
+        (insert (financial-chart-plot kind (financial-chart-plot-test--example kind) :backend 'svg
+                                      :title "a <b> & c"))
+        (should (eq 'svg (car (libxml-parse-xml-region (point-min) (point-max)))))))))
+
+(ert-deftest financial-chart-plot-test-props-become-slots ()
+  (let ((bindings (financial-chart-eas-bindings 'area '((1700000000000 1) (1700086400000 2))
+                                                '(:unit "$" :scale log :title "t"))))
+    (should (equal (plist-get bindings :x_type) "temporal"))
+    (should (equal (plist-get bindings :y_title) "$"))
+    (should (equal (plist-get bindings :scale) "log"))
+    (should (equal (plist-get bindings :title) "t")))
+  (should (equal (plist-get (financial-chart-eas-bindings 'multi '(("A" . (1 2))) '(:normalize 100))
+                            :normalize)
+                 100))
+  (should (string-match-p "font-family=\"Hack\""
+                          (financial-chart-plot 'area '(1 2 3) :backend 'svg :font "Hack"))))
+
+(ert-deftest financial-chart-plot-test-log-scale-needs-positive-values ()
+  (should (stringp (financial-chart-plot 'line '(1 10 100) :backend 'text :scale 'log)))
+  (let ((err (should-error (financial-chart-plot 'area '(1 0 3) :backend 'text :scale 'log)
+                           :type 'financial-chart-invalid-data)))
+    (should (equal (plist-get (cddr err) :code) "nonpositive_log"))
+    (should (= (plist-get (cddr err) :index) 1)))
+  (should-error (financial-chart-validate 'area '(1 2) :scale 'cubic)
+                :type 'financial-chart-invalid-data))
+
+(ert-deftest financial-chart-plot-test-sparkline ()
+  (let ((spark (financial-chart-sparkline '(1 5 3 8 2 9) :width 12)))
+    (should (stringp spark))
+    (should (<= (apply #'max (mapcar #'string-width (split-string spark "\n"))) 12)))
+  (should (equal (financial-chart-sparkline nil) "")))
+
+;; --- candlestick entry points ---------------------------------------------------
+
+(ert-deftest financial-chart-plot-test-candlestick-entry-points-are-the-ohlc-kind ()
+  (let ((bars (financial-chart-plot-test--example 'ohlc))
+        (file (make-temp-file "financial-chart-test" nil ".svg")))
+    (unwind-protect
+        (progn
+          (should (equal (financial-chart-render bars 12 60)
+                         (financial-chart-plot 'ohlc bars :backend 'text :height 12 :width 60)))
+          (should (equal (financial-chart-render-svg bars "TSM")
+                         (financial-chart-plot 'ohlc bars :backend 'svg :title "TSM")))
+          (should (equal (financial-chart-export-svg bars file "TSM") file))
+          (should (string-match-p "<title>TSM</title>"
+                                  (with-temp-buffer (insert-file-contents file) (buffer-string)))))
+      (delete-file file))
+    (let ((buf (financial-chart-view bars "TSM" 12)))
+      (unwind-protect
+          (with-current-buffer buf
+            (should (eq (car financial-chart-plot--spec) 'ohlc))
+            (should (string-prefix-p "TSM\n\n" (buffer-string))))
+        (kill-buffer buf)))))
+
+(ert-deftest financial-chart-plot-test-export-png-uses-the-converter ()
+  (let* ((bars (financial-chart-plot-test--example 'ohlc))
+         (png (make-temp-file "financial-chart-test" nil ".png"))
+         seen
+         (financial-chart-png-converter
+          (lambda (svg-file png-file)
+            (setq seen (with-temp-buffer (insert-file-contents svg-file) (buffer-string)))
+            (with-temp-file png-file (insert "png")))))
+    (unwind-protect
+        (progn
+          (should (equal (financial-chart-export-png bars png "TSM") png))
+          (should (string-match-p "<title>TSM</title>" seen)))
+      (delete-file png))))
+
+;; --- insert and the plot buffer ---------------------------------------------------
 
 (ert-deftest financial-chart-plot-test-insert-auto-is-text-without-images ()
   (unless (display-images-p)
     (with-temp-buffer
-      (financial-chart-plot-insert 'area '(1 2 3) :width 3 :height 2)
-      (should (string-match-p "last 3" (buffer-string))))
+      (financial-chart-plot-insert 'area '(1 2 3) :width 20 :height 6)
+      (should (text-property-not-all (point-min) (point-max) 'eas-datum nil)))
     (with-temp-buffer
       (financial-chart-plot-insert 'area nil)
       (should (equal (buffer-string) "no data")))))
@@ -242,28 +155,94 @@ and not others; text fixtures stay byte-exact."
   "An Emacs built without SVG images gets the text chart plus a note."
   (cl-letf (((symbol-function 'image-type-available-p) (lambda (_) nil)))
     (with-temp-buffer
-      (financial-chart-plot-insert 'area '(1 2 3) :backend 'svg :width 3 :height 2)
+      (financial-chart-plot-insert 'area '(1 2 3) :backend 'svg :width 20 :height 6)
       (should (string-prefix-p "(this Emacs cannot display SVG" (buffer-string)))
-      (should (string-match-p "last 3" (buffer-string))))))
-
-(ert-deftest financial-chart-plot-test-svg-golden-ignores-tag-whitespace ()
-  (should (equal (financial-chart-plot-test--normalize "x.svg" "<svg> <rect></rect>\n <text> a</text></svg>")
-                 (financial-chart-plot-test--normalize "x.svg" "<svg><rect></rect><text>a</text></svg>")))
-  (should-not (equal (financial-chart-plot-test--normalize "x.txt" " a")
-                     (financial-chart-plot-test--normalize "x.txt" "a"))))
+      (should (text-property-not-all (point-min) (point-max) 'eas-datum nil)))))
 
 (ert-deftest financial-chart-plot-test-view-and-toggle ()
   (let ((buf (financial-chart-plot-view 'payoff financial-chart-plot-test--straddle
-                            :title "straddle" :buffer "*financial-chart-test*" :width 10 :height 4
-                            :backend 'text)))
+                                        :title "straddle" :buffer "*financial-chart-test*"
+                                        :width 40 :height 8 :backend 'text)))
     (unwind-protect
         (with-current-buffer buf
           (should (derived-mode-p 'financial-chart-plot-mode))
           (should (string-prefix-p "straddle\n\n" (buffer-string)))
-          (should (string-match-p "breakeven \\$95, \\$105" (buffer-string)))
+          (let ((pos (text-property-not-all (point-min) (point-max) 'help-echo nil)))
+            (goto-char pos)
+            (financial-chart-plot--inspect-point)
+            (should (equal financial-chart-plot--last-inspected-point
+                           (get-text-property pos 'help-echo))))
           (financial-chart-plot-toggle-backend)
           (should (eq (plist-get (nth 2 financial-chart-plot--spec) :backend) 'svg)))
       (kill-buffer buf))))
+
+(ert-deftest financial-chart-plot-test-zoom-slices-series-and-resets ()
+  (let* ((series (cl-loop for i from 0 below 20 collect (list i i)))
+         (buffer (financial-chart-plot-view 'area series :backend 'text :width 40 :height 8
+                                            :buffer "*financial-chart-zoom*")))
+    (unwind-protect
+        (with-current-buffer buffer
+          (financial-chart-plot-zoom-in)
+          (should (= (cdr financial-chart-plot--zoom-window) (length series)))
+          (financial-chart-plot-zoom-reset)
+          (should-not financial-chart-plot--zoom-window)
+          ;; zoom anchors on the datum at point
+          (goto-char (point-min))
+          (let (anchor)
+            (while (and (not anchor) (< (point) (point-max)))
+              (let ((row (get-text-property (point) 'eas-datum)))
+                (if (and (integerp row) (<= 5 row 9)) (setq anchor row) (forward-char 1))))
+            (should anchor)
+            (should (= (financial-chart-plot--index-at-point) anchor))
+            (financial-chart-plot-zoom-in)
+            (let ((window financial-chart-plot--zoom-window))
+              (should (< (- (cdr window) (car window)) (length series)))
+              (should (<= (car window) anchor (1- (cdr window))))
+              (should (= (length (nth 1 financial-chart-plot--spec)) (length series)))
+              (financial-chart-plot-zoom-out)
+              (should (> (- (cdr financial-chart-plot--zoom-window)
+                            (car financial-chart-plot--zoom-window))
+                         (- (cdr window) (car window))))))
+          (financial-chart-plot-zoom-reset)
+          (should (equal (car (financial-chart-plot--visible-data 'area series)) series)))
+      (kill-buffer buffer))))
+
+(ert-deftest financial-chart-plot-test-refresh-is-direct-and-timer-is-gated ()
+  (let ((calls 0)
+        (fresh '((0 10) (1 20) (2 30)))
+        buffer timer)
+    (setq buffer
+          (financial-chart-plot-view
+           'area '((0 1) (1 2))
+           :backend 'text :width 30 :height 6
+           :buffer "*financial-chart-refresh*"
+           :refresh-fn (lambda () (setq calls (1+ calls)) fresh)
+           :refresh-interval 3600))
+    (unwind-protect
+        (with-current-buffer buffer
+          (setq timer financial-chart-plot--refresh-timer)
+          (should (timerp timer))
+          (should (= calls 0))
+          (cl-letf (((symbol-function 'get-buffer-window) (lambda (&rest _) nil)))
+            (financial-chart-plot--timer-refresh buffer))
+          (should (= calls 0))
+          (should (equal (financial-chart-plot-refresh-data) fresh))
+          (should (= calls 1))
+          (should (equal (nth 1 financial-chart-plot--spec) fresh))
+          (financial-chart-plot-toggle-refresh)
+          (should-not financial-chart-plot--refresh-enabled)
+          (financial-chart-plot-toggle-refresh)
+          (should financial-chart-plot--refresh-enabled)
+          (setq timer financial-chart-plot--refresh-timer))
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer)))
+    (should-not (memq timer timer-list))))
+
+(ert-deftest financial-chart-plot-test-refresh-options-are-paired ()
+  (should-error (financial-chart-plot-view 'area '(1 2) :refresh-interval 10)
+                :type 'financial-chart-error)
+  (should-error (financial-chart-plot-view 'area '(1 2) :refresh-fn #'identity)
+                :type 'financial-chart-error))
 
 (ert-deftest financial-chart-plot-test-demo-renders-every-kind ()
   (let ((buf (financial-chart-demo)))

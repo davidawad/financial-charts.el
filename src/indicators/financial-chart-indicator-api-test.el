@@ -49,20 +49,6 @@
     (should (equal (plist-get spec :data) '((0 . nil) (1 . 45) (2 . 60))))
     (should (stringp (financial-chart-plot-spec spec)))))
 
-(ert-deftest financial-chart-indicator-api-series-colors-reach-renderers ()
-  (let* ((single (financial-chart-indicator-chart-spec
-                  '(:name rsi :values (40 50) :color "#123456")))
-         (single-svg (financial-chart-plot-spec
-                      (plist-put single :backend 'svg)))
-         (multi (financial-chart-indicator-chart-spec
-                 '((:name fast :label "Fast" :values (1 2) :color "#123456")
-                   (:name slow :label "Slow" :values (2 3) :color "#abcdef"))))
-         (multi-svg (financial-chart-plot-spec
-                     (plist-put multi :backend 'svg))))
-    (should (string-match-p "stroke=\"#123456\"" single-svg))
-    (should (string-match-p "stroke=\"#123456\"" multi-svg))
-    (should (string-match-p "stroke=\"#abcdef\"" multi-svg))))
-
 (ert-deftest financial-chart-indicator-api-plots-multiple-output-series ()
   (let* ((series (financial-chart-indicator-evaluate
                   'macd

@@ -16,13 +16,13 @@
 
 ;;; Commentary:
 
-;; Plain Lisp data in, chart out.  One call draws any chart kind --
-;; candlesticks (with oscillator panel), area, braille line, sparkline,
-;; multi-series comparisons, option payoff and T+n payoff curves,
-;; diverging P/L bars, drawdown, returns histogram, order-book depth,
-;; heatmap, volume profile -- as propertized unicode text in a
-;; terminal frame or an SVG image in a GUI frame.  No external process
-;; except optional PNG export.
+;; Plain Lisp data in, chart out.  financial-chart never fetches data:
+;; it validates what its caller supplies and draws it through eas
+;; templates -- candlesticks (with indicator overlays and oscillator
+;; panes), area, line, sparkline, multi-series comparisons, option
+;; payoff and T+n payoff curves, diverging P/L bars, drawdown, returns
+;; histogram, order-book depth, heatmap, volume profile -- as
+;; propertized text in a terminal frame or an SVG image in a GUI frame.
 ;;
 ;; The central object is a CHART SPEC, a plist that round-trips JSON:
 ;;
@@ -32,35 +32,36 @@
 ;;
 ;;   discover   `financial-chart-list-kinds', `financial-chart-describe-kind',
 ;;              `financial-chart-describe' (the whole package as data)
-;;   validate   `financial-chart-validate' -> t or a typed error with :index
-;;   plan       `financial-chart-explain' -> backend + why, renderer, args,
+;;   validate   `financial-chart-validate' -> t or a typed error with
+;;              :code :index :field; `financial-chart-check' answers as data
+;;   plan       `financial-chart-explain' -> template, backend + why, args,
 ;;              data summary; pure, never renders
 ;;   render     `financial-chart-plot' (string), `-plot-insert' (at point),
 ;;              `-plot-view' (buffer), `-plot-spec' (from a spec),
 ;;              `financial-chart-sparkline'
-;;   candles    `financial-chart-render' / `-render-svg' / `-view', with
-;;              volume, X-axis and indicator overlays; every knob a defcustom
+;;   candles    `financial-chart-render' / `-render-svg' / `-view' /
+;;              `-export-svg' / `-export-png'
 ;;   health     `financial-chart-doctor' (M-x) / `financial-chart-doctor-checks'
 ;;
 ;; Non-Emacs callers use eas.el's bin/eas with this package's templates
 ;; loaded (see README, "Charts from the shell").
-;; Modules: -core (config), -series (shapes), -indicators (+ cohorts),
-;; -text, -svg, -plot (kinds), -multi (multi-series kind).
+;; Modules: core/ (config, errors, shapes, validation), indicators/,
+;; charts/ (the kind registry and each kind), integrations/ (eas
+;; adapters, transforms, templates and parity checks).
 
 ;;; Code:
 
 ;; Keep the package split into functional subdirectories while allowing
 ;; package-vc and a plain load-path entry to load the public entry point.
 (let ((source-directory (file-name-directory (or load-file-name buffer-file-name))))
-  (dolist (directory '("." "core" "indicators" "renderers" "charts" "integrations"))
+  (dolist (directory '("." "core" "indicators" "charts" "integrations"))
     (add-to-list 'load-path (expand-file-name directory source-directory))))
 
 (require 'cl-lib)
 (require 'financial-chart-core)
 (require 'financial-chart-series)
+(require 'financial-chart-validate)
 (require 'financial-chart-indicators)
-(require 'financial-chart-text)
-(require 'financial-chart-svg)
 (require 'financial-chart-plot)
 (require 'financial-chart-payoff-curves)
 (require 'financial-chart-multi)
@@ -68,7 +69,7 @@
 (require 'financial-chart-depth)
 (require 'financial-chart-matrix)
 (require 'financial-chart-eas)
-(require 'financial-chart-eas-route)
+(require 'financial-chart-eas-parity)
 
 (defconst financial-chart-version "0.3.0"
   "Version of the financial-chart package.")
@@ -77,7 +78,8 @@
   '((discover financial-chart-list-kinds financial-chart-describe-kind
               financial-chart-describe financial-chart-list-cohorts
               financial-chart-list-indicators)
-    (validate financial-chart-validate)
+    (validate financial-chart-validate financial-chart-check
+              financial-chart-validate-indicator-series)
     (plan financial-chart-explain financial-chart-resolve-cohort)
     (render financial-chart-plot financial-chart-plot-spec financial-chart-plot-insert
             financial-chart-plot-view financial-chart-sparkline financial-chart-render
@@ -102,6 +104,7 @@ entry points.  Lists are vectors, so the result round-trips `json-encode'."
                 (mapcar (lambda (k)
                           (list :kind (symbol-name (car k))
                                 :shape (symbol-name (plist-get (cdr k) :shape))
+                                :template (plist-get (cdr k) :template)
                                 :doc (plist-get (cdr k) :doc)))
                         (financial-chart-list-kinds)))
         :shapes (financial-chart--vec
@@ -130,8 +133,10 @@ entry points.  Lists are vectors, so the result round-trips `json-encode'."
 ;;;###autoload
 (defun financial-chart-doctor-checks ()
   "Every package health row: (:name :status :detail :remediation), :status
-pass, fail or skip.  Covers chart kinds and cohorts.  No network."
+pass, fail or skip.  Covers chart kinds, template parity and cohorts.
+No network."
   (append (financial-chart-plot-doctor-checks)
+          (financial-chart-eas-parity-doctor-checks)
           (financial-chart-cohort-doctor-checks)))
 
 ;;;###autoload

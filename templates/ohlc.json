@@ -21,7 +21,7 @@
   "vconcat": [
     {
       "name": "price",
-      "width": 400,
+      "width": "container",
       "height": 200,
       "encoding": {
         "x": {"field": "time", "type": "temporal", "title": "date"},
@@ -68,7 +68,7 @@
     {
       "x-eas:each": "oscillators",
       "spec": {
-        "width": 400,
+        "width": "container",
         "height": 60,
         "transform": [
           {"x-eas:transform": {"x-eas:item": "transform", "default": "indicator"},
@@ -97,7 +97,7 @@
       "x-eas:when": "volume",
       "spec": {
         "name": "volume",
-        "width": 400,
+        "width": "container",
         "height": 60,
         "mark": {"type": "bar"},
         "encoding": {

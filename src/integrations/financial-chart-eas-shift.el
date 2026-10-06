@@ -75,11 +75,17 @@ fall on a weekend continue on weekdays only."
       (nreverse out))))
 
 (defun financial-chart-shift-context (ctx series)
-  "CTX with :xs-ext, its x positions grown for the shifted SERIES."
-  (let ((xs (plist-get ctx :xs)))
-    (append (list :xs-ext (vconcat xs (financial-chart-shift-future-xs
-                                       xs (plist-get ctx :x-type)
-                                       (financial-chart-shift-extent series))))
+  "CTX with :xs-ext, its x positions grown as far as SERIES draw.
+SERIES come from `financial-chart-shift-series'; only values past the
+last bar count, so a span too short to reach past it adds nothing."
+  (let* ((xs (plist-get ctx :xs))
+         (n (length xs))
+         (count (cl-loop for s in series
+                         maximize (let ((values (plist-get s :values)))
+                                    (or (cl-loop for i from (1- (length values)) downto n
+                                                 when (aref values i) return (1+ (- i n)))
+                                        0)))))
+    (append (list :xs-ext (vconcat xs (financial-chart-shift-future-xs xs (plist-get ctx :x-type) (or count 0))))
             ctx)))
 
 (defun financial-chart-shift-xs (ctx)

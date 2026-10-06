@@ -75,6 +75,19 @@
       (should (cl-every (lambda (r) (eq (plist-get r col) :null)) (seq-drop (append rows nil) (- 80 26))))
       (should (equal (plist-get (aref rows 0) col) (plist-get (nth 26 bars) :close))))))
 
+(ert-deftest financial-chart-shift-grows-only-as-far-as-values-reach ()
+  ;; 48 bars are too few for senkou B (52): its shifted span is empty,
+  ;; senkou A reaches 26 bars on, so the chart grows by 26, not more.
+  (let* ((bars (financial-chart-shift-test--bars))
+         (ctx (list :xs (vconcat (mapcar (lambda (b) (plist-get b :time)) bars)) :x-type "temporal"))
+         (series (financial-chart-shift-series
+                  (list (list :shift 30 :values (make-vector 48 nil))
+                        (list :shift 26 :values (vconcat (make-list 47 nil) '(1)))
+                        (list :shift 0 :values (make-vector 48 2)))
+                  48)))
+    (should (= (length (plist-get (financial-chart-shift-context ctx series) :xs-ext)) (+ 48 26)))
+    (should (= (length (plist-get (financial-chart-shift-context ctx (list (car series))) :xs-ext)) 48))))
+
 (ert-deftest financial-chart-shift-must-be-whole-bars ()
   (dolist (shift '(1.5 "2" 501))
     (let ((err (should-error (financial-chart-compose

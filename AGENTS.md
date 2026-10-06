@@ -4,9 +4,12 @@ Standalone, publishable Emacs package: every financial chart kind
 (candles, area, line, sparkline, payoff, bars) as text or SVG from plain
 Lisp data. README.md is the full reference.
 
-In progress: `eas`, the interactive chart engine growing in
-`src/eas/` (epic `fc-qx1`). Design and layer contracts:
-`docs/design/engine.md`. Tasks: `br ready` in this repo (`.beads/`).
+`eas`, the interactive chart engine, is its own package, eas.el (default
+checkout `../../Personal/emacs/eas.el`; `EAS=` overrides), which this
+package requires. Its design, README and AGENTS.md live there;
+`docs/design/engine.md` points to them. Here: the financial adapters,
+transforms and templates on eas (epic `fc-qx1`). Tasks: `br ready` in this
+repo (`.beads/`).
 
 ## Driving it
 
@@ -19,12 +22,12 @@ Every verb answers `{"contract":"chart/v1","ok","data","reason"?,
 section 5) and evidence (`path`, `index`, `field`), and `next` holds
 runnable commands. Same verbs, three doors:
 `(eas-agent "render" "line" :data B :backend "text")` after
-`(require 'eas-agent)`; `bin/eas render line --data b.json` (batch,
+`(require 'eas-agent)`; eas.el's `bin/eas render line --data b.json` (batch,
 stateless verbs; `--raw` prints only the data; exit 1 on failure); and
 `emacsclient --eval '(eas-agent-json "inspect" "line:daily")' | jq -r .`
 for live views.
 
-1. `bin/eas describe` (or `describe verbs|templates|events|reasons`)
+1. eas.el's `bin/eas describe` (or `describe verbs|templates|events|reasons`)
    and pick a template, or `check` a hand-written Vega-Lite spec.
 2. `bin/eas example line --raw > b.json` gives bindings that render
    as-is. Edit them, then `bin/eas check line --data b.json`.
@@ -46,7 +49,7 @@ for live views.
 6. In org: `#+begin_src eas :template ohlc :data tbl` (load
    `ob-eas`) opens view `ohlc:BLOCKNAME` inline; `:as text|vl` or
    `:results file :file x.svg|x.vl.json|x.png` for documents.
-   `examples/eas.org` shows each.
+   eas.el's `examples/eas.org` shows each.
 
 ### financial-chart kinds
 
@@ -69,11 +72,9 @@ for live views.
 ## Changing it
 
 - `make test` (offline, no display, under a minute) and `make compile`
-  (warnings are errors) must pass. Touching layout, compile or the
-  gallery: also `make -j4 test-gallery` (tests tagged `:gallery`: the
-  Vega-Lite gallery per group, and the conformance oracle). `make
-  bench` checks eas latency against `src/eas/bench-budget.json`
-  (`make bench-budget` re-measures; review the diff). Golden fixtures: regenerate with
+  (warnings are errors) must pass; both need eas.el (see top). Engine
+  gallery, conformance and bench runs belong to eas.el. Template goldens
+  (test/golden/eas-templates/): `EAS_UPDATE_GOLDEN=1 make test`. Golden fixtures: regenerate with
   `FINANCIAL_CHART_UPDATE_GOLDEN=1 make test` and review the diff.
 - New chart kind: renderers in -text/-svg, then one
   `financial-chart-kinds` entry (or `financial-chart-register-kind`).

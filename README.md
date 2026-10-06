@@ -402,12 +402,9 @@ Source is grouped by responsibility under src/:
 ## Tests
 
 ```sh
-make test      # every src module's *-test.el files, offline, no display (< 1 min)
-make -j4 test-gallery   # Vega-Lite gallery + conformance oracle (tests tagged :gallery)
-make test-gallery-bar   # one gallery group; test-gallery-conformance for the oracle
+make test      # needs eas.el (EAS=/path/to/eas.el); every src module's *-test.el files, offline, no display (< 1 min)
 make compile   # byte-compile with warnings as errors
 make test MARKET_DATA=../market-data.el   # same suite with market-data loaded
-make bench     # eas performance ladder against its regression budget
 ```
 
 ERT tests live beside the source modules they cover. Golden text and SVG
@@ -416,38 +413,25 @@ visual change, regenerate them with `FINANCIAL_CHART_UPDATE_GOLDEN=1
 make test` and review the diff. Trailing spaces in fixtures are data;
 `.gitattributes` and `.editorconfig` keep tools from stripping them.
 
-## Performance (the eas engine)
+## The eas engine
 
-The interactive engine in `src/eas/` is still in progress (epic
-`fc-qx1`). Its latency is measured, never assumed. `make bench` runs
-the byte-compiled ladder and fails when a stage regresses past
-`src/eas/bench-budget.json`; CI runs it on Emacs 30.1. `bin/eas
-bench` prints the same numbers as JSON. Measured on 2026-10-05: 4 vCPU
-AMD EPYC-Rome, GNU Emacs 30.1, batch, byte-compiled, mean ms, an
-800x400 line chart with a crosshair:
-
-| | 1k points | 10k points | 100k points |
-|---|---|---|---|
-| hover (one pointermove through the engine) | 0.26 | 0.24 | 0.26 |
-| hover + SVG redraw (before librsvg) | 3.7 | 3.7 | 3.4 |
-| hover + text redraw (100x30) | 8.5 | 16.0 | 24.9 |
-| first hover (builds indexes) | 1.2 | 7.7 | 82 |
-| full compile | 4.4 | 31.5 | 357 |
-| hit-test, scatter (one query) | 0.03 | 0.10 | 0.92 |
-
-These are Lisp-side numbers. In a GUI frame librsvg adds about 15 ms
-to show one path on Linux/Xvfb. Method, history and the GUI
-measurements are in `docs/design/engine-spikes.md` (sections 8 and 9).
+The interactive engine is its own package, [eas.el](https://github.com/davidawad/eas.el)
+(design, latency budget and Vega-Lite gallery live there; see
+`docs/design/engine.md`). financial-chart requires it (`eas`, Emacs 30.1)
+and registers its adapters, transforms and financial templates on it.
+The Makefile and `bin/financial-chart` look for eas.el at
+`../../Personal/emacs/eas.el`; override with `EAS=/path/to/eas.el`.
 
 ### Chart kinds as eas templates
 
 Every chart kind also has an eas template: plain Vega-Lite over tidy
-rows in `templates/` (`ohlc`, `area`, `series-line`, `sparkline`,
-`payoff`, `diverging-bars`, `multi`, `payoff-curves`, `drawdown`,
-`histogram`, `heatmap`, `depth`), plus `templates/financial/` for those
-that need financial-chart's transforms (`volume-profile`). `ohlc` takes
+rows. The generic ones (`area`, `series-line`, `sparkline`, `multi`,
+`histogram`, `heatmap`, `line`, `bars`) ship with eas.el; financial-chart
+adds `ohlc`, `panes`, `payoff`, `diverging-bars`, `payoff-curves`,
+`drawdown`, `depth` (in `templates/`) and `financial/volume-profile`,
+all registered through `eas-template-directories`. `ohlc` takes
 a `volume` pane, `indicators` overlays and `oscillators` panes by
-indicator name, e.g. `bin/eas render ohlc --data b.json` with
+indicator name, e.g. eas's `bin/eas render ohlc --data b.json` with
 `"indicators": [{"name": "sma", "params": [20], "as": "sma20"}]` (the
 `indicator` transform needs financial-chart loaded).
 
@@ -471,11 +455,9 @@ eas draws every chart in Emacs Lisp, as SVG or text. The config
 `bin/chart` (a Vega-Lite build door) is used in only two places, and
 eas works without it:
 
-- Test oracle (dev and CI): its PNGs are the committed conformance
-  references (`test/conformance/ref/`, `test/vl-examples/*/ref/`). The
-  tests compare native renders against those files with only
-  `rsvg-convert`; with `bin/chart` on PATH they also rebuild them.
-- Static export: `bin/eas export ... --vl` hands pure Vega-Lite to
+- Test oracle (dev and CI), now in eas.el: its PNGs are the committed
+  conformance references.
+- Static export: eas's `bin/eas export ... --vl` hands pure Vega-Lite to
   `bin/chart build`, and org-babel `:file x.png`/`x.pdf` calls it.
 
 A spec that uses Vega-Lite features outside the native subset opens as

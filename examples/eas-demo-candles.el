@@ -12,13 +12,13 @@
 ;;
 ;; GUI Emacs (SVG):
 ;;
-;;   emacs -Q -L src -L src/eas -l examples/eas-demo-candles.el \
+;;   emacs -Q -L src -L ../../Personal/emacs/eas.el/src -l examples/eas-demo-candles.el \
 ;;         -f eas-demo-candles
 ;;
 ;; Terminal (the same view drawn as text; `eas-show' picks text when
 ;; the frame cannot show SVG):
 ;;
-;;   emacs -nw -Q -L src -L src/eas -l examples/eas-demo-candles.el \
+;;   emacs -nw -Q -L src -L ../../Personal/emacs/eas.el/src -l examples/eas-demo-candles.el \
 ;;         -f eas-demo-candles
 ;;
 ;; In the chart buffer the mouse, arrows, +/- and RET drive the view
@@ -27,20 +27,20 @@
 ;;
 ;; Batch, the deterministic text rendering:
 ;;
-;;   emacs -Q --batch -L src -L src/eas -l examples/eas-demo-candles.el \
+;;   emacs -Q --batch -L src -L ../../Personal/emacs/eas.el/src -l examples/eas-demo-candles.el \
 ;;         --eval '(princ (eas-demo-candles-text))'
 ;;
 ;; The same chart from the shell, run in the repository root (the
 ;; bindings are the bundled file plus "volume": true):
 ;;
 ;;   jq '.volume = true' examples/panes.data.json \
-;;     | bin/eas render ohlc --data - --backend text --raw
+;;     | eas.el/bin/eas render ohlc --data - --backend text --raw
 
 ;;; Code:
 
-(require 'eas-template)
-(require 'eas-view)
+(require 'eas)
 (require 'eas-agent)
+(require 'financial-chart)   ; registers the ohlc template on eas
 
 (declare-function eas-show "eas-mode" (view &optional target))
 
@@ -54,11 +54,13 @@
   "Bindings for the `ohlc' template: the bundled bars, volume pane on."
   (append (list :volume t)
           (eas-json-read-file (expand-file-name eas-demo-candles-data
-                                                eas-template--root))))
+                                                (file-name-directory
+                                                 (directory-file-name
+                                                  financial-chart-eas-templates-root))))))
 
 (defun eas-demo-candles-text ()
   "Return the demo chart rendered as deterministic text.
-Same output as the bin/eas command in the Commentary."
+Same output as the eas command in the Commentary."
   (let ((env (eas-agent "render" "ohlc" :data (eas-demo-candles-bindings)
                         :backend "text")))
     (unless (eq (plist-get env :ok) t)

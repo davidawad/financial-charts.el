@@ -20,8 +20,11 @@
 ;;               "values", a precomputed column; and "volume-profile",
 ;;               which bins bars by price through
 ;;               `financial-chart-matrix--volume-data'
-;;   templates   templates/financial/, whose templates need those
-;;               transforms (templates/ holds the pure Vega-Lite ones)
+;;   templates   templates/ (ohlc, panes, depth, payoff, payoff-curves,
+;;               drawdown, diverging-bars) and templates/financial/
+;;               (volume-profile), added to `eas-template-directories';
+;;               the generic Vega-Lite ones (line, bars, area, ...) come
+;;               from eas.el
 ;;
 ;; eas never refers to financial-chart; dependencies point this way.
 
@@ -205,12 +208,18 @@ level with the most volume."
 
 ;;; templates
 
-(defconst financial-chart-eas-template-directory
-  (expand-file-name "../../templates/financial"
+(defconst financial-chart-eas-templates-root
+  (expand-file-name "../../templates"
                     (file-name-directory (or load-file-name buffer-file-name)))
+  "financial-chart's templates directory (ohlc, panes, depth, payoff, ...).
+The generic ones (line, bars, area, ...) ship with eas.el itself.")
+
+(defconst financial-chart-eas-template-directory
+  (expand-file-name "financial" financial-chart-eas-templates-root)
   "Templates that need financial-chart's domain transforms.")
 
-(add-to-list 'eas-template-directories financial-chart-eas-template-directory t)
+(dolist (dir (list financial-chart-eas-templates-root financial-chart-eas-template-directory))
+  (add-to-list 'eas-template-directories dir t))
 (eas-template-reload)
 
 (provide 'financial-chart-eas)

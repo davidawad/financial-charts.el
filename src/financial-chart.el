@@ -5,7 +5,7 @@
 ;; Author: David Awad <me@davidaw.ad>
 ;; Maintainer: David Awad <me@davidaw.ad>
 ;; Version: 0.3.0
-;; Package-Requires: ((emacs "29.1"))
+;; Package-Requires: ((emacs "30.1") (eas "0.1.0"))
 ;; Keywords: data, finance, tools
 ;; URL: https://github.com/davidawad/financial-charts.el
 
@@ -54,7 +54,7 @@
 ;; Keep the package split into functional subdirectories while allowing
 ;; package-vc and a plain load-path entry to load the public entry point.
 (let ((source-directory (file-name-directory (or load-file-name buffer-file-name))))
-  (dolist (directory '("." "eas" "core" "indicators" "renderers" "charts" "integrations" "cli"))
+  (dolist (directory '("." "core" "indicators" "renderers" "charts" "integrations" "cli"))
     (add-to-list 'load-path (expand-file-name directory source-directory))))
 
 (require 'cl-lib)

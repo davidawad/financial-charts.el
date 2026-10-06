@@ -55,9 +55,10 @@ for live views.
 
 1. Discover: `(financial-chart-describe)` — kinds, shapes, cohorts,
    presets, entry points by verb, whether market-data is loaded. From a
-   shell: `bin/financial-chart describe`.
+   shell, the eas door with this package's templates loaded:
+   `fc-eas describe` (README, "Charts from the shell").
 2. Learn a kind's input: `(financial-chart-describe-kind 'payoff)` or
-   `bin/financial-chart example payoff` (a spec `render` accepts as-is).
+   `fc-eas example payoff --raw` (bindings `render` accepts as-is).
 3. Check data: `(financial-chart-validate KIND DATA)`; a failure names
    the bad element's `:index`.
 4. Plan: `(financial-chart-explain KIND DATA &rest PROPS)` gives the exact

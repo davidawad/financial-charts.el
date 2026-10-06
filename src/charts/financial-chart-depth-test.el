@@ -5,7 +5,6 @@
 (require 'ert)
 (require 'json)
 (require 'financial-chart)
-(require 'financial-chart-batch)
 
 (defconst financial-chart-depth-test--dir
   (file-name-directory (or load-file-name buffer-file-name)))
@@ -161,26 +160,9 @@
          (insert svg)
          (should (eq 'svg (car (libxml-parse-xml-region (point-min) (point-max))))))))))
 
-(ert-deftest financial-chart-depth-test-cli-example-round-trips ()
-  (let* ((example (append (financial-chart-batch--example 'depth)
-                          '((style . "cumulative"))))
-         (json (json-encode example))
-         (parsed (json-parse-string json :object-type 'alist :array-type 'list))
-         (spec (financial-chart-batch-spec parsed)))
-    (should (eq (plist-get spec :kind) 'depth))
-    (should (eq (plist-get spec :style) 'cumulative))
-    (should (financial-chart-validate 'depth (plist-get spec :data)))
-    (should (string-match-p "ASK CUMULATIVE DEPTH"
-                            (substring-no-properties
-                             (financial-chart-plot-spec spec))))))
-
-(ert-deftest financial-chart-depth-test-cli-requires-both-book-sides ()
-  (let* ((json (json-parse-string
-                "{\"kind\":\"depth\",\"data\":{\"bids\":[[100,2]]}}"
-                :object-type 'alist :array-type 'list))
-         (spec (financial-chart-batch-spec json)))
-    (should-error (financial-chart-validate 'depth (plist-get spec :data))
-                  :type 'financial-chart-invalid-data)))
+(ert-deftest financial-chart-depth-test-requires-both-book-sides ()
+  (should-error (financial-chart-validate 'depth '(:bids ((100 2))))
+                :type 'financial-chart-invalid-data))
 
 (provide 'financial-chart-depth-test)
 ;;; financial-chart-depth-test.el ends here

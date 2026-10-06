@@ -44,17 +44,18 @@
 ;;              market-data.el when it is loaded (optional)
 ;;   health     `financial-chart-doctor' (M-x) / `financial-chart-doctor-checks'
 ;;
-;; Non-Emacs callers use bin/financial-chart, which reads a spec as JSON.
+;; Non-Emacs callers use eas.el's bin/eas with this package's templates
+;; loaded (see README, "Charts from the shell").
 ;; Modules: -core (config), -series (shapes), -indicators (+ cohorts),
 ;; -text, -svg, -plot (kinds), -multi (multi-series kind), -symbol
-;; (market-data bridge), -presets, -batch (CLI).
+;; (market-data bridge), -presets.
 
 ;;; Code:
 
 ;; Keep the package split into functional subdirectories while allowing
 ;; package-vc and a plain load-path entry to load the public entry point.
 (let ((source-directory (file-name-directory (or load-file-name buffer-file-name))))
-  (dolist (directory '("." "core" "indicators" "renderers" "charts" "integrations" "cli"))
+  (dolist (directory '("." "core" "indicators" "renderers" "charts" "integrations"))
     (add-to-list 'load-path (expand-file-name directory source-directory))))
 
 (require 'cl-lib)

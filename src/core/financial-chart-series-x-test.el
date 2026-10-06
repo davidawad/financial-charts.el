@@ -4,7 +4,6 @@
 
 (require 'ert)
 (require 'cl-lib)
-(require 'financial-chart-batch)
 (defvar financial-chart-series-x-test--dir
   (file-name-directory (or load-file-name buffer-file-name)))
 (add-to-list 'load-path (expand-file-name ".." financial-chart-series-x-test--dir))
@@ -134,15 +133,6 @@
         (should caught)
         (should (equal (plist-get (cddr caught) :code) "invalid_data"))
         (should (= (plist-get (cddr caught) :index) 1))))))
-
-(ert-deftest financial-chart-series-x-json-scale-is-a-symbol ()
-  (let ((spec (financial-chart-batch-spec
-               '((kind . "area") (data 1.0 10.0 100.0)
-                 (backend . "text") (scale . "log")))))
-    (should (eq (plist-get spec :scale) 'log))
-    (should (stringp (apply #'financial-chart-plot
-                            (list (plist-get spec :kind) (plist-get spec :data)
-                                  :backend 'text :scale (plist-get spec :scale)))))))
 
 (ert-deftest financial-chart-series-x-svg-time-axis-is-well-formed ()
   (let ((svg (financial-chart-plot 'line financial-chart-series-x-test--time

@@ -117,8 +117,8 @@ Validated by market-data.el when loaded, else by the same required-key rule here
   "Data shapes chart kinds accept: (SHAPE :doc :example :validator
 [:values FN] [:from-json FN]).
 :values (DATA PROPS -> numbers) feeds explain and SVG provenance;
-:from-json (parsed JSON DATA -> Lisp DATA) is used by the CLI.  Both are
-optional, so a module adding a shape never edits this file.")
+:from-json (parsed JSON DATA -> Lisp DATA) is for callers that parse JSON.
+Both are optional, so a module adding a shape never edits this file.")
 
 (setf (plist-get (alist-get 'series financial-chart-shapes) :example)
       (financial-chart--example-series 100.0)
@@ -387,7 +387,7 @@ with `text' it is propertized unicode.  Returns nil when DATA is empty
 ;;;###autoload
 (defun financial-chart-plot-spec (spec)
   "Render chart SPEC, a plist (:kind KIND :data DATA . PROPS).
-The same plain-data form the batch CLI reads as JSON."
+A chart as plain data, convenient to build from parsed JSON."
   (apply #'financial-chart-plot (plist-get spec :kind) (plist-get spec :data)
          (financial-chart-plot--plist-drop spec :kind :data)))
 

@@ -43,12 +43,6 @@ jobs:
         working-directory: financial-chart.el
         run: make compile EAS=../eas.el
 
-      - name: CLI smoke test
-        working-directory: financial-chart.el
-        env:
-          EAS: ${{ github.workspace }}/eas.el
-        run: bin/financial-chart example payoff | bin/financial-chart render -
-
   secrets:
     runs-on: ubuntu-latest
     steps:

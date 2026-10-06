@@ -8,7 +8,6 @@
   (file-name-directory (or load-file-name buffer-file-name)))
 (add-to-list 'load-path (expand-file-name ".." financial-chart-multi-test--dir))
 (require 'financial-chart)
-(require 'financial-chart-batch)
 
 (defconst financial-chart-multi-test--data
   '(("AAPL" . ((1 100) (2 104) (3 102) (4 110)))
@@ -95,23 +94,6 @@
                 (list (cons "S" (number-sequence 1 100)))
                 :width 2 :height 3)))
     (should (string-match-p "S 100" chart))))
-
-(ert-deftest financial-chart-multi-test-batch-nested-series-data ()
-  (let* ((json "{\"kind\":\"multi\",\"data\":[[\"AAPL\",[[1,100],[2,102]]]],\"backend\":\"text\"}")
-         (parsed (json-parse-string json :object-type 'alist :array-type 'list))
-         (spec (financial-chart-batch-spec parsed))
-         (chart (financial-chart-plot-spec spec)))
-    (should (equal (plist-get spec :data)
-                   '(("AAPL" . ((1 100) (2 102))))))
-    (should (string-match-p "AAPL 102" chart))))
-
-(ert-deftest financial-chart-multi-test-batch-example-round-trip ()
-  (let* ((json (json-encode (financial-chart-batch--example 'multi)))
-         (parsed (json-parse-string json :object-type 'alist :array-type 'list))
-         (spec (financial-chart-batch-spec parsed))
-         (chart (financial-chart-plot-spec spec)))
-    (should (string-match-p "AAPL" chart))
-    (should (string-match-p "SPY" chart))))
 
 (ert-deftest financial-chart-multi-test-text-golden-and-faces ()
   (let* ((chart (financial-chart-plot 'multi financial-chart-multi-test--data

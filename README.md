@@ -68,8 +68,8 @@ or add the repository's `src/` directory to `load-path` and `(require 'financial
 | `heatmap` | labeled matrix, e.g. correlations, diverging colors | `(:labels (...) :rows ((...) ...))` |
 | `volume-profile` | volume by price level with point of control | ohlc |
 
-`bin/financial-chart kinds` lists them with docs; `bin/financial-chart example KIND`
-prints a ready-to-render spec for any of them.
+`(financial-chart-list-kinds)` lists them with docs;
+`(financial-chart-describe-kind 'KIND)` shows a kind's data shape and example.
 
 Looks: every SVG shares one style (gridlines, tick labels, legends, a
 hover `<title>` on each point or bar). `financial-chart-color-palette`
@@ -117,18 +117,34 @@ message says what to do and their data carries `:code` and, for bad
 data, the offending `:index`. SVG output carries a `<title>` and a
 `<desc>` stating the kind, point count and value range.
 
-From outside Emacs, `bin/financial-chart` takes the same spec as JSON:
+## Charts from the shell
+
+The shell door is eas.el's `bin/eas` with this package's templates
+registered. `bin/eas` alone does not load them (it has no templates flag
+or env var), so run the same entry point with `financial-chart-eas`
+loaded first. Put it in a shell function:
 
 ```sh
-bin/financial-chart example payoff                 # a spec to start from
-bin/financial-chart example payoff | bin/financial-chart render -
-echo '{"kind":"bars","data":{"AAPL":1200,"TSLA":-950},"unit":"$","backend":"svg"}' \
-  | bin/financial-chart render - > pnl.svg
-bin/financial-chart explain spec.json   # the plan, as JSON
-bin/financial-chart kinds | describe | doctor
+EAS=~/projects/Personal/emacs/eas.el   # your eas.el checkout
+FC=~/projects/Investing/financial-chart.el
+fc-eas() {
+  emacs -Q --batch -L "$EAS/src" -L "$FC/src" -l financial-chart -l financial-chart-eas \
+    -l eas-agent-cli -f eas-agent-cli-main -- "$@"
+}
+
+fc-eas describe templates                     # ohlc, panes, payoff, depth, ... plus eas's own
+fc-eas example ohlc --raw > bars.json         # bindings that render as-is
+fc-eas render ohlc --data bars.json --backend text --raw          # candlesticks as text
+fc-eas render ohlc --data bars.json --backend svg --raw > ohlc.svg
+fc-eas check payoff --data payoff.json        # validate before drawing
 ```
 
-Failures print `{"ok":false,"error":{"code":...,"message":...}}` and exit 1.
+`bars.json` is `{"bars": [{"time": "2026-08-20", "open": ..., "high": ..., "low": ...,
+"close": ..., "volume": ...}, ...]}`. Every verb answers a `chart/v1`
+envelope and exits 1 on failure; `--raw` prints only the data. The
+`indicators` and `oscillators` bindings of `ohlc` need `financial-chart-eas`
+loaded, which the function above does. The verbs and options are
+documented in eas.el's README and `bin/eas describe verbs`.
 
 ## Candlesticks
 
@@ -372,15 +388,16 @@ be charted:
   (`market-data-default-period` etc.) and authentication belong to
   market-data and the broker packages, and none of them are duplicated
   here.
-- **Anything else** (positions, P/L, payoff curves, a CSV, a CLI's
+- **Anything else** (positions, P/L, payoff curves, a CSV, a tool's
   JSON) needs only a small converter in the package that owns that data,
   producing a series, payoff or labeled list for `financial-chart-plot`.
-  From outside Emacs, emit a JSON spec for `bin/financial-chart`.
+  From outside Emacs, emit bindings JSON for an eas template (see
+  "Charts from the shell").
 - **New chart types** register with `financial-chart-register-kind`; the
-  doctor, `describe` and the CLI pick them up. A new data shape is one
+  doctor and `describe` pick them up. A new data shape is one
   `financial-chart-shapes` entry: `:doc`, `:example`, `:validator`, and
   optionally `:values` (the numbers explain/provenance summarize),
-  `:from-json`/`:to-json` (the CLI's JSON form); a kind may add `:check`
+  `:from-json`/`:to-json` (the JSON form of the data); a kind may add `:check`
   for props that change how data is read. Each built-in kind beyond the
   core ones lives in its own module this way, so adding one never edits
   a core file.
@@ -395,7 +412,6 @@ Source is grouped by responsibility under src/:
 - src/renderers/ — terminal and SVG rendering.
 - src/charts/ — plot interface, chart kinds and multi-series charts.
 - src/integrations/ — ticker and preset bridges.
-- src/cli/ — JSON command-line interface.
 - src/examples/ — Elisp scripts that regenerate chart examples.
 - test/ — ERT tests; examples/ — sample TSMC bars; docs/ — guide and captures.
 
@@ -419,7 +435,7 @@ The interactive engine is its own package, [eas.el](https://github.com/davidawad
 (design, latency budget and Vega-Lite gallery live there; see
 `docs/design/engine.md`). financial-chart requires it (`eas`, Emacs 30.1)
 and registers its adapters, transforms and financial templates on it.
-The Makefile and `bin/financial-chart` look for eas.el at
+The Makefile looks for eas.el at
 `../../Personal/emacs/eas.el`; override with `EAS=/path/to/eas.el`.
 
 ### Chart kinds as eas templates

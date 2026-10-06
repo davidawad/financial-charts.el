@@ -257,6 +257,39 @@ and exits 1. `examples/compose/` has one description per style
 (regenerate with `src/examples/render-compose-examples.el`); their text
 and SVG renderings are goldens in `test/golden/compose/`.
 
+## Live order books: ladder and depth from deltas
+
+Send the book once, then stream deltas. financial-chart keeps the book,
+applies each delta batch and pushes frames through eas streaming. Frames
+are capped and pause while the pointer is over the chart. Two templates
+draw a book: `ladder` (bids left and asks right of a price spine, with a
+spread row) and `depth-live` (cumulative step areas with the mid ruled).
+Both show the mid and the spread and flash levels that just changed.
+
+```elisp
+(require 'financial-chart-eas-book)
+(setq view (financial-chart-book-open
+            (eas-json-read-file "examples/order-book/book.json")
+            :template "ladder" :levels 20 :flash 0.6 :show t))
+(financial-chart-book-push view
+  [(:op "update" :side "bid" :price 100.9375 :size 3.5)
+   (:op "insert" :side "ask" :price 101.03125 :size 1)
+   (:op "delete" :side "ask" :price 101.5)
+   (:side "bid" :price 100.5625 :size 0)])   ; no op: size 0 deletes, else sets
+(financial-chart-book-inspect view)          ; best bid/ask, mid, spread, stream state
+(financial-chart-book-reset view SNAPSHOT)   ; resync after a gap in the feed
+```
+
+Each batch is atomic. An insert of an existing level (`DUPLICATE_LEVEL`),
+an update or delete of a missing one (`UNKNOWN_LEVEL`), a malformed
+delta (`INVALID_DELTA`) or a batch that crosses the book
+(`CROSSED_BOOK`) signals `financial-chart-invalid-book` with `:code`,
+`:index` and `:path`, and the book is left unchanged. The frame cap
+follows the depth: 10 fps up to 50 levels per side, 8 up to 100, and 5
+beyond that. `docs/design/order-book.md` has the design and the measured
+frame costs. `examples/order-book/` holds a book, a delta batch and the
+rows both templates render (`fc-eas example ladder`).
+
 ## Candlesticks
 
 `financial-chart-render` (text), `financial-chart-render-svg` and

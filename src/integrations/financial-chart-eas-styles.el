@@ -233,7 +233,8 @@ exactly there.  lo is min(a, b)."
 (defun financial-chart-styles-fill-layers (ctx rows fill &optional name)
   "Area layers shading ROWS (from `financial-chart-styles-fill-rows') in CTX.
 FILL has :color (one colour) or :above and :below (A above B, A below
-B), and :opacity (default 0.2).  NAME prefixes the layer names."
+B; \"none\" leaves that side unshaded), and :opacity (default 0.2).
+NAME prefixes the layer names."
   (let* ((name (or name "fill"))
          (opacity (or (plist-get fill :opacity) 0.2))
          (x (financial-chart-styles-x ctx))
@@ -251,8 +252,11 @@ B), and :opacity (default 0.2).  NAME prefixes the layer names."
     (when rows
       (if (plist-get fill :color)
           (list (funcall area "band" (plist-get fill :color) "a" "b"))
-        (list (funcall area "above" (or (plist-get fill :above) (plist-get ctx :up)) "a" "lo")
-              (funcall area "below" (or (plist-get fill :below) (plist-get ctx :down)) "b" "lo"))))))
+        (delq nil
+              (list (unless (equal (plist-get fill :above) "none")
+                      (funcall area "above" (or (plist-get fill :above) (plist-get ctx :up)) "a" "lo"))
+                    (unless (equal (plist-get fill :below) "none")
+                      (funcall area "below" (or (plist-get fill :below) (plist-get ctx :down)) "b" "lo"))))))))
 
 (provide 'financial-chart-eas-styles)
 ;;; financial-chart-eas-styles.el ends here

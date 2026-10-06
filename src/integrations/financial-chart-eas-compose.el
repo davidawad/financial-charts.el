@@ -45,6 +45,7 @@
 (require 'financial-chart-eas-series)
 (require 'financial-chart-eas-shift)
 (require 'financial-chart-overlay-indicators)
+(require 'financial-chart-eas-catalog)
 
 (defvar financial-chart-compose-pane-height 70
   "Default height of a pane under the price pane.")
@@ -79,14 +80,15 @@ else bar indices."
       (cond
        ((cl-every #'null times)
         (list bars (number-sequence 0 (1- (length bars))) "quantitative"))
-       (t (list bars
-                (cl-loop for time in times for i from 0
-                         collect (or (and time (eas-time-parse time))
-                                     (financial-chart-series-fail
-                                      (format "/bars/%d/time" i) "INVALID_TIME"
-                                      "Bar %d time %S is not epoch ms or an ISO date; give every bar one, or none"
-                                      i time)))
-                "temporal"))))))
+       (t (let ((xs (cl-loop for time in times for i from 0
+                             collect (or (and time (eas-time-parse time))
+                                         (financial-chart-series-fail
+                                          (format "/bars/%d/time" i) "INVALID_TIME"
+                                          "Bar %d time %S is not epoch ms or an ISO date; give every bar one, or none"
+                                          i time)))))
+            ;; Indicators see epoch ms (calendar pivots bucket by it).
+            (list (cl-mapcar (lambda (b x) (plist-put (copy-sequence b) :time x)) bars xs)
+                  xs "temporal")))))))
 
 (defun financial-chart-compose--rows (bars xs columns)
   "One row per bar of BARS at XS with every (FIELD . VECTOR) of COLUMNS."
@@ -291,6 +293,7 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
 `financial-chart-invalid-chart' with :code and :path on a bad CHART."
   (pcase-let* ((chart (financial-chart-compose-read chart))
                (`(,bars ,xs ,x-type) (financial-chart-compose--bars chart))
+               (chart (financial-chart-catalog-expand chart bars))
                (ctx (financial-chart-compose--context chart bars xs x-type))
                (price (or (financial-chart-series-get chart :price) '(:style "candles")))
                (panes (append (financial-chart-series-get chart :panes) nil))
@@ -397,14 +400,17 @@ eas's help-echo and datum properties."
         :chart '(:bars "bar/v1 rows {time?, open, high, low, close, volume?}, oldest first"
                  :title "string" :description "string" :width "pixels, default container"
                  :colors "{up, down, price}" :crosshair "boolean, default true"
-                 :price "{style, field, color, width, dash, baseline, above, below, height, series, fills, rules}"
-                 :panes "[{series, fills, rules, volume, title, domain, height, id}]")
+                 :price "{style, field, color, width, dash, baseline, above, below, height, series, fills, rules, studies, zones}"
+                 :panes "[{series, fills, rules, volume, title, domain, height, id, study, studies, zones}]")
         :series '(:forms ["\"sma\"" "{indicator, params, output}" "{values, label}" "{field}"]
-                  :keys "id label color width dash style above below"
+                  :keys "id label color width dash style above below shift"
                   :ids "indicator-params (sma-20); each output of a multi-output indicator, or one picked by output, adds .OUTPUT (macd-12-26-9.macd-signal)")
         :series-styles (vconcat financial-chart-series-styles)
         :fills "{between: [A, B], color} or {between: [A, B], above, below, opacity}; A and B are series ids, labels, bar fields or numbers"
         :rules "a number or {y, color, dash, width}"
+        :studies (financial-chart-catalog-describe)
+        :study "a name or {study, params, id, levels}; a pane may be one study: {\"study\": \"rsi\", \"levels\": [80, 20]}"
+        :zones "[{from, to, color, opacity}]: a band shaded between two levels"
         :palette (list :series (vconcat financial-chart-palette) :up financial-chart-palette-up
                        :down financial-chart-palette-down)
         :indicators (vconcat (mapcar (lambda (e) (symbol-name (car e)))

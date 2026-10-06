@@ -63,10 +63,12 @@ else bar indices."
     (condition-case err
         (financial-chart-validate 'ohlc bars)
       (financial-chart-invalid-data
-       (let ((index (plist-get (cddr err) :index)))
+       (let* ((index (plist-get (cddr err) :index))
+              ;; A bad or missing time is the DSL's own INVALID_TIME.
+              (time (equal (format "%s" (plist-get (cddr err) :field)) "time")))
          (signal 'financial-chart-invalid-chart
-                 (list (cadr err) :code "INVALID_BAR" :index index
-                       :path (format "/bars/%s" (or index "")))))))
+                 (list (cadr err) :code (if time "INVALID_TIME" "INVALID_BAR") :index index
+                       :path (format "/bars/%s%s" (or index "") (if time "/time" "")))))))
     (let* ((bars (mapcar (lambda (b) (if (eq (plist-get b :volume) :null)
                                          (plist-put (copy-sequence b) :volume nil)
                                        b))

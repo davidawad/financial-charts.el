@@ -25,6 +25,7 @@
 
 (require 'cl-lib)
 (require 'seq)
+(require 'parse-time)
 (require 'financial-chart-core)
 (require 'financial-chart-series)
 
@@ -106,12 +107,25 @@
       (financial-chart--invalid i "volume" "negative_volume"
                                 "volume must be a non-negative number when present, got %S" volume))))
 
+(defun financial-chart--time-ms (time)
+  "TIME as epoch milliseconds, or nil when it is neither a number nor ISO 8601.
+Declarative JSON may give bar times as epoch milliseconds or as ISO
+8601 dates (\"2026-03-02\") or datetimes (\"2026-03-02T14:30:00Z\")."
+  (cond ((financial-chart--finite-p time) time)
+        ((and (stringp time)
+              (string-match-p "\\`[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\([T ][0-9:.]+\\(Z\\|[+-][0-9:]+\\)?\\)?\\'" time))
+         (let ((parsed (ignore-errors
+                         (parse-iso8601-time-string
+                          (if (string-match-p "[T ]" time) time (concat time "T00:00:00Z"))))))
+           (and parsed (* 1000 (float-time parsed)))))))
+
 (defun financial-chart--validate-ohlc (data)
   "Signal unless DATA is a list of bar/v1 plists, oldest first.
 Each bar has finite :open :high :low :close with high >= max(open,
 close) >= min(open, close) >= low, and a non-negative :volume when
 present.  When any bar has :time, every bar has one (epoch
-milliseconds) and the times strictly increase."
+milliseconds or an ISO 8601 date/datetime) and the times strictly
+increase."
   (unless (proper-list-p data)
     (financial-chart--invalid nil nil "not_a_list" "bars must be a list of bar/v1 plists, got %S" data))
   (let ((timed (cl-some (lambda (bar) (and (proper-list-p bar) (cl-evenp (length bar))
@@ -121,13 +135,14 @@ milliseconds) and the times strictly increase."
     (cl-loop for bar in data for i from 0
              do (financial-chart--validate-bar bar i)
              (when timed
-               (let ((time (plist-get bar :time)))
-                 (unless time
+               (let* ((raw (plist-get bar :time))
+                      (time (financial-chart--time-ms raw)))
+                 (unless raw
                    (financial-chart--invalid i "time" "missing_field"
                                              "other bars carry :time, so every bar needs one"))
-                 (unless (financial-chart--finite-p time)
-                   (financial-chart--invalid i "time" "not_a_number"
-                                             ":time must be epoch milliseconds, got %S" time))
+                 (unless time
+                   (financial-chart--invalid i "time" "invalid_time"
+                                             ":time must be epoch milliseconds or an ISO 8601 date/datetime, got %S" raw))
                  (when (and prev (<= time prev))
                    (financial-chart--invalid i "time" "time_not_increasing"
                                              ":time %s does not follow %s; bars must be oldest first with distinct times"

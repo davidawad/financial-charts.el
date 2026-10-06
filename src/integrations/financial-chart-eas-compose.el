@@ -43,6 +43,8 @@
 (require 'financial-chart-eas-palette)
 (require 'financial-chart-eas-styles)
 (require 'financial-chart-eas-series)
+(require 'financial-chart-eas-shift)
+(require 'financial-chart-overlay-indicators)
 
 (defvar financial-chart-compose-pane-height 70
   "Default height of a pane under the price pane.")
@@ -129,12 +131,14 @@ else bar indices."
                  (_ (financial-chart-styles-line-mark
                      "line" nil (or (plist-get s :width) 1.5) (plist-get s :dash)
                      :interpolate (if (equal style "step") "step-after" "linear"))))))
-    (list :name (format "series-%s" (plist-get s :id))
-          :transform (vector (list :filter (format "isValid(datum.%s)" field)))
-          :mark (cl-loop for (k v) on mark by #'cddr unless (null v) append (list k v))
-          :encoding (list :x (financial-chart-styles-x ctx)
-                          :y (financial-chart-styles-y field)
-                          :color colour))))
+    (append
+     (list :name (format "series-%s" (plist-get s :id)))
+     (financial-chart-shift-layer-data ctx s)
+     (list :transform (vector (list :filter (format "isValid(datum.%s)" field)))
+           :mark (cl-loop for (k v) on mark by #'cddr unless (null v) append (list k v))
+           :encoding (list :x (financial-chart-styles-x ctx)
+                           :y (financial-chart-styles-y field)
+                           :color colour)))))
 
 (defun financial-chart-compose--rule (rule)
   "A reference rule layer of RULE: a number, or {y, color, dash, width}."
@@ -183,7 +187,7 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
          (fills (cl-loop for fill in (plist-get spec :fills) for i from 0
                          append (financial-chart-styles-fill-layers
                                  ctx (financial-chart-styles-fill-rows
-                                      (plist-get ctx :xs) (plist-get fill :a) (plist-get fill :b))
+                                      (financial-chart-shift-xs ctx) (plist-get fill :a) (plist-get fill :b))
                                  (if (or (plist-get fill :color) (plist-get fill :above)
                                          (plist-get fill :below))
                                      fill
@@ -299,6 +303,8 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
                               append (mapcar (lambda (s) (append (list :pane p) s))
                                              (financial-chart-compose--pane-series
                                               pane bars (if (< p 0) "/price" (format "/panes/%d" p)))))))
+               (all (financial-chart-shift-series all (length bars)))
+               (ctx (financial-chart-shift-context ctx all))
                (columns (append (plist-get style :columns)
                                 (cl-remove-duplicates
                                  (mapcar (lambda (s) (cons (plist-get s :column) (plist-get s :values))) all)

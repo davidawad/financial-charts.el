@@ -24,7 +24,8 @@
 ;;   {"field": "close"}                   a column of the bars
 ;;
 ;; plus "id", "label", "color", "width", "dash", "style" (line, step,
-;; histogram, area, dots) and, for histograms, "above"/"below".
+;; histogram, area, dots), "shift" (bars later, or earlier when
+;; negative) and, for histograms, "above"/"below".
 ;; Indicator math runs on the supplied bars through
 ;; `financial-chart-indicator-evaluate'; nothing is fetched.
 
@@ -42,6 +43,9 @@
 
 (defconst financial-chart-series-bar-fields '("open" "high" "low" "close" "volume")
   "Bar columns a series or a fill may name.")
+
+(defconst financial-chart-series-max-shift 500
+  "Most bars a series may be shifted (\"shift\") either way.")
 
 (defun financial-chart-series-get (object key)
   "KEY of parsed JSON OBJECT, with JSON null and false as nil."
@@ -109,6 +113,7 @@ The message is FORMAT-STRING applied to ARGS."
                :key (list name params output)
                :palette (if (assoc output financial-chart-palette-homes) output name)
                :bounds (plist-get out :bounds)
+               :shift (plist-get out :shift)
                :default-style (if (string-suffix-p "histogram" output) "histogram"
                                 (if (eq symbol 'parabolic-sar) "dots" "line"))
                :values (vconcat (financial-chart-series--number-list (plist-get out :values))))))
@@ -149,7 +154,7 @@ The message is FORMAT-STRING applied to ARGS."
 (defun financial-chart-series-resolve (item bars path)
   "Series plists of series entry ITEM over BARS; PATH locates ITEM.
 Each carries :id :label :key :palette :values and ITEM's styling
-:style :color :width :dash :above :below."
+:style :color :width :dash :above :below, and :shift (bars, 0 for none)."
   (let* ((item (if (stringp item) (list :indicator item) item))
          (series (cond ((not (and (listp item) (keywordp (car item))))
                         (financial-chart-series-fail path "INVALID_SERIES"
@@ -163,12 +168,21 @@ Each carries :id :label :key :palette :values and ITEM's styling
                            path "INVALID_SERIES"
                            "A series needs \"indicator\", \"values\" or \"field\"; got keys %S"
                            (cl-loop for (k _) on item by #'cddr collect k)))))
-         (style (financial-chart-series-get item :style)))
+         (style (financial-chart-series-get item :style))
+         (shift (financial-chart-series-get item :shift)))
+    (unless (or (null shift) (and (integerp shift) (<= (abs shift) financial-chart-series-max-shift)))
+      (financial-chart-series-fail (concat path "/shift") "INVALID_SHIFT"
+                                   "shift %S; give a whole number of bars within +/-%d (positive draws later)"
+                                   shift financial-chart-series-max-shift))
     (when (and style (not (member style financial-chart-series-styles)))
       (financial-chart-series-fail (concat path "/style") "UNKNOWN_STYLE"
                                    "Series style %S; styles: %s" style
                                    (string-join financial-chart-series-styles ", ")))
     (mapcar (lambda (s)
+              (let ((shift (or shift (plist-get s :shift) 0)))
+                (unless (zerop shift)
+                  (setq s (plist-put (copy-sequence s) :key (append (plist-get s :key) (list :shift shift)))))
+                (setq s (plist-put (copy-sequence s) :shift shift)))
               (append (list :style (or style (plist-get s :default-style))
                             :color (financial-chart-series-get item :color)
                             :width (financial-chart-series-get item :width)

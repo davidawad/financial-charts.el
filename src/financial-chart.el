@@ -4,7 +4,7 @@
 
 ;; Author: David Awad <me@davidaw.ad>
 ;; Maintainer: David Awad <me@davidaw.ad>
-;; Version: 0.3.0
+;; Version: 0.4.0
 ;; Package-Requires: ((emacs "30.1") (eas "0.1.0"))
 ;; Keywords: data, finance, tools
 ;; URL: https://github.com/davidawad/financial-charts.el
@@ -71,7 +71,7 @@
 (require 'financial-chart-eas)
 (require 'financial-chart-eas-parity)
 
-(defconst financial-chart-version "0.3.0"
+(defconst financial-chart-version "0.4.0"
   "Version of the financial-chart package.")
 
 (defconst financial-chart-entry-points

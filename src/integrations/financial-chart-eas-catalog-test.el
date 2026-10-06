@@ -232,6 +232,37 @@
     (financial-chart-catalog-test--fails "INVALID_STUDY" "/panes/0/values"
       (financial-chart-compose (list :bars bars :panes [(:study "rsi" :values [1 2])])))))
 
+(ert-deftest financial-chart-catalog-malformed-studies-fail-with-their-path ()
+  (let ((bars (vconcat (financial-chart-catalog-test--bars))))
+    ;; One level is only adx's; a string is not an array of characters.
+    (financial-chart-catalog-test--fails "INVALID_STUDY" "/panes/0/levels"
+      (financial-chart-compose (list :bars bars :panes [(:study "rsi" :levels [80])])))
+    (should (financial-chart-compose (list :bars bars :panes [(:study "adx" :levels [20])])))
+    (financial-chart-catalog-test--fails "INVALID_STUDY" "/panes/0/levels"
+      (financial-chart-compose (list :bars bars :panes [(:study "rsi" :levels "x")])))
+    (financial-chart-catalog-test--fails "INVALID_STUDY" "/price/studies/0/params"
+      (financial-chart-compose (list :bars bars :price '(:studies [(:study "bollinger" :params "20")]))))
+    (financial-chart-catalog-test--fails "INVALID_STUDY" "/price/studies/0/id"
+      (financial-chart-compose (list :bars bars :price '(:studies [(:study "bollinger" :id 5)]))))
+    (financial-chart-catalog-test--fails "INVALID_STUDY" "/price/studies"
+      (financial-chart-compose (list :bars bars :price '(:studies "rsi"))))
+    (financial-chart-catalog-test--fails "INVALID_STUDY" "/price/studies"
+      (financial-chart-compose (list :bars bars :price '(:studies (:study "bollinger")))))
+    ;; Supplied values do not skip the parameter check.
+    (financial-chart-catalog-test--fails "INDICATOR_FAILED" "/price/studies/0/params"
+      (financial-chart-compose (list :bars bars :price `(:studies [(:study "ichimoku" :params [9 26 52 "x"]
+                                                                   :values (:tenkan ,(make-vector 80 1)))]))))
+    (financial-chart-catalog-test--fails "INDICATOR_FAILED" "/price/studies/0/params"
+      (financial-chart-compose (list :bars bars :price `(:studies [(:study "psar" :params ["x"]
+                                                                   :values (:below ,(make-vector 80 1)))]))))
+    ;; No route past the shift limit.
+    (financial-chart-catalog-test--fails "INDICATOR_FAILED" "/price/studies/0/params"
+      (financial-chart-compose (list :bars bars :price '(:studies [(:study "ichimoku" :params [9 26 52 5000])]))))
+    (financial-chart-catalog-test--fails "INDICATOR_FAILED" "/price/series/0/params"
+      (financial-chart-compose (list :bars bars :price '(:series [(:indicator "ichimoku" :params [9 26 52 5000])]))))
+    (financial-chart-catalog-test--fails "INVALID_SERIES" "/price/series/0/params"
+      (financial-chart-compose (list :bars bars :price '(:series [(:indicator "sma" :params "20")]))))))
+
 (ert-deftest financial-chart-catalog-is-described ()
   (let ((studies (plist-get (financial-chart-compose-describe) :studies)))
     (should (= (length studies) (length financial-chart-studies)))

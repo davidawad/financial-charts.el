@@ -108,33 +108,49 @@ ID is the study id; BARS the chart's bars; PATH locates the study."
                                               unless (memq k '(:indicator :params :output)) append (list k v))))))
                        (plist-get fragment :series)))))
 
+(defun financial-chart-catalog--array (object key path)
+  "OBJECT's KEY as a list; signal INVALID_STUDY at PATH unless an array."
+  (let ((value (financial-chart-series-get object key)))
+    (unless (or (vectorp value) (and (listp value) (not (keywordp (car value)))))
+      (financial-chart-series-fail (format "%s/%s" path (substring (symbol-name key) 1)) "INVALID_STUDY"
+                                   "%s is an array, got %S" (substring (symbol-name key) 1) value))
+    (append value nil)))
+
 (defun financial-chart-catalog--study (item place bars colours path)
   "The pane fragment of study ITEM in PLACE over BARS; PATH locates ITEM.
 COLOURS is (UP . DOWN)."
   (pcase-let* ((`(,entry . ,object) (financial-chart-catalog--entry item path))
                (`(,name ,where ,indicator ,fn . ,_) entry)
-               (params (append (financial-chart-series-get object :params) nil))
-               (levels (append (financial-chart-series-get object :levels) nil))
+               (params (financial-chart-catalog--array object :params path))
+               (levels (financial-chart-catalog--array object :levels path))
                (values (financial-chart-series-get object :values))
                (id (or (financial-chart-series-get object :id)
                        (mapconcat #'financial-chart-series--slug (cons name params) "-"))))
+    (unless (stringp id)
+      (financial-chart-series-fail (concat path "/id") "INVALID_STUDY" "id is a string, got %S" id))
     (unless (eq where place)
       (financial-chart-series-fail path "STUDY_MISPLACED"
                                    (if (eq where 'price)
                                        "%s is a price overlay; put it in \"price\": {\"studies\": [...]}"
                                      "%s draws its own pane; put it in \"panes\": [{\"study\": ...}]")
                                    name))
-    (unless (and (<= (length levels) 2) (cl-every #'numberp levels))
-      (financial-chart-series-fail (concat path "/levels") "INVALID_STUDY"
-                                   "levels is one or two numbers (upper first), got %S" levels))
-    (unless values
-      (financial-chart-catalog--check-params entry params bars path))
+    (let ((count (if (equal name "adx") 1 2)))
+      (unless (and (memq (length levels) (list 0 count)) (cl-every #'numberp levels))
+        (financial-chart-series-fail (concat path "/levels") "INVALID_STUDY"
+                                     "%s levels are %s, got %S" name
+                                     (if (= count 1) "[one number]" "[upper, lower]") levels)))
+    (financial-chart-catalog--check-params entry params bars path)
     (unless (or (null values) (and (listp values) (keywordp (car values))))
       (financial-chart-series-fail (concat path "/values") "INVALID_STUDY"
                                    "values is an object {PART: [one value or null per bar]}, got %S" values))
     (append (financial-chart-catalog--supplied
-             (funcall fn (list :id id :indicator indicator :params params :levels levels :bars bars
-                               :up (car colours) :down (cdr colours)))
+             (condition-case err
+                 (funcall fn (list :id id :indicator indicator :params params :levels levels :bars bars
+                                   :up (car colours) :down (cdr colours)))
+               ((financial-chart-invalid-chart) (signal (car err) (cdr err)))
+               (error (financial-chart-series-fail (concat path "/params") "INDICATOR_FAILED"
+                                                   "Study %s%S failed: %s" name params
+                                                   (error-message-string err))))
              values id bars path)
             (list :title (concat (or (plist-get (cdr (assq indicator financial-chart-indicator-registry)) :label)
                                      name)
@@ -158,7 +174,13 @@ COLOURS is (UP . DOWN)."
 (defun financial-chart-catalog--pane (pane place bars colours path)
   "PANE (at PATH, in PLACE) with its studies and zones expanded over BARS."
   (let* ((single (and (eq place 'pane) (financial-chart-series-get pane :study)))
-         (items (if single (list pane) (append (financial-chart-series-get pane :studies) nil)))
+         (items (if single (list pane)
+                  (let ((studies (financial-chart-series-get pane :studies)))
+                    (unless (or (vectorp studies) (null studies))
+                      (financial-chart-series-fail (concat path "/studies") "INVALID_STUDY"
+                                                   "studies is an array of study names or objects, got %S"
+                                                   studies))
+                    (append studies nil))))
          (fragments (cl-loop for item in items for i from 0
                              collect (financial-chart-catalog--study
                                       item place bars colours

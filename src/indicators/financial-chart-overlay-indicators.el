@@ -69,6 +69,8 @@ chikou (the close) :shift -DISPLACEMENT, drawn that many bars earlier."
          (kijun (financial-chart-overlay--period kijun 26 "kijun"))
          (senkou (financial-chart-overlay--period senkou 52 "senkou"))
          (displacement (financial-chart-overlay--period displacement 26 "displacement"))
+         (_ (when (> displacement 500)
+              (financial-chart-overlay--fail "displacement must be at most 500 bars, got %d" displacement)))
          (conversion (financial-chart-overlay--midpoints bars tenkan))
          (base (financial-chart-overlay--midpoints bars kijun)))
     (list (list :name 'ichimoku-tenkan :label "Tenkan-sen" :values conversion)

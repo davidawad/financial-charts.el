@@ -83,7 +83,7 @@ PATH locates AT."
 
 (defun financial-chart-annotation--point (ctx point path)
   "POINT, [AT, Y], as (X . Y) in CTX; PATH locates it."
-  (let ((point (append point nil)))
+  (let ((point (and (or (vectorp point) (consp point)) (append point nil))))
     (unless (and (= (length point) 2) (numberp (cadr point)))
       (financial-chart-series-fail path "INVALID_ANNOTATION" "A point is [AT, Y], got %S" point))
     (cons (financial-chart-annotation--x ctx (car point) (concat path "/0")) (cadr point))))
@@ -143,6 +143,7 @@ PATH locates AT."
          (_ (unless (or (financial-chart-annotation--price-pane-p path) (financial-chart-series-get a :y))
               (financial-chart-series-fail (concat path "/y") "INVALID_ANNOTATION"
                                            "A marker outside the price pane needs \"y\" (bars place it only on price)")))
+         (_ (when (financial-chart-series-get a :y) (financial-chart-annotation--number a :y path)))
          (at (financial-chart-series-get a :at))
          (ats (if (or (vectorp at) (consp at)) (append at nil) (list at)))
          (range (financial-chart-annotation--range ctx))
@@ -203,6 +204,9 @@ PATH locates AT."
                (`(,x2 . ,y2) (financial-chart-annotation--point
                               ctx (financial-chart-series-get a :to) (concat path "/to")))
                (extend (or (financial-chart-series-get a :extend) "none"))
+               ;; Left to right, so extending keeps the drawn segment.
+               (`((,x1 . ,y1) (,x2 . ,y2)) (if (<= x1 x2) (list (cons x1 y1) (cons x2 y2))
+                                             (list (cons x2 y2) (cons x1 y1))))
                (xs (financial-chart-shift-xs ctx))
                (slope (if (= x1 x2) 0 (/ (float (- y2 y1)) (- x2 x1))))
                (`(,x1 . ,y1) (if (and (member extend '("left" "both")) (/= x1 x2))
@@ -308,7 +312,7 @@ Ratio 0 is TO (where the move ended), 1 is FROM.  Return (RATIO . PRICE)s."
                  (financial-chart-annotation--point ctx (financial-chart-series-get a :to) (concat path "/to"))
                (cadr swing)))
          (ratios (or (financial-chart-series-get a :levels) financial-chart-fibonacci-ratios))
-         (_ (unless (seq-every-p #'numberp ratios)
+         (_ (unless (and (or (vectorp ratios) (consp ratios)) (seq-every-p #'numberp ratios))
               (financial-chart-series-fail (concat path "/levels") "INVALID_ANNOTATION"
                                            "levels are ratios such as 0.382, got %S" ratios)))
          (levels (financial-chart-fibonacci-levels (cdr from) (cdr to) ratios))

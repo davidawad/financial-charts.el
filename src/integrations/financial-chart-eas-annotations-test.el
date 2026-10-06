@@ -102,6 +102,18 @@
                  1)))
     (should (equal (mapcar (lambda (l) (plist-get l :name)) layers) '("pane-1-annotation-0")))))
 
+(ert-deftest financial-chart-annotation-trendline-keeps-its-segment-whatever-the-order ()
+  (dolist (extend '("right" "left" "both" "none"))
+    (let* ((chart (list :bars (vconcat (cl-loop for i below 10 collect (list :open 100 :high 101 :low 99 :close 100)))
+                        :price (list :annotations (vector (list :type "trendline" :from [6 106] :to [2 102]
+                                                                :extend extend)))))
+           (row (car (financial-chart-annotation-test--rows (car (financial-chart-annotation-test--layers chart))))))
+      (should (<= (plist-get row :time) 2))
+      (should (>= (plist-get row :time2) 6))
+      ;; Slope 1: y = x + 100 all along.
+      (should (= (plist-get row :y) (+ 100 (plist-get row :time))))
+      (should (= (plist-get row :y2) (+ 100 (plist-get row :time2)))))))
+
 (ert-deftest financial-chart-annotation-fibonacci-retraces-the-swing ()
   (should (equal (financial-chart-fibonacci-levels 100 200 [0 0.5 1]) '((0 . 200) (0.5 . 150.0) (1 . 100))))
   ;; The swing runs from the earlier extreme to the later one.
@@ -175,6 +187,17 @@
                                     [(:type "sell" :at "2026-03-02" :y 80)
                                      (:type "fibonacci" :from ["2026-03-02" 20] :to ["2026-04-01" 80])]
                                     t)))
+  ;; Malformed values fail as annotations, never as Lisp type errors.
+  (financial-chart-annotation-test--fails "INVALID_ANNOTATION" "/panes/0/annotations/0/y"
+    (financial-chart-compose (financial-chart-annotation-test--chart [(:type "buy" :at "2026-03-02" :y "a")] t)))
+  (dolist (type '("trendline" "box" "fibonacci"))
+    (financial-chart-annotation-test--fails "INVALID_ANNOTATION" "/price/annotations/0/from"
+      (financial-chart-compose (financial-chart-annotation-test--chart
+                                (vector (list :type type :from 3 :to ["2026-03-03" 2]))))))
+  (dolist (levels '("abc" 5))
+    (financial-chart-annotation-test--fails "INVALID_ANNOTATION" "/price/annotations/0/levels"
+      (financial-chart-compose (financial-chart-annotation-test--chart
+                                (vector (list :type "fibonacci" :levels levels))))))
   ;; A pane of annotations alone draws.
   (should (financial-chart-compose (financial-chart-annotation-test--chart [(:type "level" :y 1)] t))))
 

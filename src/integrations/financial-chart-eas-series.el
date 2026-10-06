@@ -58,6 +58,15 @@ The message is FORMAT-STRING applied to ARGS."
   (signal 'financial-chart-invalid-chart
           (list (apply #'format format-string args) :code code :path path)))
 
+(defun financial-chart-series-array (object key path)
+  "OBJECT's KEY as a list: it must be a JSON array (or absent).
+PATH locates OBJECT."
+  (let ((value (financial-chart-series-get object key)))
+    (unless (or (vectorp value) (and (listp value) (not (keywordp (car value)))))
+      (financial-chart-series-fail (format "%s/%s" path (substring (symbol-name key) 1)) "INVALID_SERIES"
+                                   "%s is an array, got %S" (substring (symbol-name key) 1) value))
+    (append value nil)))
+
 (defun financial-chart-series--number-list (seq)
   "SEQ (a list or vector) as a list of numbers and nils."
   (mapcar (lambda (v) (if (numberp v) v nil)) (append seq nil)))
@@ -73,7 +82,7 @@ The message is FORMAT-STRING applied to ARGS."
   (let* ((name (format "%s" (or (financial-chart-series-get item :indicator)
                                 (financial-chart-series-get item :name))))
          (symbol (intern name))
-         (params (append (financial-chart-series-get item :params) nil))
+         (params (financial-chart-series-array item :params path))
          (entry (assq symbol financial-chart-indicator-registry))
          (wanted (financial-chart-series-get item :output))
          (outputs
@@ -180,6 +189,10 @@ Each carries :id :label :key :palette :values and ITEM's styling
                                    (string-join financial-chart-series-styles ", ")))
     (mapcar (lambda (s)
               (let ((shift (or shift (plist-get s :shift) 0)))
+                (when (> (abs shift) financial-chart-series-max-shift)
+                  (financial-chart-series-fail (concat path "/params") "INVALID_SHIFT"
+                                               "%s shifts %d bars; at most %d either way"
+                                               (plist-get s :label) shift financial-chart-series-max-shift))
                 (unless (zerop shift)
                   (setq s (plist-put (copy-sequence s) :key (append (plist-get s :key) (list :shift shift)))))
                 (setq s (plist-put (copy-sequence s) :shift shift)))

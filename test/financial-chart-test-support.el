@@ -34,5 +34,12 @@
                        (buffer-string))
                      actual)))))
 
+(defmacro eas-test-should-code (code &rest body)
+  "Assert BODY signals an `eas-error' with reason CODE; return its plist."
+  (declare (indent 1))
+  `(let ((err (should-error (progn ,@body) :type 'eas-error)))
+     (should (equal (plist-get (eas-error-plist err) :code) ,code))
+     (eas-error-plist err)))
+
 (provide 'financial-chart-test-support)
 ;;; financial-chart-test-support.el ends here

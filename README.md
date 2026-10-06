@@ -588,9 +588,9 @@ agree; the doctor runs it for every kind.
 
 ### bin/chart is not a runtime dependency
 
-eas draws every chart in Emacs Lisp, as SVG or text. The config
-`bin/chart` (a Vega-Lite build door) is used in only two places, and
-eas works without it:
+eas draws every chart in Emacs Lisp, as SVG or text. A Vega-Lite CLI
+renderer (`bin/chart`, e.g. one built on vl-convert) is used in only two
+places, and eas works without it:
 
 - Test oracle (dev and CI), now in eas.el: its PNGs are the committed
   conformance references.

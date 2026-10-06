@@ -71,6 +71,10 @@ for live views.
    to read a chart yourself; the text renderers are deterministic.
 6. Health: `(financial-chart-doctor-checks)` — eager rows
    `(:name :status pass|fail|skip :detail :remediation)`.
+7. Compose a chart (price style + overlays + fills + oscillator panes):
+   `(financial-chart-compose-describe)`, then
+   `(financial-chart-compose-render CHART :backend 'text)`; examples per
+   style in `examples/compose/` (README, "Composed charts").
 
 ## Changing it
 

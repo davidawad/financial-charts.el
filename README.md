@@ -169,6 +169,94 @@ envelope and exits 1 on failure; `--raw` prints only the data. The
 loaded, which the function above does. The verbs and options are
 documented in eas.el's README and `bin/eas describe verbs`.
 
+## Composed charts: price styles, overlays and panes
+
+`financial-chart-compose` takes one declarative chart description (JSON,
+or the same plist) and compiles it to a single plain eas spec with the
+bars and every derived series inline. The package supplies no data: you
+pass the bars, it checks them, computes indicators from them and draws
+what you declare.
+
+```json
+{"title": "TSM daily",
+ "bars": [{"time": "2026-08-20", "open": 408.6, "high": 417.96, "low": 407.72,
+           "close": 416.0, "volume": 10447900}, ...],
+ "colors": {"up": "#26a69a", "down": "#ef5350"},
+ "price": {"style": "candles",
+           "series": [{"indicator": "sma", "params": [20]},
+                      {"indicator": "sma", "params": [50], "dash": [4, 2]}],
+           "fills": [{"between": ["sma-20", "sma-50"],
+                      "above": "#26a69a", "below": "#ef5350"}]},
+ "panes": [{"volume": true},
+           {"series": [{"indicator": "rsi", "params": [14]}], "rules": [30, 70],
+            "fills": [{"between": ["rsi-14", 70], "color": "#ef5350"}]},
+           {"series": [{"indicator": "macd", "output": "macd"},
+                       {"indicator": "macd", "output": "macd-signal"},
+                       {"indicator": "macd", "output": "macd-histogram",
+                        "above": "#26a69a", "below": "#ef5350"}]}]}
+```
+
+- **Price styles** (`price.style`): `candles` (filled), `hollow` (rising
+  bodies outlined), `heikin-ashi` (computed from the bars), `ohlc` (bars
+  with open/close ticks), `line`, `step`, `area` (mountain) and
+  `baseline` (`baseline` level, default the first close, filled `above`
+  and `below` it). Line styles take `field`, `color`, `width`, `dash`.
+- **Series** (`series` of the price pane or any pane): `"sma"`,
+  `{"indicator", "params", "output"}` (any registered indicator; a
+  multi-output one without `output` gives one series per output),
+  `{"values": [...], "label"}` (one value or null per bar) or
+  `{"field": "high"}`. Each takes `id`, `label`, `color`, `width`, `dash`
+  and `style` (`line`, `step`, `histogram`, `area`, `dots`); histograms
+  take `above`/`below` colours by sign. Ids default to the indicator and
+  its parameters (`sma-20`); an output adds `.OUTPUT`
+  (`bollinger-bands-20-2.bollinger-upper`).
+- **Fills** (`fills`): `{"between": [A, B], "color"}` shades between two
+  series, bar fields or numbers; with `above` and `below` instead, the
+  fill switches colour exactly where A crosses B (crossings are
+  interpolated). `opacity` defaults to 0.2.
+- **Panes** (`panes`): each is `{series, fills, rules, volume, title,
+  domain, height, id}`; `rules` are levels (`[30, 70]` or
+  `{"y", "color", "dash", "width"}`), `domain` fixes the y range (an
+  oscillator with bounds, such as RSI, gets them by default),
+  `"volume": true` draws up/down-coloured volume bars. All panes share
+  the x axis, one crosshair and one zoom; only the bottom one labels
+  dates.
+- **Colours**: each indicator has a home colour in
+  `financial-chart-palette` (SMA blue, EMA orange, RSI purple, ...), the
+  same in every pane and chart; a repeat (SMA 20 then SMA 50) takes the
+  next colour no other series uses. `colors.up`/`colors.down` (or
+  `financial-chart-palette-up`/`-down`) colour candles, volume and
+  baseline fills.
+
+```elisp
+(financial-chart-compose CHART)                     ; the eas spec (plist)
+(financial-chart-compose-render CHART :backend 'text :width 100 :height 30)
+(financial-chart-compose-render "chart.json" :backend 'svg :width 800 :height 500)
+(financial-chart-compose-describe)                  ; styles, forms, palette, indicators
+(financial-chart-compose-example "heikin-ashi")     ; examples/compose/STYLE.json
+```
+
+A bad description signals `financial-chart-invalid-chart` with `:code`
+(`UNKNOWN_STYLE`, `UNKNOWN_INDICATOR`, `UNKNOWN_SERIES`,
+`LENGTH_MISMATCH`, `INVALID_BAR`, ...) and the JSON `:path` of the
+offending entry. From the shell, compile and hand the spec to eas:
+
+```sh
+fc-compose() {
+  emacs -Q --batch -L "$EAS/src" -L "$FC/src" -L "$FC/src/core" -L "$FC/src/indicators" \
+    -L "$FC/src/renderers" -L "$FC/src/charts" -L "$FC/src/integrations" \
+    -l financial-chart -f financial-chart-compose-main -- "$@"
+}
+fc-compose examples/compose/candles.json > candles.vl.json   # plain eas spec
+$EAS/bin/eas render candles.vl.json --backend text --raw
+fc-compose examples/compose/ohlc.json --backend svg --width 800 --height 500 > ohlc.svg
+```
+
+A failure prints `{"ok": false, "reason", "message", "path"}` on stderr
+and exits 1. `examples/compose/` has one description per style
+(regenerate with `src/examples/render-compose-examples.el`); their text
+and SVG renderings are goldens in `test/golden/compose/`.
+
 ## Candlesticks
 
 `financial-chart-render` (text), `financial-chart-render-svg` and

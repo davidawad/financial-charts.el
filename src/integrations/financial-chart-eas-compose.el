@@ -398,6 +398,7 @@ eas's help-echo and datum properties."
   (list :contract "financial-chart/compose/v1"
         :entry-points '(:compile "financial-chart-compose" :render "financial-chart-compose-render"
                         :example "financial-chart-compose-example"
+                  :indicator-example "financial-chart-catalog-example"
                         :shell "financial-chart-compose-main")
         :styles (vconcat (mapcar (lambda (s) (list :name (car s) :doc (cdr s))) financial-chart-styles))
         :chart '(:bars "bar/v1 rows {time?, open, high, low, close, volume?}, oldest first"

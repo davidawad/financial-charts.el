@@ -215,7 +215,7 @@ PATH locates AT."
                                              :x "time" :x2 "time2" :y "y" :y2 "y2"))
      (when label
        (list (financial-chart-annotation--text ctx (concat name "-label") (list (list :time x2 :y y2 :label label))
-                                               colour :align "left" :baseline "bottom" :dy -2))))))
+                                               colour :align "right" :baseline "bottom" :dy -2))))))
 
 (defun financial-chart-annotation--event (ctx a name path)
   "Layers of event A named NAME at PATH in CTX."

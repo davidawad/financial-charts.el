@@ -34,6 +34,7 @@
 (require 'financial-chart-eas-series)
 (require 'financial-chart-eas-palette)
 (require 'financial-chart-eas-studies)
+(require 'eas)
 
 (defconst financial-chart-catalog-zone-color "#90a4ae"
   "Default colour of a zone.")
@@ -162,6 +163,24 @@ BARS are its validated bars (some studies compute from them)."
                                            pane))
                                        panes)))))
     chart))
+
+(defconst financial-chart-catalog-examples-directory
+  (expand-file-name "../../examples/indicators"
+                    (file-name-directory (or load-file-name buffer-file-name)))
+  "Example charts, one per study and kind of annotation (NAME.json).")
+
+(defun financial-chart-catalog-examples ()
+  "Names of the catalog's example charts."
+  (mapcar #'file-name-sans-extension
+          (directory-files financial-chart-catalog-examples-directory nil "\\.json\\'")))
+
+(defun financial-chart-catalog-example (name)
+  "The example chart NAME (a study, markers, annotations or fibonacci), parsed."
+  (let ((file (expand-file-name (format "%s.json" name) financial-chart-catalog-examples-directory)))
+    (unless (file-readable-p file)
+      (financial-chart-series-fail "" "NOT_FOUND" "No indicator example %s; examples: %s" name
+                                   (string-join (financial-chart-catalog-examples) ", ")))
+    (eas-json-read-file file)))
 
 (defun financial-chart-catalog-describe ()
   "The study catalog as JSON-ready data."

@@ -256,6 +256,11 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
           :volume (cl-some (lambda (b) (numberp (plist-get b :volume))) bars)
           :width (or (financial-chart-series-get chart :width) "container"))))
 
+(defun financial-chart-compose--pane-context (ctx p n)
+  "CTX for pane P (-1 for price) of N panes under the price pane.
+Only the bottom pane labels and titles the shared x axis."
+  (append (if (= p (1- n)) (list :x-title "date") (list :x-hidden t)) ctx))
+
 (defun financial-chart-compose--check-panes (panes)
   "Signal unless PANES, the \"panes\" value, is an array of objects."
   (seq-do-indexed (lambda (pane i)
@@ -278,7 +283,9 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
                (price (or (financial-chart-series-get chart :price) '(:style "candles")))
                (panes (append (financial-chart-series-get chart :panes) nil))
                (_ (financial-chart-compose--check-panes panes))
-               (style (financial-chart-styles-price ctx price))
+               (n (length panes))
+               (style (financial-chart-styles-price (financial-chart-compose--pane-context ctx -1 n)
+                                                    price))
                (all (financial-chart-series-finish
                      (cl-loop for pane in (cons price panes) for p from -1
                               append (mapcar (lambda (s) (append (list :pane p) s))
@@ -288,13 +295,12 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
                                 (cl-remove-duplicates
                                  (mapcar (lambda (s) (cons (plist-get s :column) (plist-get s :values))) all)
                                  :key #'car :test #'equal)))
-               (n (length panes))
                (entries
                 (cl-loop for pane in (cons price panes) for p from -1
                          for path = (if (< p 0) "/price" (format "/panes/%d" p))
                          for series = (cl-remove-if-not (lambda (s) (eql (plist-get s :pane) p)) all)
                          for volume = (and (>= p 0) (financial-chart-series-get pane :volume))
-                         for pctx = (append (if (= p (1- n)) (list :x-title "date") (list :x-hidden t)) ctx)
+                         for pctx = (financial-chart-compose--pane-context ctx p n)
                          do (when (and volume (not (plist-get ctx :volume)))
                               (financial-chart-series-fail (concat path "/volume") "NO_VOLUME"
                                                            "A volume pane needs bars with \"volume\""))
@@ -331,13 +337,11 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
                                     (length bars)
                                     (if panes (format " and %d pane%s below" n (if (> n 1) "s" "")) "")))
            :data (list :values (financial-chart-compose--rows bars xs columns))
-           :resolve '(:scale (:x "shared" :y "independent" :color "independent"))
-           :params
-           (if (and (plist-member chart :crosshair)
-                    (not (financial-chart-series-get chart :crosshair)))
-               []
-             (financial-chart-compose--params hits))
-           :vconcat (vconcat entries)))))
+           :resolve '(:scale (:x "shared" :y "independent" :color "independent")))
+     (unless (and (plist-member chart :crosshair)
+                  (not (financial-chart-series-get chart :crosshair)))
+       (list :params (financial-chart-compose--params hits)))
+     (list :vconcat (vconcat entries)))))
 
 (defun financial-chart-compose--params (hits)
   "The shared crosshair and zoom params over the HITS layers."
@@ -375,7 +379,7 @@ eas's help-echo and datum properties."
         :entry-points '(:compile "financial-chart-compose" :render "financial-chart-compose-render"
                         :example "financial-chart-compose-example"
                         :shell "financial-chart-compose-main")
-        :styles (mapcar (lambda (s) (list :name (car s) :doc (cdr s))) financial-chart-styles)
+        :styles (vconcat (mapcar (lambda (s) (list :name (car s) :doc (cdr s))) financial-chart-styles))
         :chart '(:bars "bar/v1 rows {time?, open, high, low, close, volume?}, oldest first"
                  :title "string" :description "string" :width "pixels, default container"
                  :colors "{up, down, price}" :crosshair "boolean, default true"
@@ -383,7 +387,7 @@ eas's help-echo and datum properties."
                  :panes "[{series, fills, rules, volume, title, domain, height, id}]")
         :series '(:forms ["\"sma\"" "{indicator, params, output}" "{values, label}" "{field}"]
                   :keys "id label color width dash style above below"
-                  :ids "indicator-params (sma-20); multi-output adds .OUTPUT (macd-12-26-9.macd-signal)")
+                  :ids "indicator-params (sma-20); each output of a multi-output indicator, or one picked by output, adds .OUTPUT (macd-12-26-9.macd-signal)")
         :series-styles (vconcat financial-chart-series-styles)
         :fills "{between: [A, B], color} or {between: [A, B], above, below, opacity}; A and B are series ids, labels, bar fields or numbers"
         :rules "a number or {y, color, dash, width}"

@@ -83,7 +83,7 @@ The message is FORMAT-STRING applied to ARGS."
             (condition-case err
                 (let ((r (apply #'financial-chart-indicator-evaluate symbol bars params)))
                   (if (keywordp (car r)) (list r) r))
-              (financial-chart-error
+              (error
                (financial-chart-series-fail (concat path "/params") "INDICATOR_FAILED"
                                             "Indicator %s%S failed: %s" name params
                                             (error-message-string err))))))
@@ -98,12 +98,12 @@ The message is FORMAT-STRING applied to ARGS."
          (base-id (or (financial-chart-series-get item :id)
                       (mapconcat #'financial-chart-series--slug (cons name params) "-")))
          (base-label (financial-chart-series-get item :label))
-         (several (cdr outputs)))
+         (several (or (cdr outputs) (and wanted (not (financial-chart-series-get item :id))))))
     (mapcar
      (lambda (out)
        (let ((output (format "%s" (plist-get out :name))))
          (list :id (if several (concat base-id "." output) base-id)
-               :label (cond ((and base-label several) (concat base-label " " output))
+               :label (cond ((and base-label (cdr outputs)) (concat base-label " " output))
                             (base-label)
                             (t (concat (plist-get out :label) suffix)))
                :key (list name params output)

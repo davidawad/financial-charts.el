@@ -65,21 +65,34 @@ keeps one colour across charts."
   "Colours for ENTRIES, a list of (KEY . NAME) in chart order.
 KEY identifies one series (an indicator with its parameters and
 output); NAME is the indicator's name.  Equal KEYs share a colour,
-wherever they appear.  The first KEY of a NAME takes NAME's home
-colour; another KEY of the same NAME takes the next palette colour,
-from the home onward, that no KEY in ENTRIES holds yet.  Return an
-alist (KEY . COLOUR) in first-seen order."
-  (let ((n (length financial-chart-palette))
-        taken result)
-    (dolist (entry (cl-remove-duplicates entries :key #'car :test #'equal :from-end t))
-      (let* ((home (financial-chart-palette-home (cdr entry)))
-             (index (or (cl-loop for step below n
-                                 for i = (mod (+ home step) n)
-                                 unless (memq i taken) return i)
-                        home)))
-        (push index taken)
-        (push (cons (car entry) (nth index financial-chart-palette)) result)))
-    (nreverse result)))
+wherever they appear.  The first KEY of each NAME takes NAME's home
+colour.  Another KEY of the same NAME (SMA 50 after SMA 20) takes the
+next palette colour after the home that is neither held nor the home
+of another NAME in ENTRIES, so a repeat never takes an indicator's own
+colour.  Return an alist (KEY . COLOUR) in first-seen order."
+  (let* ((n (length financial-chart-palette))
+         (keys (cl-remove-duplicates entries :key #'car :test #'equal :from-end t))
+         (homes (mapcar (lambda (e) (financial-chart-palette-home (cdr e))) keys))
+         (index (make-vector (length keys) nil))
+         seen)
+    ;; First of each name: its home.
+    (cl-loop for entry in keys for home in homes for i from 0
+             unless (or (member (cdr entry) seen) (cl-find home index))
+             do (aset index i home)
+             do (push (cdr entry) seen))
+    ;; Repeats: the next free colour, preferring no one's home.
+    (cl-loop for home in homes for i from 0
+             unless (aref index i)
+             do (aset index i
+                      (or (cl-loop for step from 1 to n
+                                   for j = (mod (+ home step) n)
+                                   unless (or (cl-find j index) (memq j homes)) return j)
+                          (cl-loop for step from 1 to n
+                                   for j = (mod (+ home step) n)
+                                   unless (cl-find j index) return j)
+                          home)))
+    (cl-loop for entry in keys for i across index
+             collect (cons (car entry) (nth i financial-chart-palette)))))
 
 (provide 'financial-chart-eas-palette)
 ;;; financial-chart-eas-palette.el ends here

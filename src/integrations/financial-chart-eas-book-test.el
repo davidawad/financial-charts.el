@@ -15,6 +15,7 @@
 (require 'ert)
 (require 'financial-chart-test-support)
 (require 'financial-chart-eas-book)
+(require 'financial-chart-eas-book-bench)
 
 (defun financial-chart-book-test--file (name)
   "The parsed JSON file NAME under examples/order-book/."
@@ -188,6 +189,20 @@
         (should (string-prefix-p "<svg" svg))
         (financial-chart-book-test--golden
          (format "%s.svg" template) (concat (replace-regexp-in-string "><" ">\n<" svg) "\n"))))))
+
+(ert-deftest financial-chart-book-frame-cap-follows-depth ()
+  (should (equal (mapcar #'financial-chart-book-default-fps '(20 50 51 100 200)) '(10 10 8 8 5)))
+  (financial-chart-book-test--live ((deep (financial-chart-book-bench-snapshot 150) :levels 150)
+                                    (capped '(:bids [[1 1]]) :max-fps 3))
+    (should (equal (plist-get (eas-stream-inspect deep) :max-fps) 5))
+    (should (equal (plist-get (eas-stream-inspect deep) :window) 301))
+    (should (equal (plist-get (eas-stream-inspect capped) :max-fps) 3))))
+
+(ert-deftest financial-chart-book-bench-measures-every-part ()
+  (let ((row (financial-chart-book-bench-one 5 'text "depth-live" :frames 2 :deltas 3)))
+    (should (equal (plist-get row :rows) 11))
+    (dolist (key '(:apply :push :draw :frame :worst))
+      (should (and (numberp (plist-get row key)) (>= (plist-get row key) 0))))))
 
 (ert-deftest financial-chart-book-templates-declare-streams ()
   (dolist (template financial-chart-book-templates)

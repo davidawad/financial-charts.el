@@ -65,8 +65,16 @@
 (defvar financial-chart-book-flash 0.6
   "Default seconds a changed level stays flashed; nil turns flashing off.")
 
-(defvar financial-chart-book-max-fps 10
-  "Default frame cap of a live book view.")
+(defvar financial-chart-book-max-fps nil
+  "Frame cap of a live book view; nil picks it from the levels drawn.
+See `financial-chart-book-default-fps'.")
+
+(defun financial-chart-book-default-fps (levels)
+  "The frame cap for LEVELS per side: 10 up to 50, 8 up to 100, else 5.
+Measured byte-compiled frames (docs/design/order-book.md) cost up to
+20, 36 and 75 ms at 50, 100 and 200 levels, so these caps keep a live
+book under about half of one core on either backend."
+  (cond ((<= levels 50) 10) ((<= levels 100) 8) (t 5)))
 
 (defvar financial-chart-book-templates '("ladder" "depth-live")
   "Templates that draw `financial-chart-book-rows'.")
@@ -309,21 +317,22 @@ Each is a plist (:view :book :levels :flash :max-fps :dirty :timer).")
 
 (cl-defun financial-chart-book-open (snapshot &key (template "ladder") levels
                                               (flash financial-chart-book-flash)
-                                              (max-fps financial-chart-book-max-fps)
-                                              title subject size target show)
+                                              max-fps title subject size target show)
   "Open a live eas view of the order book SNAPSHOT and return it.
 SNAPSHOT is as in `financial-chart-book-make' (or a book).  TEMPLATE is
 \"ladder\" or \"depth-live\"; LEVELS per side are drawn (default
 `financial-chart-book-levels'); FLASH seconds highlight changed levels
-\(nil: off); MAX-FPS caps frames.  TITLE fills the template slot;
-SUBJECT, SIZE and TARGET are as in `eas-view-open'; SHOW displays the
-view.  Feed it with `financial-chart-book-push'."
+\(nil: off); MAX-FPS caps frames (default `financial-chart-book-max-fps',
+else `financial-chart-book-default-fps').  TITLE fills the template
+slot; SUBJECT, SIZE and TARGET are as in `eas-view-open'; SHOW displays
+the view.  Feed it with `financial-chart-book-push'."
   (unless (member template financial-chart-book-templates)
     (financial-chart-book--fail "UNKNOWN_TEMPLATE" "/template" nil
                                 "No order-book template %S; templates: %s" template
                                 (string-join financial-chart-book-templates ", ")))
   (let* ((book (if (financial-chart-book-p snapshot) snapshot (financial-chart-book-make snapshot)))
          (levels (or levels financial-chart-book-levels))
+         (max-fps (or max-fps financial-chart-book-max-fps (financial-chart-book-default-fps levels)))
          (rows (financial-chart-book-rows book :levels levels :flash flash))
          (view (eas-view-open template :subject subject :size size :target target
                               :bindings (append (list :data rows) (and title (list :title title))))))

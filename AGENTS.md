@@ -75,6 +75,10 @@ for live views.
    `(financial-chart-compose-describe)`, then
    `(financial-chart-compose-render CHART :backend 'text)`; examples per
    style in `examples/compose/` (README, "Composed charts").
+8. Live order book: `(financial-chart-book-open SNAPSHOT :template
+   "ladder"|"depth-live")`, then `(financial-chart-book-push VIEW
+   DELTAS)`; `financial-chart-book-rows` shows what a frame draws
+   (README, "Live order books"; costs in `docs/design/order-book.md`).
 
 ## Changing it
 

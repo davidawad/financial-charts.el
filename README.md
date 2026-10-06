@@ -221,6 +221,16 @@ what you declare.
   `"volume": true` draws up/down-coloured volume bars. All panes share
   the x axis, one crosshair and one zoom; only the bottom one labels
   dates.
+- **Trading time** (`x`, default `"trading"`): bars with times sit one
+  slot apart on the x axis, so weekends, holidays and overnight hours
+  leave no gaps between candles. The axis still reads as dates: ticks
+  fall on the bars that open a new half hour, hour, day, week, month,
+  quarter or year, the finest unit giving at most 8 ticks (`{"scale":
+  "trading", "ticks": N}` changes the cap); a new year is labelled with
+  the year. The rows carry the bar's slot as `time` and its date as
+  `date` (the crosshair reads the date). `"x": "calendar"` keeps
+  calendar time, gaps and all (`examples/compose/calendar.json`). Bars
+  without times are always on their indices.
 - **Colours**: each indicator has a home colour in
   `financial-chart-palette` (SMA blue, EMA orange, RSI purple, ...), the
   same in every pane and chart; a repeat (SMA 20 then SMA 50) takes the
@@ -238,7 +248,7 @@ what you declare.
 
 A bad description signals `financial-chart-invalid-chart` with `:code`
 (`UNKNOWN_STYLE`, `UNKNOWN_INDICATOR`, `UNKNOWN_SERIES`,
-`LENGTH_MISMATCH`, `INVALID_BAR`, ...) and the JSON `:path` of the
+`LENGTH_MISMATCH`, `INVALID_BAR`, `INVALID_X`, ...) and the JSON `:path` of the
 offending entry. From the shell, compile and hand the spec to eas:
 
 ```sh
@@ -339,8 +349,9 @@ not write by hand, and the result is one plain eas spec.
   shades a band between two levels. A two-colour fill may leave a side
   unshaded with `"above": "none"` or `"below": "none"`.
 - **Shift**: any series takes `"shift": N` bars (negative draws it
-  earlier). A forward shift grows the chart past its last bar at the bar
-  spacing (weekdays for daily bars that skip weekends).
+  earlier). A forward shift grows the chart by N bar slots past its last
+  bar, dated at the bar spacing (weekdays for daily bars that skip
+  weekends) for the axis labels and annotations.
 - **Annotations** (`annotations` of any pane), each with a `type`:
   `buy`/`sell` (arrows under the low or over the high of the bar `at`,
   one time or an array; `y` places them), `level` (`y`, optional
@@ -352,7 +363,9 @@ not write by hand, and the result is one plain eas spec.
   last `window` bars; `levels` are the ratios). Off the price pane,
   markers need `y` and Fibonacci `from` and `to`. All take `label`,
   `color`, `dash`, `width`. `at` is a bar time (ISO date or epoch ms),
-  or a bar index when the bars have no times.
+  or a bar index when the bars have no times. On trading time a date
+  with no bar (a weekend, a holiday) lands on the nearest bar; one
+  outside the bars and their shifted slots is `NO_SUCH_BAR`.
 
 `(financial-chart-compose-describe)` lists the catalog (`:studies`,
 `:annotations`). `examples/indicators/` has one chart per study plus

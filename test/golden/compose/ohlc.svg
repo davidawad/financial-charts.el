@@ -11,6 +11,14 @@
 </defs>
 <rect width="100%" height="100%" fill="#fcfcfb">
 </rect>
+<line x1="49.5" y1="264.09" x2="562.5" y2="264.09" stroke="#c3c2b7" stroke-width="1">
+</line>
+<line x1="193.78" y1="264.09" x2="193.78" y2="268.09" stroke="#c3c2b7" stroke-width="1">
+</line>
+<line x1="334.86" y1="264.09" x2="334.86" y2="268.09" stroke="#c3c2b7" stroke-width="1">
+</line>
+<line x1="469.52" y1="264.09" x2="469.52" y2="268.09" stroke="#c3c2b7" stroke-width="1">
+</line>
 <line x1="49.5" y1="264.09" x2="562.5" y2="264.09" stroke="#e1e0d9" stroke-width="1">
 </line>
 <line x1="49.5" y1="216.05" x2="562.5" y2="216.05" stroke="#e1e0d9" stroke-width="1">
@@ -20,14 +28,6 @@
 <line x1="49.5" y1="119.97" x2="562.5" y2="119.97" stroke="#e1e0d9" stroke-width="1">
 </line>
 <line x1="49.5" y1="71.93" x2="562.5" y2="71.93" stroke="#e1e0d9" stroke-width="1">
-</line>
-<line x1="49.5" y1="264.09" x2="562.5" y2="264.09" stroke="#c3c2b7" stroke-width="1">
-</line>
-<line x1="193.78" y1="264.09" x2="193.78" y2="268.09" stroke="#c3c2b7" stroke-width="1">
-</line>
-<line x1="334.86" y1="264.09" x2="334.86" y2="268.09" stroke="#c3c2b7" stroke-width="1">
-</line>
-<line x1="469.52" y1="264.09" x2="469.52" y2="268.09" stroke="#c3c2b7" stroke-width="1">
 </line>
 <line x1="49.5" y1="33.5" x2="49.5" y2="264.09" stroke="#c3c2b7" stroke-width="1">
 </line>
@@ -534,12 +534,6 @@
 <circle cx="585.5" cy="38.5" r="4.47" fill="transparent" stroke="#2962ff" stroke-width="1.5">
 </circle>
 <text x="595" y="41.5" font-size="11" fill="#52514e" text-anchor="start">SMA 20</text>
-<line x1="49.5" y1="381.5" x2="562.5" y2="381.5" stroke="#e1e0d9" stroke-width="1">
-</line>
-<line x1="49.5" y1="338.29" x2="562.5" y2="338.29" stroke="#e1e0d9" stroke-width="1">
-</line>
-<line x1="49.5" y1="295.09" x2="562.5" y2="295.09" stroke="#e1e0d9" stroke-width="1">
-</line>
 <line x1="49.5" y1="381.5" x2="562.5" y2="381.5" stroke="#c3c2b7" stroke-width="1">
 </line>
 <line x1="193.78" y1="381.5" x2="193.78" y2="385.5" stroke="#c3c2b7" stroke-width="1">
@@ -552,6 +546,12 @@
 </line>
 <text x="469.52" y="398.5" font-size="11" fill="#52514e" text-anchor="middle">Jun</text>
 <text x="306" y="413.5" font-size="12" fill="#52514e" font-weight="normal" text-anchor="middle">date</text>
+<line x1="49.5" y1="381.5" x2="562.5" y2="381.5" stroke="#e1e0d9" stroke-width="1">
+</line>
+<line x1="49.5" y1="338.29" x2="562.5" y2="338.29" stroke="#e1e0d9" stroke-width="1">
+</line>
+<line x1="49.5" y1="295.09" x2="562.5" y2="295.09" stroke="#e1e0d9" stroke-width="1">
+</line>
 <line x1="49.5" y1="295.09" x2="49.5" y2="381.5" stroke="#c3c2b7" stroke-width="1">
 </line>
 <line x1="45.5" y1="381.5" x2="49.5" y2="381.5" stroke="#c3c2b7" stroke-width="1">

@@ -10,7 +10,7 @@
 ;;; Code:
 
 (require 'ert)
-(require 'eas-test-support)
+(require 'financial-chart-test-support)
 (require 'financial-chart)
 
 (defun financial-chart-templates-test--example (kind)
@@ -94,13 +94,14 @@
 					     (eas-data-rows (eas-data-from "bar/v1" bars))))))
 
 (ert-deftest financial-chart-templates-plain-ones-need-no-financial-transforms ()
-  ;; templates/ is pure Vega-Lite over rows, so bin/eas renders every
-  ;; example without financial-chart; templates/financial/ holds the rest.
+  ;; eas.el's own templates are pure Vega-Lite over rows and render
+  ;; every example without financial-chart; financial-chart's own
+  ;; templates/ need its transforms.
   (let ((eas-transforms (seq-remove (lambda (e) (member (car e) '("indicator" "values" "volume-profile")))
                                     eas-transforms)))
     (dolist (name (eas-template-names))
       (let ((template (eas-template-get name)))
-        (unless (string-prefix-p financial-chart-eas-template-directory (plist-get template :path))
+        (unless (string-prefix-p financial-chart-eas-templates-root (plist-get template :path))
           (should (eas-resolve name (eas-template-example name))))))))
 
 (ert-deftest financial-chart-templates-route-is-opt-in ()
@@ -137,7 +138,7 @@
 
 (ert-deftest financial-chart-templates-text-goldens ()
   (dolist (kind (mapcar #'car financial-chart-eas-kinds))
-    (eas-test-golden (format "template-%s.txt" kind)
+    (financial-chart-test-golden (format "template-%s.txt" kind)
                      (substring-no-properties
                       (financial-chart-eas-render kind (financial-chart-templates-test--example kind)
                                                   'text :width 64 :height 16)))))

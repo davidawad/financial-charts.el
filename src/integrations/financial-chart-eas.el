@@ -26,6 +26,10 @@
 ;;               the generic Vega-Lite ones (line, bars, area, ...) come
 ;;               from eas.el
 ;;
+;;   compose     `financial-chart-compose' (financial-chart-eas-compose):
+;;               a declarative chart (price style, overlays, fills,
+;;               oscillator panes) compiled to one plain eas spec
+;;
 ;; eas never refers to financial-chart; dependencies point this way.
 
 ;;; Code:
@@ -224,6 +228,9 @@ The generic ones (line, bars, area, ...) ship with eas.el itself.")
 (dolist (dir (list financial-chart-eas-templates-root financial-chart-eas-template-directory))
   (add-to-list 'eas-template-directories dir t))
 (eas-template-reload)
+
+;; The composition DSL: a chart description compiled to one eas spec.
+(require 'financial-chart-eas-compose)
 
 (provide 'financial-chart-eas)
 ;;; financial-chart-eas.el ends here

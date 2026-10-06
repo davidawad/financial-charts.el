@@ -396,10 +396,20 @@ eas's help-echo and datum properties."
         :indicators (vconcat (mapcar (lambda (e) (symbol-name (car e)))
                                      (reverse financial-chart-indicator-registry)))))
 
+(defun financial-chart-compose-failure (err)
+  "ERR (a condition) as {ok: false, reason, message, path?, index?}."
+  (let ((props (and (stringp (cadr err)) (cddr err))))
+    (append (list :ok :false
+                  :reason (or (plist-get props :code) (symbol-name (car err)))
+                  :message (if (stringp (cadr err)) (cadr err) (error-message-string err)))
+            (when-let* ((path (plist-get props :path))) (list :path path))
+            (when-let* ((index (plist-get props :index))) (list :index index)))))
+
 (defun financial-chart-compose-main ()
   "Batch entry: compile the chart file in `command-line-args-left'.
 Prints the eas spec as JSON, or with --backend text|svg the drawing
-\(--cols/--rows, --width/--height).  Exits 1 with the error on failure."
+\(--cols/--rows, --width/--height).  On failure it prints
+`financial-chart-compose-failure' as JSON on stderr and exits 1."
   (let ((args command-line-args-left) file backend width height)
     (setq command-line-args-left nil)
     (while args
@@ -414,7 +424,7 @@ Prints the eas spec as JSON, or with --backend text|svg the drawing
                    (substring-no-properties
                     (financial-chart-compose-render file :backend backend :width width :height height))
                  (eas-json-pretty (financial-chart-compose file))))
-      (error (message "%s %S" (error-message-string err) (cddr err))
+      (error (message "%s" (eas-json-encode (financial-chart-compose-failure err)))
              (kill-emacs 1)))
     (terpri)))
 

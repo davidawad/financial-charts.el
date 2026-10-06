@@ -317,6 +317,25 @@
     (should (equal (financial-chart-compose file)
                    (financial-chart-compose (financial-chart-compose-example "step"))))))
 
+(ert-deftest financial-chart-compose-shell-door ()
+  (let* ((file (expand-file-name "ohlc.json" financial-chart-compose-examples-directory))
+         (spec (with-output-to-string
+                 (let ((command-line-args-left (list "--" file)))
+                   (financial-chart-compose-main))))
+         (text (with-output-to-string
+                 (let ((command-line-args-left (list file "--backend" "text" "--cols" "50" "--rows" "12")))
+                   (financial-chart-compose-main)))))
+    (should (equal (eas-json-canonical (eas-json-parse spec))
+                   (eas-json-canonical (eas-json-parse (eas-json-encode (financial-chart-compose file))))))
+    (should (string-match-p "OHLC bars" text))
+    (should (string-match-p "%K" text)))
+  (let ((failure (financial-chart-compose-failure
+                  (should-error (financial-chart-compose '(:bars [(:open 1 :high 2 :low 0.5 :close 1.5)]
+                                                           :price (:style "renko")))))))
+    (should (equal (plist-get failure :reason) "UNKNOWN_STYLE"))
+    (should (equal (plist-get failure :path) "/price/style"))
+    (should (eq (plist-get failure :ok) :false))))
+
 (ert-deftest financial-chart-compose-describe-names-every-style-and-indicator ()
   (let ((d (financial-chart-compose-describe)))
     (should (equal (mapcar (lambda (s) (plist-get s :name)) (plist-get d :styles))

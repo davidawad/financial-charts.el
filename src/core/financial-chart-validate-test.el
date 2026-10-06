@@ -74,8 +74,14 @@
   (financial-chart-validate-test--fails '("missing_field" 1 "time") 'ohlc
                                         '((:open 1 :high 2 :low 0 :close 1 :time 10)
                                           (:open 1 :high 2 :low 0 :close 1)))
-  (financial-chart-validate-test--fails '("not_a_number" 0 "time") 'ohlc
-                                        '((:open 1 :high 2 :low 0 :close 1 :time "2026-01-02"))))
+  ;; ISO 8601 dates are times too; anything else is not.
+  (should (financial-chart-validate 'ohlc '((:open 1 :high 2 :low 0 :close 1 :time "2026-01-02")
+                                            (:open 1 :high 2 :low 0 :close 1 :time "2026-01-03"))))
+  (financial-chart-validate-test--fails '("time_not_increasing" 1 "time") 'ohlc
+                                        '((:open 1 :high 2 :low 0 :close 1 :time "2026-01-03")
+                                          (:open 1 :high 2 :low 0 :close 1 :time "2026-01-02")))
+  (financial-chart-validate-test--fails '("invalid_time" 0 "time") 'ohlc
+                                        '((:open 1 :high 2 :low 0 :close 1 :time "yesterday"))))
 
 (ert-deftest financial-chart-validate-test-every-bar-kind-and-entry-point-checks ()
   (let ((bad '((:open 1 :high 0.5 :low 0 :close 1))))

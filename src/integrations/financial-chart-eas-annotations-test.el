@@ -166,6 +166,15 @@
   (financial-chart-annotation-test--fails "INVALID_TIME" "/price/annotations/0/at"
     (financial-chart-compose '(:bars [(:open 1 :high 2 :low 0.5 :close 1.5)]
                                :price (:annotations [(:type "buy" :at "2026-01-01")]))))
+  ;; Off the price pane, markers need y and Fibonacci needs its ends.
+  (financial-chart-annotation-test--fails "INVALID_ANNOTATION" "/panes/0/annotations/0/y"
+    (financial-chart-compose (financial-chart-annotation-test--chart [(:type "buy" :at "2026-03-02")] t)))
+  (financial-chart-annotation-test--fails "INVALID_ANNOTATION" "/panes/0/annotations/0/from"
+    (financial-chart-compose (financial-chart-annotation-test--chart [(:type "fibonacci")] t)))
+  (should (financial-chart-compose (financial-chart-annotation-test--chart
+                                    [(:type "sell" :at "2026-03-02" :y 80)
+                                     (:type "fibonacci" :from ["2026-03-02" 20] :to ["2026-04-01" 80])]
+                                    t)))
   ;; A pane of annotations alone draws.
   (should (financial-chart-compose (financial-chart-annotation-test--chart [(:type "level" :y 1)] t))))
 

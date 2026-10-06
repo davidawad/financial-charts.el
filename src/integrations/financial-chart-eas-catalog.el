@@ -21,8 +21,9 @@
 ;; A study (`financial-chart-studies') becomes series, fills, rules, a
 ;; title and a domain merged into its pane; the pane's own keys stay
 ;; and come after.  A study entry is a name or {"study", "params",
-;; "id", "levels"}; a pane may itself be one study ({"study": ...} with
-;; those keys beside it).  "zones" ({"from", "to", "color", "opacity"})
+;; "id", "levels", "values"}; a pane may itself be one study ({"study":
+;; ...} with those keys beside it).  "values" draws the caller's own
+;; series in the study's dress instead of computing them.  "zones" ({"from", "to", "color", "opacity"})
 ;; become fills between two levels.  Bad entries signal
 ;; `financial-chart-invalid-chart' with :code and the JSON :path.
 
@@ -78,13 +79,45 @@
                                               "Study %s%S failed: %s" (car entry) params
                                               (error-message-string err))))))))
 
+;; A study draws the caller's numbers instead of computing them when
+;; given "values": {PART: [one value or null per bar], ...}; PART is what
+;; follows the study id in a series id ("upper" of bollinger.upper), or
+;; "value" for a one-line study such as rsi.
+(defun financial-chart-catalog--supplied (fragment values id bars path)
+  "FRAGMENT with its series replaced by VALUES, the study's \"values\".
+ID is the study id; BARS the chart's bars; PATH locates the study."
+  (let* ((part (lambda (s) (let ((sid (plist-get s :id)))
+                             (if (equal sid id) "value" (string-remove-prefix (concat id ".") sid)))))
+         (parts (mapcar part (plist-get fragment :series))))
+    (cl-loop for (key vs) on values by #'cddr
+             for name = (substring (symbol-name key) 1)
+             for at = (format "%s/values/%s" path name)
+             do (unless (member name parts)
+                  (financial-chart-series-fail at "INVALID_STUDY" "This study has no series %S; its parts: %s"
+                                               name (string-join parts ", ")))
+             do (unless (and (or (vectorp vs) (consp vs)) (= (length vs) (length bars)))
+                  (financial-chart-series-fail at "LENGTH_MISMATCH"
+                                               "%s has %s values for %d bars; give one per bar (null for none)"
+                                               name (if (sequencep vs) (length vs) "no") (length bars))))
+    (plist-put (copy-sequence fragment) :series
+               (mapcar (lambda (s)
+                         (let ((vs (plist-get values (intern (concat ":" (funcall part s))))))
+                           (if (not vs) s
+                             (append (list :values vs :label (format "%s %s" id (funcall part s)))
+                                     (cl-loop for (k v) on s by #'cddr
+                                              unless (memq k '(:indicator :params :output)) append (list k v))))))
+                       (plist-get fragment :series)))))
+
 (defun financial-chart-catalog--study (item place bars colours path)
   "The pane fragment of study ITEM in PLACE over BARS; PATH locates ITEM.
 COLOURS is (UP . DOWN)."
   (pcase-let* ((`(,entry . ,object) (financial-chart-catalog--entry item path))
                (`(,name ,where ,indicator ,fn . ,_) entry)
                (params (append (financial-chart-series-get object :params) nil))
-               (levels (append (financial-chart-series-get object :levels) nil)))
+               (levels (append (financial-chart-series-get object :levels) nil))
+               (values (financial-chart-series-get object :values))
+               (id (or (financial-chart-series-get object :id)
+                       (mapconcat #'financial-chart-series--slug (cons name params) "-"))))
     (unless (eq where place)
       (financial-chart-series-fail path "STUDY_MISPLACED"
                                    (if (eq where 'price)
@@ -94,11 +127,15 @@ COLOURS is (UP . DOWN)."
     (unless (and (<= (length levels) 2) (cl-every #'numberp levels))
       (financial-chart-series-fail (concat path "/levels") "INVALID_STUDY"
                                    "levels is one or two numbers (upper first), got %S" levels))
-    (financial-chart-catalog--check-params entry params bars path)
-    (append (funcall fn (list :id (or (financial-chart-series-get object :id)
-                                      (mapconcat #'financial-chart-series--slug (cons name params) "-"))
-                              :indicator indicator :params params :levels levels :bars bars
-                              :up (car colours) :down (cdr colours)))
+    (unless values
+      (financial-chart-catalog--check-params entry params bars path))
+    (unless (or (null values) (and (listp values) (keywordp (car values))))
+      (financial-chart-series-fail (concat path "/values") "INVALID_STUDY"
+                                   "values is an object {PART: [one value or null per bar]}, got %S" values))
+    (append (financial-chart-catalog--supplied
+             (funcall fn (list :id id :indicator indicator :params params :levels levels :bars bars
+                               :up (car colours) :down (cdr colours)))
+             values id bars path)
             (list :title (concat (or (plist-get (cdr (assq indicator financial-chart-indicator-registry)) :label)
                                      name)
                                  (if params (concat " " (mapconcat (lambda (p) (format "%s" p)) params ","))
@@ -130,7 +167,7 @@ COLOURS is (UP . DOWN)."
                                                 (append (financial-chart-series-get pane key) nil))))))
     (if (not (or fragments (financial-chart-series-get pane :zones))) pane
       (let ((out (cl-loop for (k v) on pane by #'cddr
-                          unless (memq k '(:study :studies :params :levels :zones :series :fills :rules))
+                          unless (memq k '(:study :studies :params :levels :values :zones :series :fills :rules))
                           append (list k v))))
         (append (list :series (funcall gather :series)
                       :fills (vconcat (financial-chart-catalog--zones pane path) (funcall gather :fills))

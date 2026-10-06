@@ -180,6 +180,58 @@
     (financial-chart-catalog-test--fails "INVALID_ZONE" "/panes/0/zones/0"
       (financial-chart-compose (list :bars bars :panes [(:series ["rsi"] :zones [(:from 30)])])))))
 
+(ert-deftest financial-chart-catalog-studies-draw-supplied-series ()
+  (let* ((bars (vconcat (financial-chart-catalog-test--bars)))
+         (n (length bars))
+         (upper (make-vector n 120)) (lower (make-vector n 90))
+         (spec (financial-chart-compose
+                (list :bars bars :price (list :studies (vector (list :study "bollinger"
+                                                                     :values (list :upper upper :lower lower)))))))
+         (rows (append (plist-get (plist-get spec :data) :values) nil))
+         (price (plist-get (financial-chart-catalog-test--expand
+                            (list :price (list :studies (vector (list :study "bollinger"
+                                                                      :values (list :upper upper))))))
+                           :price))
+         (series (append (plist-get price :series) nil)))
+    ;; The caller's numbers, in the study's dress: colour, shaded channel.
+    (should (cl-every (lambda (r) (equal (plist-get r :s0) 120)) rows))
+    (should (cl-every (lambda (r) (equal (plist-get r :s2) 90)) rows))
+    (should (member "price-fill-0-band" (financial-chart-catalog-test--layers spec 0)))
+    (should (equal (plist-get (car series) :values) upper))
+    (should-not (plist-get (car series) :indicator))
+    (should (equal (plist-get (car series) :label) "bollinger upper"))
+    (should (equal (plist-get (car series) :color) (plist-get (nth 1 series) :color)))
+    ;; Parts not supplied are still computed.
+    (should (equal (plist-get (nth 1 series) :indicator) "bollinger-bands")))
+  ;; A one-line study's part is "value"; supplied ichimoku spans still shift.
+  (let* ((bars (vconcat (financial-chart-catalog-test--bars)))
+         (rsi (make-vector (length bars) 55))
+         (pane (aref (plist-get (financial-chart-catalog-test--expand
+                                 (list :panes (vector (list :study "rsi" :values (list :value rsi)))))
+                                :panes)
+                     0))
+         (spec (financial-chart-compose
+                (list :bars bars :price (list :studies (vector (list :study "ichimoku" :values
+                                                                     (list :senkou-a (make-vector (length bars) 100)))))))))
+    (should (equal (plist-get (aref (plist-get pane :series) 0) :values) rsi))
+    ;; The supplied span starts 26 bars in and runs 26 bars past the last bar.
+    (let ((own (append (plist-get (plist-get (cl-find "series-ichimoku.senkou-a"
+                                                      (plist-get (aref (plist-get spec :vconcat) 0) :layer)
+                                                      :key (lambda (l) (plist-get l :name)) :test #'equal)
+                                             :data)
+                                  :values)
+                       nil)))
+      (should (= (length own) (length bars)))
+      (should (equal (plist-get (car own) :time) (plist-get (aref bars 26) :time)))
+      (should (> (plist-get (car (last own)) :time) (plist-get (aref bars (1- (length bars))) :time)))))
+  (let ((bars (vconcat (financial-chart-catalog-test--bars))))
+    (financial-chart-catalog-test--fails "INVALID_STUDY" "/price/studies/0/values/top"
+      (financial-chart-compose (list :bars bars :price '(:studies [(:study "bollinger" :values (:top [1]))]))))
+    (financial-chart-catalog-test--fails "LENGTH_MISMATCH" "/panes/0/values/value"
+      (financial-chart-compose (list :bars bars :panes [(:study "rsi" :values (:value [1 2]))])))
+    (financial-chart-catalog-test--fails "INVALID_STUDY" "/panes/0/values"
+      (financial-chart-compose (list :bars bars :panes [(:study "rsi" :values [1 2])])))))
+
 (ert-deftest financial-chart-catalog-is-described ()
   (let ((studies (plist-get (financial-chart-compose-describe) :studies)))
     (should (= (length studies) (length financial-chart-studies)))

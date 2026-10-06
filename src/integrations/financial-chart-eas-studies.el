@@ -77,15 +77,20 @@
 
 (defun financial-chart-studies-ichimoku (ctx)
   "Ichimoku in CTX: five lines, the cloud coloured by which span leads."
-  (let ((up (plist-get ctx :up)) (down (plist-get ctx :down)))
+  (let ((up (plist-get ctx :up)) (down (plist-get ctx :down))
+        ;; Explicit, so supplied "values" for the spans shift too.
+        (shift (or (nth 3 (plist-get ctx :params)) 26)))
     (list :series (list (financial-chart-studies--line ctx "ichimoku-tenkan" "tenkan"
                                                        :color (financial-chart-studies--colour 0) :width 1.2)
                         (financial-chart-studies--line ctx "ichimoku-kijun" "kijun"
                                                        :color (financial-chart-studies--colour 2) :width 1.2)
                         (financial-chart-studies--line ctx "ichimoku-chikou" "chikou"
-                                                       :color (financial-chart-studies--colour 7) :width 1)
-                        (financial-chart-studies--line ctx "ichimoku-senkou-a" "senkou-a" :color up :width 1)
-                        (financial-chart-studies--line ctx "ichimoku-senkou-b" "senkou-b" :color down :width 1))
+                                                       :color (financial-chart-studies--colour 7) :width 1
+                                                       :shift (- shift))
+                        (financial-chart-studies--line ctx "ichimoku-senkou-a" "senkou-a" :color up :width 1
+                                                       :shift shift)
+                        (financial-chart-studies--line ctx "ichimoku-senkou-b" "senkou-b" :color down :width 1
+                                                       :shift shift))
           :fills (list (list :between (vector (financial-chart-studies--id ctx "senkou-a")
                                               (financial-chart-studies--id ctx "senkou-b"))
                              :above up :below down :opacity 0.15)))))

@@ -133,9 +133,16 @@ PATH locates AT."
                                 :y (if (plist-get (car rows) :y) (financial-chart-styles-y "y") '(:value 0))
                                 :text (list :field "label")))))
 
+(defun financial-chart-annotation--price-pane-p (path)
+  "Non-nil when annotation PATH is in the price pane."
+  (string-prefix-p "/price/" path))
+
 (defun financial-chart-annotation--marker (ctx a name path)
   "Layers of buy or sell marker A named NAME at PATH in CTX."
   (let* ((buy (equal (financial-chart-series-get a :type) "buy"))
+         (_ (unless (or (financial-chart-annotation--price-pane-p path) (financial-chart-series-get a :y))
+              (financial-chart-series-fail (concat path "/y") "INVALID_ANNOTATION"
+                                           "A marker outside the price pane needs \"y\" (bars place it only on price)")))
          (at (financial-chart-series-get a :at))
          (ats (if (or (vectorp at) (consp at)) (append at nil) (list at)))
          (range (financial-chart-annotation--range ctx))
@@ -285,7 +292,11 @@ Ratio 0 is TO (where the move ended), 1 is FROM.  Return (RATIO . PRICE)s."
 
 (defun financial-chart-annotation--fibonacci (ctx a name path)
   "Layers of Fibonacci retracement A named NAME at PATH in CTX."
-  (let* ((window (financial-chart-series-get a :window))
+  (let* ((_ (unless (or (financial-chart-annotation--price-pane-p path)
+                        (and (financial-chart-series-get a :from) (financial-chart-series-get a :to)))
+              (financial-chart-series-fail (concat path "/from") "INVALID_ANNOTATION"
+                                           "Fibonacci outside the price pane needs \"from\" and \"to\"")))
+         (window (financial-chart-series-get a :window))
          (_ (unless (or (null window) (and (integerp window) (> window 1)))
               (financial-chart-series-fail (concat path "/window") "INVALID_ANNOTATION"
                                            "window is a bar count above 1, got %S" window)))

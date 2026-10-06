@@ -1,8 +1,9 @@
 # AGENTS.md — financial-chart.el
 
 Standalone, publishable Emacs package: every financial chart kind
-(candles, area, line, sparkline, payoff, bars) as text or SVG from plain
-Lisp data. README.md is the full reference.
+(candles, area, line, sparkline, payoff, bars, ...) as text or SVG from
+data the caller supplies, validated strictly and drawn by eas templates.
+It never fetches data. README.md is the full reference.
 
 `eas`, the interactive chart engine, is its own package, eas.el (default
 checkout `../../Personal/emacs/eas.el`; `EAS=` overrides), which this
@@ -53,18 +54,19 @@ for live views.
 
 ### financial-chart kinds
 
-1. Discover: `(financial-chart-describe)` — kinds, shapes, cohorts,
-   presets, entry points by verb, whether market-data is loaded. From a
+1. Discover: `(financial-chart-describe)` — kinds (with their eas
+   template), shapes, cohorts, indicators, entry points by verb. From a
    shell, the eas door with this package's templates loaded:
    `fc-eas describe` (README, "Charts from the shell").
 2. Learn a kind's input: `(financial-chart-describe-kind 'payoff)` or
    `fc-eas example payoff --raw` (bindings `render` accepts as-is).
-3. Check data: `(financial-chart-validate KIND DATA)`; a failure names
-   the bad element's `:index`.
-4. Plan: `(financial-chart-explain KIND DATA &rest PROPS)` gives the exact
-   renderer and args `financial-chart-plot` will use and why that
-   backend. For tickers: `financial-chart-explain-symbol`,
-   `financial-chart-resolve-preset`. None of these draw or fetch.
+3. Check data: `(financial-chart-check KIND DATA)` answers t or
+   `(:code :index :field :message)` naming the bad row and field;
+   `financial-chart-validate` signals the same as
+   `financial-chart-invalid-data`.
+4. Plan: `(financial-chart-explain KIND DATA &rest PROPS)` gives the
+   template, renderer and args `financial-chart-plot` will use and why
+   that backend. It draws nothing.
 5. Render: `financial-chart-plot` / `-plot-spec`. Prefer `:backend 'text`
    to read a chart yourself; the text renderers are deterministic.
 6. Health: `(financial-chart-doctor-checks)` — eager rows
@@ -75,18 +77,23 @@ for live views.
 - `make test` (offline, no display, under a minute) and `make compile`
   (warnings are errors) must pass; both need eas.el (see top). Engine
   gallery, conformance and bench runs belong to eas.el. Template goldens
-  (test/golden/eas-templates/): `EAS_UPDATE_GOLDEN=1 make test`. Golden fixtures: regenerate with
-  `FINANCIAL_CHART_UPDATE_GOLDEN=1 make test` and review the diff.
-- New chart kind: renderers in -text/-svg, then one
-  `financial-chart-kinds` entry (or `financial-chart-register-kind`).
-  The doctor and `describe` pick it up; add a golden fixture.
+  (test/golden/eas-templates/): `EAS_UPDATE_GOLDEN=1 make test`, then
+  review the diff.
+- Rendering is eas's. There is no native renderer: a new chart kind is
+  an eas template (financial ones in `templates/`, generic ones in
+  eas.el) plus one `financial-chart-kinds` entry naming its shape and
+  template (or `financial-chart-register-kind`). The doctor and
+  `describe` pick it up; add a parity check
+  (`financial-chart-eas-parity-checks`) and a template golden.
 - New data shape: one `financial-chart-shapes` entry with a validator
-  that signals `financial-chart-invalid-data` with `:code` and `:index`.
+  that signals `financial-chart-invalid-data` with `:code`, `:index`
+  and `:field` (`financial-chart--invalid`).
 - Errors: `define-error` under `financial-chart-error`, data
   `(MESSAGE :code CODE ...)`, message says how to fix it. Never
   message-and-return-nil.
-- Data sources stay out. market-data.el is soft (`fboundp`, never
-  `require`); broker- or owner-specific adapters belong to the caller.
+- Data sources stay out: no fetching, no ticker lookups, no
+  market-data or broker integration. Callers supply the data; adapters
+  from a broker's format to bar/v1 belong to the caller.
 - Zero references to the owner's personal configuration. This repo is canonical; the
   configuration loads it via `load-path` and carry no copy.
 - Authorized: david, swe.

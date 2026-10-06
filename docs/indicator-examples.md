@@ -8,11 +8,13 @@ they are examples of rendering, not investment recommendations.
 Regenerate all eight captures from the repository root:
 
 ```sh
-emacs -Q --batch -l src/examples/render-indicator-examples.el
+emacs -Q --batch -L ../eas.el/src -l src/examples/render-indicator-examples.el
 ```
 
-The script writes PNGs under `docs/images/indicators/`. Every capture is
-produced by this package's SVG/PNG renderers.
+The script writes PNGs under `docs/images/indicators/` through
+`financial-chart-export-png` (eas's SVG, rasterized by `rsvg-convert` or
+ImageMagick). The committed captures predate the move to eas and were
+drawn by the retired native renderer; rerun the script to refresh them.
 
 ## Candlestick overlays
 
@@ -31,17 +33,14 @@ windows so the lines are visible in the 30-bar sample.
 ### Bollinger Bands
 
 The built-in returns named lower, middle, and upper series. The chart API
-keeps those outputs aligned to the source bars. The two filled regions
-between close and the upper/lower bands use independent configurable colors.
+keeps those outputs aligned to the source bars. (The capture's shaded
+regions came from the retired native renderer; band fills are eas's
+fill-between primitive, not yet wired here.)
 
 ![TSMC candlesticks with Bollinger Bands](images/indicators/bollinger-bands.png)
 
 ```elisp
 (financial-chart-indicator-evaluate 'bollinger-bands bars 10 2)
-
-(setq financial-chart-indicator-bands
-      (list (financial-chart-bollinger-band-spec
-             20 2 "#4c9f70" "#c45b6a" 0.16)))
 ```
 
 ## Oscillators and momentum

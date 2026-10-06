@@ -25,10 +25,12 @@ never refers to financial-chart, dependencies point this way.
 - `templates/`: `ohlc`, `panes`, `depth`, `payoff`, `payoff-curves`,
   `drawdown`, `diverging-bars`, `financial/volume-profile`, each with
   example bindings in `examples/`.
-- `src/integrations/financial-chart-eas-route.el` draws financial-chart
-  kinds through templates (the generic ones, `line`, `bars`, `area`,
+- `src/charts/financial-chart-plot.el` draws every financial-chart kind
+  through its template (the generic ones, `line`, `bars`, `area`,
   `heatmap`, `histogram`, `sparkline`, `multi`, `series-line`, come from
-  eas.el).
+  eas.el); there is no other renderer.
+- `src/integrations/financial-chart-eas-parity.el` checks that each
+  template plots the numbers financial-chart computes.
 - `examples/eas-demo-candles.el`, the candles demo.
 - Tests of the above: `src/integrations/financial-chart-eas*-test.el`,
   `financial-chart-templates-test.el`, goldens in

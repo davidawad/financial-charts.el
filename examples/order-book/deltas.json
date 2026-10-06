@@ -1,0 +1,29 @@
+[
+ {
+  "op": "update",
+  "side": "bid",
+  "price": 100.9375,
+  "size": 3.5
+ },
+ {
+  "op": "insert",
+  "side": "ask",
+  "price": 101.03125,
+  "size": 1.0
+ },
+ {
+  "op": "delete",
+  "side": "ask",
+  "price": 101.5
+ },
+ {
+  "side": "bid",
+  "price": 100.4375,
+  "size": 4.0
+ },
+ {
+  "side": "bid",
+  "price": 100.5625,
+  "size": 0
+ }
+]

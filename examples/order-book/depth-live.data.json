@@ -1,0 +1,193 @@
+{
+  "data": [
+    {
+      "changed": 0,
+      "cumulative": 23.0,
+      "label": "",
+      "level": 7,
+      "mid": 100.984375,
+      "price": 101.4375,
+      "side": "ask",
+      "size": 2.0,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 21.0,
+      "label": "",
+      "level": 6,
+      "mid": 100.984375,
+      "price": 101.375,
+      "side": "ask",
+      "size": 5.5,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 15.5,
+      "label": "",
+      "level": 5,
+      "mid": 100.984375,
+      "price": 101.3125,
+      "side": "ask",
+      "size": 3.0,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 12.5,
+      "label": "",
+      "level": 4,
+      "mid": 100.984375,
+      "price": 101.25,
+      "side": "ask",
+      "size": 4.5,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 8.0,
+      "label": "",
+      "level": 3,
+      "mid": 100.984375,
+      "price": 101.1875,
+      "side": "ask",
+      "size": 2.5,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 5.5,
+      "label": "",
+      "level": 2,
+      "mid": 100.984375,
+      "price": 101.125,
+      "side": "ask",
+      "size": 3.0,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 2.5,
+      "label": "",
+      "level": 1,
+      "mid": 100.984375,
+      "price": 101.0625,
+      "side": "ask",
+      "size": 1.5,
+      "spread": 0.09375
+    },
+    {
+      "changed": 1,
+      "cumulative": 1.0,
+      "label": "",
+      "level": 0,
+      "mid": 100.984375,
+      "price": 101.03125,
+      "side": "ask",
+      "size": 1.0,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 0,
+      "label": "mid 100.984375  spread 0.09375",
+      "level": -1,
+      "mid": 100.984375,
+      "price": 100.984375,
+      "side": "mid",
+      "size": 0,
+      "spread": 0.09375
+    },
+    {
+      "changed": 1,
+      "cumulative": 3.5,
+      "label": "",
+      "level": 0,
+      "mid": 100.984375,
+      "price": 100.9375,
+      "side": "bid",
+      "size": 3.5,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 7.5,
+      "label": "",
+      "level": 1,
+      "mid": 100.984375,
+      "price": 100.875,
+      "side": "bid",
+      "size": 4.0,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 10.5,
+      "label": "",
+      "level": 2,
+      "mid": 100.984375,
+      "price": 100.8125,
+      "side": "bid",
+      "size": 3.0,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 15.5,
+      "label": "",
+      "level": 3,
+      "mid": 100.984375,
+      "price": 100.75,
+      "side": "bid",
+      "size": 5.0,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 18.0,
+      "label": "",
+      "level": 4,
+      "mid": 100.984375,
+      "price": 100.6875,
+      "side": "bid",
+      "size": 2.5,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 24.0,
+      "label": "",
+      "level": 5,
+      "mid": 100.984375,
+      "price": 100.625,
+      "side": "bid",
+      "size": 6.0,
+      "spread": 0.09375
+    },
+    {
+      "changed": 0,
+      "cumulative": 31.0,
+      "label": "",
+      "level": 6,
+      "mid": 100.984375,
+      "price": 100.5,
+      "side": "bid",
+      "size": 7.0,
+      "spread": 0.09375
+    },
+    {
+      "changed": 1,
+      "cumulative": 35.0,
+      "label": "",
+      "level": 7,
+      "mid": 100.984375,
+      "price": 100.4375,
+      "side": "bid",
+      "size": 4.0,
+      "spread": 0.09375
+    }
+  ],
+  "title": "Order book"
+}
+

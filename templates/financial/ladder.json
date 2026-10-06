@@ -1,0 +1,140 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "ladder",
+    "version": "1.0.0",
+    "doc": "Live order-book price ladder: one row per price level, bid size left of the spine and ask size right, the spread row between them, changed levels flashed. Fed by financial-chart-book-open and order-book deltas.",
+    "stream": {
+      "max-fps": 10
+    },
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {side: bid|ask|mid, price, size, cumulative, level, changed, mid, spread, label} from financial-chart-book-rows"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Live order-book price ladder: bids left, asks right, the spread between them.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "height": {
+        "type": "integer",
+        "default": 320,
+        "doc": "pixels; the ladder has one band per level plus the spread row"
+      }
+    },
+    "example": "../examples/order-book/ladder.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": {
+    "x-eas:slot": "height"
+  },
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "calculate": "datum.side == 'bid' ? -datum.size : datum.size",
+      "as": "signed"
+    }
+  ],
+  "encoding": {
+    "y": {
+      "field": "price",
+      "type": "ordinal",
+      "sort": "descending",
+      "title": "price"
+    }
+  },
+  "layer": [
+    {
+      "name": "levels",
+      "mark": {
+        "type": "bar"
+      },
+      "encoding": {
+        "x": {
+          "field": "signed",
+          "type": "quantitative",
+          "title": "size (bids left, asks right)",
+          "axis": {
+            "labelExpr": "abs(datum.value)"
+          }
+        },
+        "color": {
+          "field": "side",
+          "type": "nominal",
+          "scale": {
+            "domain": ["bid", "ask", "mid"],
+            "range": ["#06982d", "#ae1325", "#888888"]
+          },
+          "legend": null
+        },
+        "opacity": {
+          "condition": {
+            "test": "datum.changed == 1",
+            "value": 1
+          },
+          "value": 0.55
+        },
+        "tooltip": [
+          {"field": "side", "type": "nominal"},
+          {"field": "price", "type": "quantitative"},
+          {"field": "size", "type": "quantitative"},
+          {"field": "cumulative", "type": "quantitative"},
+          {"field": "level", "type": "quantitative"}
+        ]
+      }
+    },
+    {
+      "name": "flash",
+      "transform": [
+        {
+          "filter": "datum.changed == 1"
+        }
+      ],
+      "mark": {
+        "type": "text",
+        "text": "◆",
+        "align": "center",
+        "color": "#e8a33d"
+      },
+      "encoding": {
+        "x": {
+          "datum": 0
+        }
+      }
+    },
+    {
+      "name": "spread",
+      "transform": [
+        {
+          "filter": "datum.side == 'mid'"
+        }
+      ],
+      "mark": {
+        "type": "text",
+        "align": "center"
+      },
+      "encoding": {
+        "x": {
+          "datum": 0
+        },
+        "text": {
+          "field": "label"
+        }
+      }
+    }
+  ]
+}

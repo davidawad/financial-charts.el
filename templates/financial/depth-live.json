@@ -1,0 +1,122 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "depth-live",
+    "version": "1.0.0",
+    "doc": "Live cumulative order-book depth: bid size summed down from the best bid, ask size up from the best ask, as step areas, with the mid price ruled and the spread labelled and changed levels flashed. Fed by financial-chart-book-open and order-book deltas.",
+    "stream": {
+      "max-fps": 10
+    },
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {side: bid|ask|mid, price, size, cumulative, level, changed, mid, spread, label} from financial-chart-book-rows"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Live cumulative order-book depth around the mid price.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "height": {
+        "type": "integer",
+        "default": 220
+      }
+    },
+    "example": "../examples/order-book/depth-live.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": {
+    "x-eas:slot": "height"
+  },
+  "data": {
+    "name": "data"
+  },
+  "encoding": {
+    "x": {
+      "field": "price",
+      "type": "quantitative",
+      "scale": {
+        "zero": false
+      },
+      "title": "price"
+    }
+  },
+  "layer": [
+    {
+      "name": "bids",
+      "transform": [{"filter": "datum.side == 'bid'"}],
+      "mark": {"type": "area", "interpolate": "step-before", "color": "#06982d", "opacity": 0.4},
+      "encoding": {
+        "y": {"field": "cumulative", "type": "quantitative", "title": "cumulative size"}
+      }
+    },
+    {
+      "name": "asks",
+      "transform": [{"filter": "datum.side == 'ask'"}],
+      "mark": {"type": "area", "interpolate": "step-after", "color": "#ae1325", "opacity": 0.4},
+      "encoding": {
+        "y": {"field": "cumulative", "type": "quantitative"}
+      }
+    },
+    {
+      "name": "bid-edge",
+      "transform": [{"filter": "datum.side == 'bid'"}],
+      "mark": {"type": "line", "interpolate": "step-before", "color": "#06982d"},
+      "encoding": {
+        "y": {"field": "cumulative", "type": "quantitative"}
+      }
+    },
+    {
+      "name": "ask-edge",
+      "transform": [{"filter": "datum.side == 'ask'"}],
+      "mark": {"type": "line", "interpolate": "step-after", "color": "#ae1325"},
+      "encoding": {
+        "y": {"field": "cumulative", "type": "quantitative"}
+      }
+    },
+    {
+      "name": "flash",
+      "transform": [{"filter": "datum.changed == 1"}],
+      "mark": {"type": "point", "filled": true, "size": 40},
+      "encoding": {
+        "y": {"field": "cumulative", "type": "quantitative"},
+        "color": {
+          "field": "side",
+          "type": "nominal",
+          "scale": {"domain": ["bid", "ask"], "range": ["#06982d", "#ae1325"]},
+          "legend": null
+        },
+        "tooltip": [
+          {"field": "side", "type": "nominal"},
+          {"field": "price", "type": "quantitative"},
+          {"field": "size", "type": "quantitative"},
+          {"field": "cumulative", "type": "quantitative"}
+        ]
+      }
+    },
+    {
+      "name": "mid",
+      "transform": [{"filter": "datum.side == 'mid'"}],
+      "mark": {"type": "rule", "color": "#888888", "strokeDash": [4, 3]}
+    },
+    {
+      "name": "spread",
+      "transform": [{"filter": "datum.side == 'mid'"}],
+      "mark": {"type": "text", "align": "center", "baseline": "top", "y": 2},
+      "encoding": {
+        "text": {"field": "label"}
+      }
+    }
+  ]
+}

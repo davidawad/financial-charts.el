@@ -74,7 +74,10 @@ for live views.
 7. Compose a chart (price style + overlays + fills + oscillator panes):
    `(financial-chart-compose-describe)`, then
    `(financial-chart-compose-render CHART :backend 'text)`; examples per
-   style in `examples/compose/` (README, "Composed charts").
+   style in `examples/compose/` (README, "Composed charts"). Indicators,
+   oscillator panes and annotations are studies and annotations in the
+   same DSL; one example each in `examples/indicators/` (README,
+   "Indicator catalog").
 8. Live order book: `(financial-chart-book-open SNAPSHOT :template
    "ladder"|"depth-live")`, then `(financial-chart-book-push VIEW
    DELTAS)`; `financial-chart-book-rows` shows what a frame draws

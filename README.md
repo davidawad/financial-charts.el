@@ -290,6 +290,91 @@ beyond that. `docs/design/order-book.md` has the design and the measured
 frame costs. `examples/order-book/` holds a book, a delta batch and the
 rows both templates render (`fc-eas example ladder`).
 
+## Indicator catalog: studies, zones and annotations
+
+Every common indicator is one word in a composed chart. The math runs on
+the bars you supply (nothing is fetched); a study expands into the plain
+DSL above (series, fills, rules, zones), so it adds nothing you could
+not write by hand, and the result is one plain eas spec.
+
+```json
+{"bars": [...],
+ "price": {"style": "candles",
+           "studies": ["ichimoku", {"study": "bollinger", "params": [20, 2]}],
+           "annotations": [{"type": "buy", "at": "2026-05-26", "label": "buy"},
+                           {"type": "level", "y": 127.3, "label": "resistance"},
+                           {"type": "fibonacci"}]},
+ "panes": [{"study": "volume", "height": 50},
+           {"study": "rsi", "levels": [80, 20]},
+           {"study": "macd"},
+           {"series": ["cci"], "zones": [{"from": -100, "to": 100}]}]}
+```
+
+- **Overlays** (`price.studies`): `ichimoku` (tenkan, kijun, chikou 26
+  bars back, senkou A/B 26 bars past the last bar with the cloud
+  coloured by which span leads), `bollinger`, `keltner`, `donchian`,
+  `envelopes` (bands with the channel shaded), `vwap-bands` (VWAP with
+  1 and 2 deviation bands), `pivots` (`classic`, `fibonacci`, `woodie`
+  or `camarilla` from the previous `day`, `week`, `month`, `year` or N
+  bars), `supertrend` (the trailing stop in the trend's colour), `psar`
+  (dots up-coloured under price, down-coloured over it) and `ma-ribbon`
+  (`["ema", 10, 20, ...]`, a colour ramp).
+- **Oscillator panes** (`{"study": NAME}` is a pane; `studies` puts
+  several in one): `rsi` (70/30), `stochastic` (80/20), `cci` (±100),
+  `williams-r` (-20/-80), `mfi` (80/20), `ultimate-oscillator` (70/30)
+  each with its reference levels, the zone between them and the
+  overbought/oversold excursions filled; `macd` (line, signal and an
+  up/down histogram on a zero rule), `adx` (ADX, +DI up-coloured, -DI
+  down-coloured, a 25 rule), `aroon`, `obv`, `atr`, `roc`, `momentum`,
+  `cmf` and `volume`.
+- A study takes `params` (the indicator's), `id` (its series are
+  `ID.PART`: `bollinger.upper`, `ichimoku.senkou-a`; the default id is
+  the name and params), `levels` (`[upper, lower]`) and `values`
+  (`{"upper": [...], "lower": [...]}`, or `{"value": [...]}` for a
+  one-line study: your own series, one value or null per bar, drawn in
+  the study's colours, fills and shift instead of computed ones). The
+  pane's own `series`, `fills`, `rules`, `title` and `height` still
+  apply.
+- **Zones** (`zones` of any pane): `{"from", "to", "color", "opacity"}`
+  shades a band between two levels. A two-colour fill may leave a side
+  unshaded with `"above": "none"` or `"below": "none"`.
+- **Shift**: any series takes `"shift": N` bars (negative draws it
+  earlier). A forward shift grows the chart past its last bar at the bar
+  spacing (weekdays for daily bars that skip weekends).
+- **Annotations** (`annotations` of any pane), each with a `type`:
+  `buy`/`sell` (arrows under the low or over the high of the bar `at`,
+  one time or an array; `y` places them), `level` (`y`, optional
+  `from`/`to`), `trendline` (`from` and `to` as `[AT, Y]`, `extend`
+  `right`, `left` or `both`), `event` (a vertical rule at `at`, its
+  `label` at the top), `text` (`label` at `at`, `y`), `box` (`from`,
+  `to`) and `fibonacci` (retracement levels of `from`→`to`, by default
+  the swing between the highest high and lowest low of the bars or the
+  last `window` bars; `levels` are the ratios). Off the price pane,
+  markers need `y` and Fibonacci `from` and `to`. All take `label`,
+  `color`, `dash`, `width`. `at` is a bar time (ISO date or epoch ms),
+  or a bar index when the bars have no times.
+
+`(financial-chart-compose-describe)` lists the catalog (`:studies`,
+`:annotations`). `examples/indicators/` has one chart per study plus
+`markers`, `annotations` and `fibonacci` (regenerate with
+`src/examples/render-indicator-catalog.el`); their text renderings, and
+SVG for eight of them, are goldens in `test/golden/indicators/`.
+
+```elisp
+(financial-chart-catalog-example "ichimoku")      ; examples/indicators/NAME.json
+(financial-chart-compose-render (financial-chart-catalog-example "rsi") :backend 'text)
+```
+
+```sh
+fc-compose examples/indicators/ichimoku.json --backend text --cols 100 --rows 34
+```
+
+Failures carry `:code` and the JSON `:path`: `UNKNOWN_STUDY`,
+`STUDY_MISPLACED` (an oscillator in the price pane or the reverse),
+`INVALID_STUDY`, `INDICATOR_FAILED` (bad `params`), `INVALID_ZONE`,
+`INVALID_SHIFT`, `UNKNOWN_ANNOTATION`, `INVALID_ANNOTATION`,
+`NO_SUCH_BAR` (a marker's `at` names no bar) and `INVALID_TIME`.
+
 ## Candlesticks
 
 `financial-chart-render` (text), `financial-chart-render-svg` and

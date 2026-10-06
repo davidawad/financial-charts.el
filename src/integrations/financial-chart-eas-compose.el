@@ -46,6 +46,7 @@
 (require 'financial-chart-eas-shift)
 (require 'financial-chart-overlay-indicators)
 (require 'financial-chart-eas-catalog)
+(require 'financial-chart-eas-annotations)
 
 (defvar financial-chart-compose-pane-height 70
   "Default height of a pane under the price pane.")
@@ -178,7 +179,7 @@ else bar indices."
 (defun financial-chart-compose--pane (ctx pane spec)
   "PANE's vconcat entry in CTX.
 SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
-:title TITLE :domain DOMAIN)."
+:title TITLE :domain DOMAIN :path PATH)."
   (let* ((series (plist-get spec :series))
          (legend-series (cl-remove-if (lambda (s) (and (equal (plist-get s :style) "histogram")
                                                        (or (plist-get s :above) (plist-get s :below))))
@@ -199,7 +200,8 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
                         (append (financial-chart-series-get pane :rules) nil)))
          (layers (append fills (plist-get spec :base) rules
                          (mapcar (lambda (s) (financial-chart-compose--series-layer ctx s legend))
-                                 series)))
+                                 series)
+                         (financial-chart-annotation-layers ctx pane (plist-get spec :name) (plist-get spec :path))))
          (layers (financial-chart-compose--y-domain layers (plist-get spec :domain))))
     (when-let* ((title (plist-get spec :title)))
       (setq layers (cons (let ((first (car layers)))
@@ -278,9 +280,9 @@ Only the bottom pane labels and titles the shared x axis."
                                     "A pane is an object with \"series\", \"volume\", \"fills\", \"rules\", got %S"
                                     pane))
      (unless (cl-some (lambda (key) (financial-chart-series-get pane key))
-                      '(:series :volume :fills :rules))
+                      '(:series :volume :fills :rules :annotations))
        (financial-chart-series-fail (format "/panes/%d" i) "EMPTY_PANE"
-                                    "Pane %d draws nothing; give it \"series\", \"volume\": true, \"fills\" or \"rules\""
+                                    "Pane %d draws nothing; give it \"series\", \"study\", \"volume\": true, \"fills\", \"rules\" or \"annotations\""
                                     i)))
    panes))
 
@@ -337,6 +339,7 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
                                                  (series (mapconcat (lambda (s) (plist-get s :label))
                                                                     series ", "))))
                                 :domain (financial-chart-compose--pane-domain pane series)
+                                :path path
                                 :series series
                                 :fills (cl-loop for fill in (append (financial-chart-series-get pane :fills) nil)
                                                 for i from 0
@@ -400,8 +403,8 @@ eas's help-echo and datum properties."
         :chart '(:bars "bar/v1 rows {time?, open, high, low, close, volume?}, oldest first"
                  :title "string" :description "string" :width "pixels, default container"
                  :colors "{up, down, price}" :crosshair "boolean, default true"
-                 :price "{style, field, color, width, dash, baseline, above, below, height, series, fills, rules, studies, zones}"
-                 :panes "[{series, fills, rules, volume, title, domain, height, id, study, studies, zones}]")
+                 :price "{style, field, color, width, dash, baseline, above, below, height, series, fills, rules, studies, zones, annotations}"
+                 :panes "[{series, fills, rules, volume, title, domain, height, id, study, studies, zones, annotations}]")
         :series '(:forms ["\"sma\"" "{indicator, params, output}" "{values, label}" "{field}"]
                   :keys "id label color width dash style above below shift"
                   :ids "indicator-params (sma-20); each output of a multi-output indicator, or one picked by output, adds .OUTPUT (macd-12-26-9.macd-signal)")
@@ -411,6 +414,9 @@ eas's help-echo and datum properties."
         :studies (financial-chart-catalog-describe)
         :study "a name or {study, params, id, levels}; a pane may be one study: {\"study\": \"rsi\", \"levels\": [80, 20]}"
         :zones "[{from, to, color, opacity}]: a band shaded between two levels"
+        :annotations (list :types (vconcat financial-chart-annotation-types)
+                           :keys "type at y from to label color dash width extend window levels opacity"
+                           :at "a bar's time (ISO date or epoch ms), or its index when bars have no time")
         :palette (list :series (vconcat financial-chart-palette) :up financial-chart-palette-up
                        :down financial-chart-palette-down)
         :indicators (vconcat (mapcar (lambda (e) (symbol-name (car e)))

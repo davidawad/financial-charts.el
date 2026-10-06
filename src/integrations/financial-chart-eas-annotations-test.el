@@ -54,7 +54,8 @@
     (should (equal (plist-get (plist-get (car layers) :mark) :color) financial-chart-palette-up))
     (should (equal (plist-get (plist-get (nth 2 layers) :mark) :color) "#000000"))
     (should (= (length buys) 2))
-    (should (equal (plist-get (car buys) :time) (eas-time-parse "2026-03-13")))
+    ;; On the trading-time axis a marker sits at its bar's slot.
+    (should (equal (plist-get (car buys) :time) 9))
     (should (< (plist-get (car buys) :y) (plist-get (funcall bar "2026-03-13") :low)))
     (should (> (plist-get sell :y) (plist-get (funcall bar "2026-04-02") :high)))
     (should (equal (plist-get (car buys) :label) "B"))
@@ -73,17 +74,21 @@
          (layers (financial-chart-annotation-test--layers chart))
          (named (lambda (n) (cl-find n layers :key (lambda (l) (plist-get l :name)) :test #'equal)))
          (rows (lambda (n) (financial-chart-annotation-test--rows (funcall named n))))
-         (xs (mapcar (lambda (r) (plist-get r :time)) (plist-get (plist-get spec :data) :values))))
+         (rows-of-spec (append (plist-get (plist-get spec :data) :values) nil))
+         (xs (mapcar (lambda (r) (plist-get r :time)) rows-of-spec))
+         (slot (lambda (date) (plist-get (seq-find (lambda (r) (equal (plist-get r :date) (eas-time-parse date)))
+                                                   rows-of-spec)
+                                         :time))))
     ;; A level spans the chart unless given from/to; its label sits at the end.
     (should (equal (car (funcall rows "price-annotation-0"))
                    (list :time (car xs) :time2 (car (last xs)) :y 105)))
     (should (equal (plist-get (car (funcall rows "price-annotation-0-label")) :label) "R"))
-    (should (equal (plist-get (car (funcall rows "price-annotation-1")) :time) (eas-time-parse "2026-04-01")))
-    ;; A trend line extended right keeps its slope to the last bar.
+    (should (equal (plist-get (car (funcall rows "price-annotation-1")) :time) (funcall slot "2026-04-01")))
+    ;; A trend line extended right keeps its slope, per bar slot, to the last bar.
     (let ((r (car (funcall rows "price-annotation-2")))
-          (slope (/ -1.0 (- (eas-time-parse "2026-05-08") (eas-time-parse "2026-05-01")))))
+          (slope (/ -1.0 (- (funcall slot "2026-05-08") (funcall slot "2026-05-01")))))
       (should (equal (plist-get r :time2) (car (last xs))))
-      (should (< (abs (- (plist-get r :y2) (+ 100 (* slope (- (car (last xs)) (eas-time-parse "2026-05-08"))))))
+      (should (< (abs (- (plist-get r :y2) (+ 100 (* slope (- (car (last xs)) (funcall slot "2026-05-08"))))))
                  1e-9))
       (should (equal (plist-get (plist-get (plist-get (funcall named "price-annotation-2") :encoding) :y2) :field)
                      "y2")))
@@ -93,7 +98,7 @@
     (should (equal (plist-get (car (funcall rows "price-annotation-4")) :label) "note"))
     ;; A box is normalised to low/high corners.
     (should (equal (car (funcall rows "price-annotation-5"))
-                   (list :time (eas-time-parse "2026-04-20") :time2 (eas-time-parse "2026-05-05") :y 103 :y2 106)))
+                   (list :time (funcall slot "2026-04-20") :time2 (funcall slot "2026-05-05") :y 103 :y2 106)))
     (should-not (eas-spec-unsupported spec))
     (should (eq (plist-get (eas-agent "render" (eas-json-encode spec) :backend "text" :cols 70 :rows 20) :ok) t)))
   ;; Annotations work in any pane.

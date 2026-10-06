@@ -8,7 +8,8 @@
 
 ;; Writes examples/compose/STYLE.json, one chart description per price
 ;; style of `financial-chart-compose', over the same 80 synthetic daily
-;; bars (a seeded random walk, so the files never change by accident).
+;; bars (a seeded random walk, so the files never change by accident),
+;; and calendar.json, the candles chart on calendar time.
 ;; Run from the repository root:
 ;;
 ;;   emacs -Q --batch -L ../eas.el/src -L src -L src/core -L src/indicators \
@@ -97,6 +98,14 @@
       (financial-chart-compose chart)
       (with-temp-file (expand-file-name (concat style ".json") dir)
         (insert (eas-json-pretty chart) "\n"))
-      (message "wrote examples/compose/%s.json" style))))
+      (message "wrote examples/compose/%s.json" style)))
+  ;; The candles example on calendar time: weekends leave gaps.
+  (let ((chart (append (list :x "calendar")
+                       (plist-put (copy-sequence (financial-chart-compose-example "candles"))
+                                  :title "Calendar time: the candles example with its weekend gaps"))))
+    (financial-chart-compose chart)
+    (with-temp-file (expand-file-name "calendar.json" dir)
+      (insert (eas-json-pretty chart) "\n"))
+    (message "wrote examples/compose/calendar.json")))
 
 ;;; render-compose-examples.el ends here

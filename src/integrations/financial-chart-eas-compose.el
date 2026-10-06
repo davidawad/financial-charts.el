@@ -28,7 +28,10 @@
 ;;
 ;; The price pane draws a price style (`financial-chart-styles') with
 ;; overlays; each entry of "panes" is one more pane under it.  Every
-;; pane shares the x axis, one crosshair and one zoom.  Series, fills
+;; pane shares the x axis, one crosshair and one zoom.  Bars with times
+;; sit on a trading-time axis (one slot per bar, no weekend or overnight
+;; gaps, date labels) unless "x": "calendar"
+;; (`financial-chart-eas-trading-time').  Series, fills
 ;; and colours are `financial-chart-eas-series' and
 ;; `financial-chart-eas-palette'.  A bad description signals
 ;; `financial-chart-invalid-chart' with :code and the JSON :path.
@@ -47,6 +50,7 @@
 (require 'financial-chart-overlay-indicators)
 (require 'financial-chart-eas-catalog)
 (require 'financial-chart-eas-annotations)
+(require 'financial-chart-eas-trading-time)
 
 (defvar financial-chart-compose-pane-height 70
   "Default height of a pane under the price pane.")
@@ -91,11 +95,13 @@ else bar indices."
             (list (cl-mapcar (lambda (b x) (plist-put (copy-sequence b) :time x)) bars xs)
                   xs "temporal")))))))
 
-(defun financial-chart-compose--rows (bars xs columns)
-  "One row per bar of BARS at XS with every (FIELD . VECTOR) of COLUMNS."
+(defun financial-chart-compose--rows (bars xs columns &optional dates)
+  "One row per bar of BARS at XS with every (FIELD . VECTOR) of COLUMNS.
+DATES, the bars' epoch ms on a trading-time axis, add a date field."
   (vconcat
    (cl-loop for bar in bars for x in xs for i from 0
             collect (append (list :time x)
+                            (when dates (list :date (aref dates i)))
                             (cl-loop for key in '(:open :high :low :close :volume)
                                      append (list key (or (plist-get bar key) :null)))
                             (cl-loop for (field . values) in columns
@@ -160,7 +166,8 @@ else bar indices."
         (list :x (financial-chart-styles-x ctx)
               :tooltip
               (vconcat
-               (list (list :field "time" :type (plist-get ctx :x-type) :title "date"))
+               (list (if (plist-get ctx :times) '(:field "date" :type "temporal" :title "date")
+                       (list :field "time" :type (plist-get ctx :x-type) :title "date")))
                (mapcar (lambda (f) (list :field f :type "quantitative"))
                        (if (plist-get ctx :volume) '("open" "high" "low" "close" "volume")
                          '("open" "high" "low" "close")))
@@ -236,7 +243,8 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
 (defconst financial-chart-compose-examples-directory
   (expand-file-name "../../examples/compose"
                     (file-name-directory (or load-file-name buffer-file-name)))
-  "Example chart descriptions, one per price style (STYLE.json).")
+  "Example chart descriptions, one per price style (STYLE.json).
+calendar.json is the candles example on calendar time.")
 
 (defun financial-chart-compose-read (chart)
   "CHART as a parsed description: a plist, a JSON string or a JSON file."
@@ -256,15 +264,23 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
            append (financial-chart-series-resolve item bars (format "%s/series/%d" path i))))
 
 (defun financial-chart-compose--context (chart bars xs x-type)
-  "The layer-building context of CHART over BARS at XS on an X-TYPE axis."
-  (let ((colors (financial-chart-series-get chart :colors)))
-    (list :bars bars :xs (vconcat xs) :x-type x-type
+  "The layer-building context of CHART over BARS at XS on an X-TYPE axis.
+On a trading-time axis (temporal XS, CHART's \"x\" not calendar) the
+x positions become bar ordinals and :times keeps XS."
+  (let* ((colors (financial-chart-series-get chart :colors))
+         (options (financial-chart-trading-options chart))
+         (trading (and (equal x-type "temporal") (equal (car options) "trading"))))
+    (append
+     (when trading
+       (list :times (vconcat xs) :max-ticks (cdr options)))
+     (list :bars bars :xs (if trading (vconcat (number-sequence 0 (1- (length xs)))) (vconcat xs))
+          :x-type (if trading "quantitative" x-type)
           :up (or (financial-chart-series-get colors :up) financial-chart-palette-up)
           :down (or (financial-chart-series-get colors :down) financial-chart-palette-down)
           :price-color (or (financial-chart-series-get colors :price) financial-chart-palette-price)
           :closes (vconcat (mapcar (lambda (b) (plist-get b :close)) bars))
           :volume (cl-some (lambda (b) (numberp (plist-get b :volume))) bars)
-          :width (or (financial-chart-series-get chart :width) "container"))))
+          :width (or (financial-chart-series-get chart :width) "container")))))
 
 (defun financial-chart-compose--pane-context (ctx p n)
   "CTX for pane P (-1 for price) of N panes under the price pane.
@@ -301,15 +317,15 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
                (panes (append (financial-chart-series-get chart :panes) nil))
                (_ (financial-chart-compose--check-panes panes))
                (n (length panes))
-               (style (financial-chart-styles-price (financial-chart-compose--pane-context ctx -1 n)
-                                                    price))
                (all (financial-chart-series-finish
                      (cl-loop for pane in (cons price panes) for p from -1
                               append (mapcar (lambda (s) (append (list :pane p) s))
                                              (financial-chart-compose--pane-series
                                               pane bars (if (< p 0) "/price" (format "/panes/%d" p)))))))
                (all (financial-chart-shift-series all (length bars)))
-               (ctx (financial-chart-shift-context ctx all))
+               (ctx (financial-chart-trading-context (financial-chart-shift-context ctx all)))
+               (style (financial-chart-styles-price (financial-chart-compose--pane-context ctx -1 n)
+                                                    price))
                (columns (append (plist-get style :columns)
                                 (cl-remove-duplicates
                                  (mapcar (lambda (s) (cons (plist-get s :column) (plist-get s :values))) all)
@@ -356,7 +372,8 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
                                     (if all (format " with %d series" (length all)) "")
                                     (length bars)
                                     (if panes (format " and %d pane%s below" n (if (> n 1) "s" "")) "")))
-           :data (list :values (financial-chart-compose--rows bars xs columns))
+           :data (list :values (financial-chart-compose--rows bars (append (plist-get ctx :xs) nil) columns
+                                                              (plist-get ctx :times)))
            :resolve '(:scale (:x "shared" :y "independent" :color "independent")))
      (unless (and (plist-member chart :crosshair)
                   (not (financial-chart-series-get chart :crosshair)))
@@ -385,7 +402,8 @@ eas's help-echo and datum properties."
     (if (eq backend 'text) (eas-text-render scene) (eas-svg-render scene))))
 
 (defun financial-chart-compose-example (&optional style)
-  "The example description for price STYLE (default candles), parsed."
+  "The example description for price STYLE (default candles), parsed.
+STYLE may also be \"calendar\": the candles example on calendar time."
   (let ((file (expand-file-name (format "%s.json" (or style "candles"))
                                 financial-chart-compose-examples-directory)))
     (unless (file-readable-p file)
@@ -403,6 +421,7 @@ eas's help-echo and datum properties."
         :styles (vconcat (mapcar (lambda (s) (list :name (car s) :doc (cdr s))) financial-chart-styles))
         :chart '(:bars "bar/v1 rows {time?, open, high, low, close, volume?}, oldest first"
                  :title "string" :description "string" :width "pixels, default container"
+                 :x "\"trading\" (default: one slot per bar, no non-trading gaps, date ticks), \"calendar\" (dates to scale) or {scale, ticks}"
                  :colors "{up, down, price}" :crosshair "boolean, default true"
                  :price "{style, field, color, width, dash, baseline, above, below, height, series, fills, rules, studies, zones, annotations}"
                  :panes "[{series, fills, rules, volume, title, domain, height, id, study, studies, zones, annotations}]")
@@ -417,7 +436,7 @@ eas's help-echo and datum properties."
         :zones "[{from, to, color, opacity}]: a band shaded between two levels"
         :annotations (list :types (vconcat financial-chart-annotation-types)
                            :keys "type at y from to label color dash width extend window levels opacity"
-                           :at "a bar's time (ISO date or epoch ms), or its index when bars have no time")
+                           :at "a bar's time (ISO date or epoch ms; on trading time a date with no bar takes the nearest), or its index when bars have no time")
         :palette (list :series (vconcat financial-chart-palette) :up financial-chart-palette-up
                        :down financial-chart-palette-down)
         :indicators (vconcat (mapcar (lambda (e) (symbol-name (car e)))

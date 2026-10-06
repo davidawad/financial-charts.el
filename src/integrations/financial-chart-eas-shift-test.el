@@ -51,7 +51,7 @@
     (should (= (length rows) 48))
     (should (= (length own) (- 51 7)))
     (should (equal (plist-get (car (last own)) :s1) (car (last sma))))
-    (should (> (plist-get (car (last own)) :time) (plist-get (car (last bars)) :time)))
+    (should (= (plist-get (car (last own)) :time) 50))
     ;; An unshifted series reads the shared rows.
     (should-not (plist-get (financial-chart-shift-test--layer spec 0 "series-sma-5") :data))
     (should (stringp (financial-chart-compose-render

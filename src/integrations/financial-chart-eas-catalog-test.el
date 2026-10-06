@@ -66,6 +66,7 @@
   (let* ((bars (vconcat (financial-chart-catalog-test--bars)))
          (spec (financial-chart-compose (list :bars bars :colors '(:up "#00ff00" :down "#ff0000")
                                               :price '(:studies ["ichimoku"]))))
+         (calendar (financial-chart-compose (list :bars bars :x "calendar" :price '(:studies ["ichimoku"]))))
          (layers (append (plist-get (aref (plist-get spec :vconcat) 0) :layer) nil))
          (above (cl-find "price-fill-0-above" layers :key (lambda (l) (plist-get l :name)) :test #'equal))
          (below (cl-find "price-fill-0-below" layers :key (lambda (l) (plist-get l :name)) :test #'equal))
@@ -73,8 +74,17 @@
          (cloud (append (plist-get (plist-get above :data) :values) nil)))
     (should (equal (plist-get (plist-get above :mark) :color) "#00ff00"))
     (should (equal (plist-get (plist-get below :mark) :color) "#ff0000"))
-    ;; The cloud runs 26 (week)days past the last bar.
-    (should (equal (plist-get (car (last cloud)) :time)
+    ;; The cloud runs 26 bar slots past the last bar; on a calendar
+    ;; axis, 26 weekdays.
+    (should (equal (plist-get (car (last cloud)) :time) (+ (length bars) 25)))
+    (should (equal (plist-get (car (last (append (plist-get (plist-get (cl-find "price-fill-0-above"
+                                                                                (plist-get (aref (plist-get calendar :vconcat) 0) :layer)
+                                                                                :key (lambda (l) (plist-get l :name))
+                                                                                :test #'equal)
+                                                                       :data)
+                                                              :values)
+                                                   nil)))
+                              :time)
                    (car (last (financial-chart-shift-future-xs xs "temporal" 26)))))
     (should (equal (seq-take (seq-drop (financial-chart-catalog-test--layers spec 0) 4) 5)
                    '("series-ichimoku.tenkan" "series-ichimoku.kijun" "series-ichimoku.chikou"
@@ -222,8 +232,9 @@
                                   :values)
                        nil)))
       (should (= (length own) (length bars)))
-      (should (equal (plist-get (car own) :time) (plist-get (aref bars 26) :time)))
-      (should (> (plist-get (car (last own)) :time) (plist-get (aref bars (1- (length bars))) :time)))))
+      ;; On the trading-time axis x is the bar's slot.
+      (should (equal (plist-get (car own) :time) 26))
+      (should (= (plist-get (car (last own)) :time) (+ (length bars) 25)))))
   (let ((bars (vconcat (financial-chart-catalog-test--bars))))
     (financial-chart-catalog-test--fails "INVALID_STUDY" "/price/studies/0/values/top"
       (financial-chart-compose (list :bars bars :price '(:studies [(:study "bollinger" :values (:top [1]))]))))

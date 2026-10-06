@@ -4,7 +4,8 @@
 
 ;; fc-gbo.2: a declarative chart (price style, overlays, fills, panes)
 ;; compiles to one plain eas spec.  Every price style has an example
-;; (examples/compose/STYLE.json) with text and SVG goldens under
+;; (examples/compose/STYLE.json, and calendar.json for calendar time)
+;; with text and SVG goldens under
 ;; test/golden/compose/; EAS_UPDATE_GOLDEN=1 (or
 ;; FINANCIAL_CHART_UPDATE_GOLDEN=1) rewrites them.
 
@@ -68,8 +69,12 @@
                              :ok)
                   t)))))
 
+(defun financial-chart-compose-test--examples ()
+  "Every example name: one per price style, then calendar (candles on calendar time)."
+  (append (mapcar #'car financial-chart-styles) '("calendar")))
+
 (ert-deftest financial-chart-compose-text-goldens ()
-  (dolist (style (mapcar #'car financial-chart-styles))
+  (dolist (style (financial-chart-compose-test--examples))
     (financial-chart-compose-test--golden
      (format "%s.txt" style)
      (substring-no-properties
@@ -77,7 +82,7 @@
                                       :width 90 :height 30)))))
 
 (ert-deftest financial-chart-compose-svg-goldens ()
-  (dolist (style (mapcar #'car financial-chart-styles))
+  (dolist (style (financial-chart-compose-test--examples))
     (let ((svg (financial-chart-compose-render (financial-chart-compose-example style)
                                                :backend 'svg :width 640 :height 420)))
       (should (string-prefix-p "<svg" svg))
@@ -110,7 +115,9 @@
                                                     :encoding)
                                          :x)
                               :axis)
-                   '(:labels :false)))
+                   '(:values [22 44 65]
+                     :labelExpr "datum.value == 22 ? 'Apr' : datum.value == 44 ? 'May' : datum.value == 65 ? 'Jun' : ''"
+                     :labels :false)))
     (should (equal (plist-get (plist-get (plist-get (financial-chart-compose-test--layer spec 3 "pane-3-hit")
                                                     :encoding)
                                          :x)
@@ -137,7 +144,9 @@
          (upper (plist-get (car (financial-chart-indicator-evaluate 'bollinger-bands bars)) :values))
          (rsi (plist-get (financial-chart-indicator-evaluate 'rsi bars) :values)))
     (should (= (length rows) 48))
-    (should (equal (mapcar (lambda (r) (plist-get r :time)) rows)
+    ;; Each row sits at its bar's slot and carries the bar's date.
+    (should (equal (mapcar (lambda (r) (plist-get r :time)) rows) (number-sequence 0 47)))
+    (should (equal (mapcar (lambda (r) (plist-get r :date)) rows)
                    (mapcar (lambda (b) (plist-get b :time)) bars)))
     (cl-loop for (col . expected) in `((:s0 . ,sma) (:s1 . ,upper) (:s4 . ,rsi))
              do (should (equal (mapcar (lambda (r) (let ((v (plist-get r col))) (if (eq v :null) nil v)))
@@ -341,6 +350,7 @@
     (should (equal (mapcar (lambda (s) (plist-get s :name)) (plist-get d :styles))
                    (mapcar #'car financial-chart-styles)))
     (should (seq-contains-p (plist-get d :indicators) "rsi"))
+    (should (string-match-p "\"calendar\"" (plist-get (plist-get d :chart) :x)))
     (should (stringp (eas-json-encode d)))
     (dolist (style (mapcar #'car financial-chart-styles))
       (should (file-exists-p (expand-file-name (concat style ".json")

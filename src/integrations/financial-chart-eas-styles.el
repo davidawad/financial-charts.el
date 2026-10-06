@@ -21,12 +21,14 @@
 ;;                 where it is below switches exactly where they cross
 ;;
 ;; Everything here is pure: bars in, plists out.  The rows carry the x
-;; position as a number (epoch ms, or the bar index without times).
+;; position as a number: the bar's slot on a trading-time axis, epoch ms
+;; on a calendar one, the bar index without times.
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'seq)
+(require 'subr-x)
 (require 'financial-chart-core)
 
 (define-error 'financial-chart-invalid-chart
@@ -48,10 +50,14 @@
 (defun financial-chart-styles-x (ctx)
   "The x encoding of CTX's rows.
 CTX's :x-title titles the axis; :x-hidden drops its labels (a pane
-above the bottom one)."
-  (append (list :field "time" :type (plist-get ctx :x-type)
-                :title (or (plist-get ctx :x-title) :null))
-          (when (plist-get ctx :x-hidden) (list :axis '(:labels :false)))))
+above the bottom one).  On a trading-time axis CTX's :x-scale and
+:x-axis place the bar slots and their date ticks."
+  (let ((axis (append (plist-get ctx :x-axis)
+                      (when (plist-get ctx :x-hidden) '(:labels :false)))))
+    (append (list :field "time" :type (plist-get ctx :x-type)
+                  :title (or (plist-get ctx :x-title) :null))
+            (when-let* ((scale (plist-get ctx :x-scale))) (list :scale scale))
+            (when axis (list :axis axis)))))
 
 (defun financial-chart-styles-y (field &optional title)
   "A quantitative y encoding of FIELD with an unzeroed scale and TITLE."

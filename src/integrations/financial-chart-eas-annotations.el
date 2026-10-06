@@ -26,6 +26,9 @@
 ;;               (or the last "window" bars), "levels" ratios
 ;;
 ;; Each takes "label", "color", "dash" and "width" where they apply.
+;; On a trading-time axis a time names the bar at it, or the nearest
+;; bar (a weekend event lands on Friday's or Monday's); a time outside
+;; the bars (and the slots of forward shifts) is NO_SUCH_BAR.
 ;; A bad one signals `financial-chart-invalid-chart' with :code and the
 ;; JSON :path.
 
@@ -38,6 +41,7 @@
 (require 'financial-chart-eas-series)
 (require 'financial-chart-eas-styles)
 (require 'financial-chart-eas-shift)
+(require 'financial-chart-eas-trading-time)
 
 (defconst financial-chart-annotation-types
   '("buy" "sell" "level" "trendline" "event" "text" "box" "fibonacci")
@@ -53,17 +57,24 @@
 
 (defun financial-chart-annotation--x (ctx at path)
   "The x position of AT in CTX: a time (ISO or epoch ms) or a bar index.
+On a trading-time axis a time is the slot of the bar at or nearest it.
 PATH locates AT."
-  (let ((x (cond ((equal (plist-get ctx :x-type) "temporal")
-                  (and (or (stringp at) (numberp at)) (eas-time-parse at)))
-                 ((integerp at) at))))
+  (let* ((times (plist-get ctx :times-ext))
+         (x (cond ((or times (equal (plist-get ctx :x-type) "temporal"))
+                   (and (or (stringp at) (numberp at)) (eas-time-parse at)))
+                  ((integerp at) at))))
     (unless x
       (financial-chart-series-fail path "INVALID_TIME"
-                                   (if (equal (plist-get ctx :x-type) "temporal")
+                                   (if (or times (equal (plist-get ctx :x-type) "temporal"))
                                        "%S is not a time; give an ISO date or epoch ms"
                                      "%S is not a bar index; these bars have no times")
                                    at))
-    x))
+    (if (not times) x
+      (or (financial-chart-trading-index times x)
+          (financial-chart-series-fail path "NO_SUCH_BAR"
+                                       "%S is outside the bars; give a time from %s to %s"
+                                       at (financial-chart-annotation--when ctx 0)
+                                       (financial-chart-annotation--when ctx (1- (length times))))))))
 
 (defun financial-chart-annotation--bar (ctx at path)
   "The index of the bar at AT in CTX; PATH locates AT."
@@ -76,8 +87,8 @@ PATH locates AT."
 
 (defun financial-chart-annotation--when (ctx i)
   "Bar I's position in CTX as text."
-  (let ((x (aref (plist-get ctx :xs) i)))
-    (if (equal (plist-get ctx :x-type) "temporal")
+  (let ((x (aref (or (plist-get ctx :times-ext) (plist-get ctx :xs)) i)))
+    (if (or (plist-get ctx :times-ext) (equal (plist-get ctx :x-type) "temporal"))
         (format-time-string "%F" (floor x 1000) t)
       (format "%s" x))))
 
@@ -153,10 +164,10 @@ PATH locates AT."
          (colour (or (financial-chart-series-get a :color) (plist-get ctx (if buy :up :down))))
          (rows (seq-map-indexed
                 (lambda (at i)
-                  (let* ((bar (nth (financial-chart-annotation--bar
-                                    ctx at (if (cdr ats) (format "%s/at/%d" path i) (concat path "/at")))
-                                   (plist-get ctx :bars))))
-                    (list :time (plist-get bar :time)
+                  (let* ((index (financial-chart-annotation--bar
+                                 ctx at (if (cdr ats) (format "%s/at/%d" path i) (concat path "/at"))))
+                         (bar (nth index (plist-get ctx :bars))))
+                    (list :time (aref (plist-get ctx :xs) index)
                           :y (cond ((numberp y) y)
                                    (buy (- (plist-get bar :low) pad))
                                    (t (+ (plist-get bar :high) pad)))

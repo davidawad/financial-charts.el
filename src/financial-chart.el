@@ -40,15 +40,12 @@
 ;;              `financial-chart-sparkline'
 ;;   candles    `financial-chart-render' / `-render-svg' / `-view', with
 ;;              volume, X-axis and indicator overlays; every knob a defcustom
-;;   tickers    `financial-chart-view-symbol' and presets, through
-;;              market-data.el when it is loaded (optional)
 ;;   health     `financial-chart-doctor' (M-x) / `financial-chart-doctor-checks'
 ;;
 ;; Non-Emacs callers use eas.el's bin/eas with this package's templates
 ;; loaded (see README, "Charts from the shell").
 ;; Modules: -core (config), -series (shapes), -indicators (+ cohorts),
-;; -text, -svg, -plot (kinds), -multi (multi-series kind), -symbol
-;; (market-data bridge), -presets.
+;; -text, -svg, -plot (kinds), -multi (multi-series kind).
 
 ;;; Code:
 
@@ -64,8 +61,6 @@
 (require 'financial-chart-indicators)
 (require 'financial-chart-text)
 (require 'financial-chart-svg)
-(require 'financial-chart-symbol)
-(require 'financial-chart-presets)
 (require 'financial-chart-plot)
 (require 'financial-chart-payoff-curves)
 (require 'financial-chart-multi)
@@ -81,19 +76,16 @@
 (defconst financial-chart-entry-points
   '((discover financial-chart-list-kinds financial-chart-describe-kind
               financial-chart-describe financial-chart-list-cohorts
-              financial-chart-list-presets financial-chart-list-indicators)
+              financial-chart-list-indicators)
     (validate financial-chart-validate)
-    (plan financial-chart-explain financial-chart-explain-symbol
-          financial-chart-resolve-preset financial-chart-resolve-cohort)
+    (plan financial-chart-explain financial-chart-resolve-cohort)
     (render financial-chart-plot financial-chart-plot-spec financial-chart-plot-insert
             financial-chart-plot-view financial-chart-sparkline financial-chart-render
             financial-chart-render-svg financial-chart-view)
-    (export financial-chart-export-svg financial-chart-export-png
-            financial-chart-export-symbol-svg financial-chart-export-symbol-png)
-    (tickers financial-chart-view-symbol financial-chart-view-preset)
+    (export financial-chart-export-svg financial-chart-export-png)
     (extend financial-chart-register-kind financial-chart-register-indicator
             financial-chart-indicator-evaluate financial-chart-indicator-cohorts
-            financial-chart-presets financial-chart-recipe-evaluators)
+            financial-chart-recipe-evaluators)
     (health financial-chart-doctor financial-chart-doctor-checks))
   "Public entry points grouped by what a caller is doing.")
 
@@ -103,7 +95,7 @@
 
 ;;;###autoload
 (defun financial-chart-describe ()
-  "The whole package as data: version, kinds, shapes, cohorts, presets,
+  "The whole package as data: version, kinds, shapes, cohorts, indicators,
 entry points.  Lists are vectors, so the result round-trips `json-encode'."
   (list :package "financial-chart" :version financial-chart-version
         :kinds (financial-chart--vec
@@ -128,9 +120,6 @@ entry points.  Lists are vectors, so the result round-trips `json-encode'."
                                               (substring (symbol-name (plist-get indicator :panel)) 1))
                                      :description (plist-get indicator :description)))
                              (financial-chart-list-indicators)))
-        :presets (financial-chart--vec (mapcar (lambda (p) (symbol-name (car p)))
-                                               financial-chart-presets))
-        :market-data (and (fboundp 'market-data-bars) t)
         :entry-points (financial-chart--vec
                        (mapcar (lambda (g)
                                  (list :verb (symbol-name (car g))
@@ -141,12 +130,9 @@ entry points.  Lists are vectors, so the result round-trips `json-encode'."
 ;;;###autoload
 (defun financial-chart-doctor-checks ()
   "Every package health row: (:name :status :detail :remediation), :status
-pass, fail or skip.  Covers chart kinds, symbol charting and export,
-cohorts and presets.  No network."
+pass, fail or skip.  Covers chart kinds and cohorts.  No network."
   (append (financial-chart-plot-doctor-checks)
-          (financial-chart-symbol-doctor-checks)
-          (financial-chart-cohort-doctor-checks)
-          (financial-chart-preset-doctor-checks)))
+          (financial-chart-cohort-doctor-checks)))
 
 ;;;###autoload
 (defun financial-chart-doctor ()

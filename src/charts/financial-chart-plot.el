@@ -36,7 +36,7 @@ unicode text -- so the same call looks right in a GUI and a terminal."
   :group 'financial-chart)
 
 ;; -----------------------------------------------------------------------
-;; Errors -- same convention as market-data.el: (MESSAGE . PLIST), where
+;; Errors: (MESSAGE . PLIST), where
 ;; the message names the fix and the plist carries :code plus locators.
 ;; -----------------------------------------------------------------------
 
@@ -50,8 +50,6 @@ unicode text -- so the same call looks right in a GUI and a terminal."
 ;; A kind names a data shape and one renderer per backend; adding a kind
 ;; is `financial-chart-register-kind', no dispatch code changes.
 ;; -----------------------------------------------------------------------
-
-(declare-function market-data-validate-bars "market-data" (bars))
 
 (defconst financial-chart--example-price-changes
   [0.36 -0.18 0.12 -0.31 0.48 -0.09 0.22 -0.42 0.29 0.07 -0.16 0.34]
@@ -109,8 +107,7 @@ CHANGES is a vector of repeating daily moves, defaulting to
      :validator financial-chart--validate-labeled)
     (ohlc
      :doc "bar/v1 plists (:open :high :low :close [:volume] [:time]), oldest
-first; supplied :volume is non-negative and :time is epoch milliseconds.
-Validated by market-data.el when loaded, else by the same required-key rule here."
+first; supplied :volume is non-negative and :time is epoch milliseconds."
      :example ((:open 100 :high 103 :low 99 :close 102 :volume 12000 :time 1700000000000)
                (:open 102 :high 104 :low 101 :close 101.5 :volume 9500 :time 1700086400000))
      :validator financial-chart--validate-ohlc))
@@ -211,17 +208,15 @@ Each renderer is called as (FN DATA &rest PROPS) and returns a string.")
 
 (defun financial-chart--validate-ohlc (data)
   "Signal unless DATA is a list of valid bar/v1 plists with non-negative volume."
-  (if (fboundp 'market-data-validate-bars)
-      (market-data-validate-bars data)
-    (unless (listp data)
-      (signal 'financial-chart-invalid-data
-              (list (format "bars must be a list, got %S" data) :code "invalid_data")))
-    (cl-loop for bar in data for i from 0
-             do (unless (and (listp bar) (cl-evenp (length bar)))
-                  (financial-chart--invalid i "bar is not a plist: %S" bar))
-             (dolist (key '(:open :high :low :close))
-               (unless (numberp (plist-get bar key))
-                 (financial-chart--invalid i "required key %s missing or non-number" key)))))
+  (unless (listp data)
+    (signal 'financial-chart-invalid-data
+            (list (format "bars must be a list, got %S" data) :code "invalid_data")))
+  (cl-loop for bar in data for i from 0
+           do (unless (and (listp bar) (cl-evenp (length bar)))
+                (financial-chart--invalid i "bar is not a plist: %S" bar))
+           (dolist (key '(:open :high :low :close))
+             (unless (numberp (plist-get bar key))
+               (financial-chart--invalid i "required key %s missing or non-number" key))))
   (cl-loop for bar in data
            for i from 0
            for volume = (plist-get bar :volume)

@@ -160,23 +160,4 @@
                                 financial-chart-oscillator-test--bars))
                (length financial-chart-oscillator-test--bars)))))
 
-(ert-deftest financial-chart-oscillator-preset-renders-cohort-in-panel ()
-  (let ((financial-chart-presets '((oscillator-only :doc "test" :cohort momentum)))
-        captured)
-    (cl-letf (((symbol-function 'financial-chart--require-market-data) #'ignore)
-              ((symbol-function 'market-data-explain)
-               (lambda (&rest _) '(:provider mock)))
-              ((symbol-function 'market-data-bars)
-               (lambda (&rest _) financial-chart-oscillator-test--bars))
-              ((symbol-function 'financial-chart--symbol-title)
-               (lambda (&rest _) "mock")))
-      (financial-chart--preset-render
-       'oscillator-only "TEST" nil
-       (lambda (_bars _title)
-         (setq captured (list financial-chart-indicators
-                              financial-chart-oscillators)))))
-    (should (null (car captured)))
-    (should (= (length (cadr captured)) 1))
-    (should (eq (plist-get (car (cadr captured)) :panel) 'oscillator))))
-
 ;;; financial-chart-oscillator-test.el ends here

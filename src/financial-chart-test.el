@@ -289,108 +289,6 @@ standard value, so tests don't leak customizations across each other."
           (rendered (financial-chart-render bars 10)))
      (should-not (string-match-p "X" rendered)))))
 
-;; -- provider-agnostic bridge (all data via market-data.el) --
-
-(defvar financial-chart-test--md-bars-called nil
-  "Set non-nil by the mock `market-data-bars' when it is invoked.")
-(defvar financial-chart-test--md-bars-provider nil
-  "Records the :provider the mock `market-data-bars' received.")
-
-(defmacro financial-chart-test--with-mock-market-data (&rest body)
-  "Run BODY with `market-data-explain'/`-bars'/`-capabilities' mocked.
-The mock `market-data-explain' echoes the requested (or default)
-provider + normalized params with ZERO I/O; the mock `market-data-bars'
-returns two synthetic bar/v1 plists and records its call + received
-:provider.  Nothing here touches a network or a broker."
-  `(let ((financial-chart-test--md-bars-called nil)
-         (financial-chart-test--md-bars-provider nil))
-     (cl-letf (((symbol-function 'market-data-explain)
-                (lambda (symbol &rest keys)
-                  (list :symbol (upcase symbol)
-                        :provider (or (plist-get keys :provider) 'schwab)
-                        :why 'only-loaded
-                        :want-fields (plist-get keys :fields)
-                        :params
-                        (list :period-type (or (plist-get keys :period-type) "month")
-                              :period (or (plist-get keys :period) 1)
-                              :frequency-type (or (plist-get keys :frequency-type) "daily")
-                              :frequency (or (plist-get keys :frequency) 1)))))
-               ((symbol-function 'market-data-bars)
-                (lambda (_symbol &rest keys)
-                  (setq financial-chart-test--md-bars-called t
-                        financial-chart-test--md-bars-provider (plist-get keys :provider))
-                  (list (list :open 100 :high 105 :low 99 :close 103 :volume 1000 :time 0)
-                        (list :open 103 :high 107 :low 102 :close 106 :volume 1200
-                              :time 86400000))))
-               ((symbol-function 'market-data-capabilities)
-                (lambda ()
-                  '((schwab :loaded t :authed t :native-fields nil :priority 20)))))
-       ,@body)))
-
-(ert-deftest financial-chart-view-symbol-renders-with-provenance-title ()
-  (financial-chart-test--with-defaults
-   (financial-chart-test--with-mock-market-data
-    (financial-chart-view-symbol "aapl")
-    (with-current-buffer "*financial-chart*"
-      (let ((s (buffer-string)))
-        ;; provenance title: symbol · provider · period/frequency · bars · fetched-at
-        (should (string-match-p "AAPL" s))
-        (should (string-match-p "schwab" s))
-        (should (string-match-p "month" s))
-        (should (string-match-p "daily" s))
-        (should (string-match-p "2 bars" s))
-        (should (string-match-p "[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}T" s)))))))
-
-(ert-deftest financial-chart-view-symbol-threads-provider-override ()
-  (financial-chart-test--with-defaults
-   (financial-chart-test--with-mock-market-data
-    (financial-chart-view-symbol "aapl" :provider 'alpaca)
-    ;; :provider override threads end-to-end into the fetch
-    (should (eq financial-chart-test--md-bars-provider 'alpaca))
-    (with-current-buffer "*financial-chart*"
-      (should (string-match-p "alpaca" (buffer-string)))))))
-
-(ert-deftest financial-chart-explain-symbol-is-zero-io ()
-  (financial-chart-test--with-defaults
-   (financial-chart-test--with-mock-market-data
-    (let ((plan (financial-chart-explain-symbol "aapl" :provider 'schwab)))
-      ;; explain performs NO fetch (mock bars asserted uncalled)
-      (should-not financial-chart-test--md-bars-called)
-      (should (eq (plist-get plan :provider) 'schwab))
-      ;; merged render config present + reflects the effective defcustom
-      (should (plist-member plan :render))
-      (should (= (plist-get (plist-get plan :render) :height)
-                 financial-chart-height))))))
-
-(ert-deftest financial-chart-view-symbol-errors-without-market-data ()
-  ;; market-data not loaded -> typed error naming the fix
-  (cl-letf (((symbol-function 'market-data-bars) nil))
-    (fmakunbound 'market-data-bars)
-    (let ((err (should-error (financial-chart-view-symbol "AAPL")
-                             :type 'financial-chart-error)))
-      (should (equal (plist-get (cddr err) :code) "market_data_missing")))))
-
-(ert-deftest financial-chart-view-symbol-propagates-market-data-typed-errors ()
-  ;; a fetch-time typed error propagates UNTOUCHED -- financial-chart
-  ;; must not swallow it into a (message ...)+nil.
-  (define-error 'market-data-error "market-data error")
-  (define-error 'market-data-auth-required "not authenticated" 'market-data-error)
-  (financial-chart-test--with-defaults
-   (cl-letf (((symbol-function 'market-data-explain)
-              (lambda (symbol &rest keys)
-                (list :symbol (upcase symbol)
-                      :provider (or (plist-get keys :provider) 'schwab)
-                      :params (list :period-type "month" :period 1
-                                    :frequency-type "daily" :frequency 1))))
-             ((symbol-function 'market-data-bars)
-              (lambda (&rest _)
-                (signal 'market-data-auth-required
-                        (list "provider schwab not authenticated -- run (schwab-broker-authorize)")))))
-     (should-error (financial-chart-view-symbol "aapl")
-                   :type 'market-data-auth-required))))
-
-;; -- SVG rendering --
-
 (ert-deftest financial-chart-render-svg-errors-on-no-bars ()
   (financial-chart-test--with-defaults
    (should-error (financial-chart-render-svg nil) :type 'user-error)))
@@ -645,29 +543,6 @@ returns two synthetic bar/v1 plists and records its call + received
 
 ;; -- provider-agnostic SVG/PNG export + doctor hook --
 
-(ert-deftest financial-chart-export-symbol-svg-errors-without-market-data ()
-  (cl-letf (((symbol-function 'market-data-bars) nil))
-    (fmakunbound 'market-data-bars)
-    (should-error (financial-chart-export-symbol-svg "AAPL" "/tmp/x.svg")
-                  :type 'financial-chart-error)))
-
-(ert-deftest financial-chart-export-symbol-svg-writes-file-with-provenance-title ()
-  (financial-chart-test--with-defaults
-   (financial-chart-test--with-mock-market-data
-    (let ((file (make-temp-file "financial-chart-test" nil ".svg")))
-      (unwind-protect
-          (progn
-            (financial-chart-export-symbol-svg "aapl" file)
-            (should financial-chart-test--md-bars-called)
-            (should (file-exists-p file))
-            (with-temp-buffer
-              (insert-file-contents file)
-              (let ((s (buffer-string)))
-                (should (string-match-p "AAPL" s))
-                ;; provenance title stamped into the SVG
-                (should (string-match-p "schwab" s)))))
-        (delete-file file))))))
-
 (ert-deftest financial-chart-doctor-checks-shape-and-loadable ()
   (financial-chart-test--with-defaults
    (let ((checks (financial-chart-doctor-checks)))
@@ -680,13 +555,7 @@ returns two synthetic bar/v1 plists and records its call + received
      (should (cl-every (lambda (c) (eq (plist-get c :status) 'pass))
                        (cl-remove-if-not
                         (lambda (c) (string-prefix-p "kind " (plist-get c :name)))
-                        checks))))
-   ;; with a provider available (mocked), the market-data row passes
-   (financial-chart-test--with-mock-market-data
-    (let ((row (cl-find "symbol charts: market-data provider"
-                        (financial-chart-doctor-checks)
-                        :key (lambda (c) (plist-get c :name)) :test #'equal)))
-      (should (eq (plist-get row :status) 'pass))))))
+                        checks))))))
 
 ;; -- built-in indicator functions --
 
@@ -921,118 +790,6 @@ remediation) for a broken one."
     (let ((c (car (financial-chart-cohort-doctor-checks))))
       (should (eq (plist-get c :status) 'fail))
       (should (string-match-p "nope.no.eval" (plist-get c :detail)))
-      (should (> (length (plist-get c :remediation)) 0)))))
-
-;; -- chart presets --
-
-(ert-deftest financial-chart-preset-resolve-merges-render-with-source-tags ()
-  "resolve-preset merges preset-set render keys over inherited defcustoms,
-tags each key's :source, decides the provider, and performs ZERO fetch."
-  (financial-chart-test--with-mock-market-data
-   (let* ((plan (financial-chart-resolve-preset 'options-memo "aapl"))
-          (render (plist-get plan :render)))
-     ;; options-memo sets :show-volume nil -> preset-set
-     (let ((sv (cdr (assq :show-volume render))))
-       (should (eq (plist-get sv :value) nil))
-       (should (eq (plist-get sv :source) 'preset-set)))
-     ;; :height unset -> inherited-default = the current defcustom value
-     (let ((h (cdr (assq :height render))))
-       (should (= (plist-get h :value) financial-chart-height))
-       (should (eq (plist-get h :source) 'inherited-default)))
-     ;; provider decided (via market-data-explain), cohort resolved, no fetch
-     (should (eq (plist-get (plist-get plan :market-data) :provider) 'schwab))
-     (should (plist-get plan :cohort))
-     (should-not financial-chart-test--md-bars-called))))
-
-(ert-deftest financial-chart-preset-resolve-threads-provider-override ()
-  "A :provider override in KEYS threads into the resolved fetch + plan."
-  (financial-chart-test--with-mock-market-data
-   (let ((plan (financial-chart-resolve-preset 'swing "aapl" :provider 'alpaca)))
-     (should (eq (plist-get (plist-get plan :fetch) :provider) 'alpaca))
-     (should (eq (plist-get (plist-get plan :market-data) :provider) 'alpaca))
-     (should-not financial-chart-test--md-bars-called))))
-
-(ert-deftest financial-chart-preset-bad-cohort-signals-typed-error ()
-  "A preset whose :cohort does not resolve signals the typed preset error
-naming BOTH the preset and the cohort."
-  (let ((financial-chart-presets '((broken :doc "d" :cohort no-such-cohort))))
-    (let ((err (should-error (financial-chart-resolve-preset 'broken "AAPL")
-                             :type 'financial-chart-unresolvable-preset)))
-      (should (string-match-p "broken" (cadr err)))
-      (should (string-match-p "no-such-cohort" (cadr err))))))
-
-(ert-deftest financial-chart-preset-unknown-name-signals ()
-  "Resolving an undefined preset name signals the typed preset error."
-  (should-error (financial-chart-resolve-preset 'does-not-exist "AAPL")
-                :type 'financial-chart-unresolvable-preset))
-
-(ert-deftest financial-chart-view-preset-renders-with-preset-title ()
-  "view-preset renders end-to-end and headers with the provenance title:
-preset · symbol · provider · timeframe · bars · fetched-at."
-  (financial-chart-test--with-defaults
-   (financial-chart-test--with-mock-market-data
-    (financial-chart-view-preset "aapl" 'swing)
-    (should financial-chart-test--md-bars-called)
-    (with-current-buffer "*financial-chart*"
-      (let ((s (buffer-string)))
-        (should (string-match-p "swing" s))
-        (should (string-match-p "AAPL" s))
-        (should (string-match-p "schwab" s))
-        (should (string-match-p "2 bars" s))
-        (should (string-match-p "[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}T" s)))))))
-
-(ert-deftest financial-chart-view-preset-restores-defcustoms ()
-  "The preset's render defcustom overrides are restored after the render
-\(cl-progv dynamic binding, not a permanent mutation)."
-  (financial-chart-test--with-defaults
-   (financial-chart-test--with-mock-market-data
-    (let ((before financial-chart-show-volume))
-      ;; options-memo forces :show-volume nil during its render
-      (financial-chart-view-preset "aapl" 'options-memo)
-      (should (eq financial-chart-show-volume before))))))
-
-(ert-deftest financial-chart-describe-preset-tags-render-sources ()
-  "describe-preset reports every render key with its source tag, plus
-provenance and fetch params."
-  (let* ((d (financial-chart-describe-preset 'options-memo))
-         (render (plist-get d :render)))
-    (should (eq (plist-get (cdr (assq :show-volume render)) :source) 'preset-set))
-    (should (eq (plist-get (cdr (assq :height render)) :source)
-                'inherited-default))
-    (should (plist-get d :provenance))
-    (should (plist-get d :fetch))))
-
-(ert-deftest financial-chart-list-presets-reports-validity ()
-  "list-presets reports each seed preset with its cohort and validity."
-  (let ((rows (financial-chart-list-presets)))
-    (dolist (name '(daytrade swing options-memo))
-      (let ((r (cdr (assq name rows))))
-        (should r)
-        (should (eq (plist-get r :valid) t))))))
-
-(ert-deftest financial-chart-preset-plan-records-market-data-failure ()
-  "With market-data loaded but unable to plan (no provider), the preset
-plan still resolves and carries the error instead of signalling it."
-  (cl-letf (((symbol-function 'market-data-explain)
-             (lambda (&rest _)
-               (signal 'error (list "No market-data provider is loaded")))))
-    (let ((plan (financial-chart-resolve-preset 'swing "AAPL")))
-      (should (equal (plist-get (plist-get plan :market-data) :message)
-                     "No market-data provider is loaded"))
-      (should (plist-get plan :render)))
-    (should (cl-every (lambda (c) (eq (plist-get c :status) 'pass))
-                      (financial-chart-preset-doctor-checks)))))
-
-(ert-deftest financial-chart-preset-doctor-checks-pass-and-fail ()
-  "The preset doctor rows pass for resolvable presets and fails
-\(with a remediation) for a broken one."
-  (let ((checks (financial-chart-preset-doctor-checks)))
-    (should (cl-every (lambda (c) (eq (plist-get c :status) 'pass)) checks))
-    )
-  (let ((financial-chart-presets '((broken :doc "d" :cohort nope))))
-    (let ((c (car (financial-chart-preset-doctor-checks))))
-      (should (eq (plist-get c :status) 'fail))
-      (should (string-match-p "nope" (plist-get c :detail)))
       (should (> (length (plist-get c :remediation)) 0)))))
 
 (provide 'financial-chart-test)

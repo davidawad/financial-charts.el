@@ -42,14 +42,6 @@
                 :type 'financial-chart-invalid-data)
   (should (eq t (financial-chart-validate 'area nil))))
 
-(ert-deftest financial-chart-agent-test-validate-ohlc-without-market-data ()
-  (cl-letf (((symbol-function 'market-data-validate-bars) nil))
-    (fmakunbound 'market-data-validate-bars)
-    (let ((err (should-error (financial-chart-validate 'ohlc '((:open 1 :high 2 :low 0 :close 1)
-                                                               (:open 1 :high 2 :low 0)))
-                             :type 'financial-chart-invalid-data)))
-      (should (equal (plist-get (cddr err) :index) 1)))))
-
 (ert-deftest financial-chart-agent-test-plot-rejects-bad-data-before-rendering ()
   (should-error (financial-chart-plot 'area '(1 nil-ish "bad") :backend 'text)
                 :type 'financial-chart-invalid-data))

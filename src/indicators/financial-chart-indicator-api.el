@@ -63,20 +63,25 @@ This function performs shape validation only, not financial semantics."
                  (not (stringp values)))
       (signal 'financial-chart-invalid-indicator
               (list "series needs :name and a numeric :values list or vector"
+                    :code "invalid_series" :index nil :field (if (or (symbolp name) (stringp name)) "values" "name")
                     :name name)))
     (setq values (append values nil))
-    (unless (cl-every (lambda (value) (or (null value) (numberp value))) values)
+    (when-let* ((bad (cl-position-if-not (lambda (value) (or (null value) (numberp value))) values)))
       (signal 'financial-chart-invalid-indicator
-              (list "series values must be numbers or nil" :name name)))
+              (list (format "series %s value %d must be a number or nil, got %S" name bad (nth bad values))
+                    :code "not_a_number" :index bad :field "values" :name name)))
     (when timestamps
       (unless (and (or (listp timestamps) (vectorp timestamps))
                    (not (stringp timestamps))
-                   (= (length timestamps) (length values))
-                   (cl-every (lambda (time) (or (null time) (numberp time)))
-                             (append timestamps nil)))
+                   (= (length timestamps) (length values)))
         (signal 'financial-chart-invalid-indicator
-                (list "timestamps must be numeric or nil and align with values"
-                      :name name))))
+                (list (format "series %s timestamps must be a list with one entry per value" name)
+                      :code "indicator_length" :index nil :field "timestamps" :name name)))
+      (when-let* ((bad (cl-position-if-not (lambda (time) (or (null time) (numberp time)))
+                                           (append timestamps nil))))
+        (signal 'financial-chart-invalid-indicator
+                (list (format "series %s timestamp %d must be epoch milliseconds or nil" name bad)
+                      :code "not_a_number" :index bad :field "timestamps" :name name))))
     (let ((normalized (copy-sequence series)))
       (setq normalized (plist-put normalized :schema 'indicator-series/v1))
       (setq normalized (plist-put normalized :values values))

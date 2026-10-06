@@ -263,12 +263,18 @@ Only the bottom pane labels and titles the shared x axis."
 
 (defun financial-chart-compose--check-panes (panes)
   "Signal unless PANES, the \"panes\" value, is an array of objects."
-  (seq-do-indexed (lambda (pane i)
-                    (unless (and (listp pane) (keywordp (car pane)))
-                      (financial-chart-series-fail (format "/panes/%d" i) "INVALID_PANE"
-                                                   "A pane is an object with \"series\", \"volume\", \"fills\", \"rules\", got %S"
-                                                   pane)))
-                  panes))
+  (seq-do-indexed
+   (lambda (pane i)
+     (unless (and (listp pane) (or (null pane) (keywordp (car pane))))
+       (financial-chart-series-fail (format "/panes/%d" i) "INVALID_PANE"
+                                    "A pane is an object with \"series\", \"volume\", \"fills\", \"rules\", got %S"
+                                    pane))
+     (unless (cl-some (lambda (key) (financial-chart-series-get pane key))
+                      '(:series :volume :fills :rules))
+       (financial-chart-series-fail (format "/panes/%d" i) "EMPTY_PANE"
+                                    "Pane %d draws nothing; give it \"series\", \"volume\": true, \"fills\" or \"rules\""
+                                    i)))
+   panes))
 
 (defun financial-chart-compose (chart)
   "Compile CHART, a financial chart description, to a plain eas spec.

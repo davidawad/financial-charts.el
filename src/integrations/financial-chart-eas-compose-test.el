@@ -369,6 +369,8 @@
       (financial-chart-compose (list :bars bars :price '(:fills [(:between ["close"])]))))
     (financial-chart-compose-test--fails "INVALID_PANE" "/panes/0"
       (financial-chart-compose (list :bars bars :panes ["rsi"])))
+    (financial-chart-compose-test--fails "EMPTY_PANE" "/panes/1"
+      (financial-chart-compose (list :bars bars :panes [(:rules [1]) ()])))
     (financial-chart-compose-test--fails "NO_VOLUME" "/panes/0/volume"
       (financial-chart-compose '(:bars [(:open 1 :high 2 :low 0.5 :close 1.5)] :panes [(:volume t)])))
     (financial-chart-compose-test--fails "INVALID_TIME" "/bars/1/time"

@@ -73,8 +73,13 @@
 (require 'financial-chart-eas)
 (require 'financial-chart-eas-parity)
 
-(defconst financial-chart-version "0.4.2"
-  "Version of the financial-chart package.")
+(defconst financial-chart-version
+  (eval-when-compile
+    (require 'lisp-mnt)
+    (lm-version (macroexp-file-name)))
+  "Version of the financial-chart package.
+Read from this file's Version header when it is compiled or loaded
+from source, so releases bump one place.")
 
 (defconst financial-chart-entry-points
   '((discover financial-chart-list-kinds financial-chart-describe-kind

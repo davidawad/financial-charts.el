@@ -22,6 +22,14 @@ standard value, so tests don't leak customizations across each other."
                          :volume (* 1000 (1+ i))
                          :time (* i 86400000))))
 
+(ert-deftest financial-chart-version-matches-header ()
+  "`financial-chart-version' is the Version header releases bump."
+  (require 'lisp-mnt)
+  (let ((file (locate-library "financial-chart.el" t)))
+    (should file)
+    (should (stringp financial-chart-version))
+    (should (equal financial-chart-version (lm-version file)))))
+
 (ert-deftest financial-chart-render-errors-on-no-bars ()
   (financial-chart-test--with-defaults
    (let ((err (should-error (financial-chart-render nil) :type 'financial-chart-invalid-data)))

@@ -31,10 +31,15 @@
 ;; :code, :index and :path and changes nothing.
 ;;
 ;; Rows (`financial-chart-book-rows') are the nearest LEVELS bids and
-;; asks, each {side, price, size, cumulative, level, changed, mid,
-;; spread, label}, plus one {side: "mid"} row at the mid price whose
-;; label states mid and spread.  The "ladder" and "depth-live"
-;; templates (templates/financial/) draw them.
+;; asks, each {side, price, price_label, size, cumulative, level,
+;; changed, mid, spread, label}, plus one {side: "mid"} row at the mid
+;; price whose label states mid and spread.  Prices are labelled to the
+;; book's tick (a snapshot's or `financial-chart-book-open's :tick, else
+;; the smallest step between its prices), so a feed computing prices
+;; (100.95 - 0.1 * i) shows 102.15, not 102.14999999999999; incoming
+;; prices are rounded to 12 significant digits so such a delta finds
+;; the snapshot's level.  The "ladder" and "depth-live" templates
+;; (templates/financial/) draw them.
 ;;
 ;; eas's push appends rows.  A frame replaces the book by setting the
 ;; stream window to the frame's row count, so the view keeps exactly
@@ -84,7 +89,8 @@ book under about half of one core on either backend."
   (bids (make-hash-table :test 'eql))
   (asks (make-hash-table :test 'eql))
   (changed (make-hash-table :test 'equal))
-  (deltas 0))
+  (deltas 0)
+  (fixed-tick nil))
 
 (defun financial-chart-book--fail (code path index format-string &rest args)
   "Signal `financial-chart-invalid-book' with CODE at PATH and INDEX.
@@ -104,6 +110,12 @@ The message is FORMAT-STRING applied to ARGS."
 (defun financial-chart-book--table (book side)
   "BOOK's price table for SIDE (:bids or :asks)."
   (if (eq side :bids) (financial-chart-book-bids book) (financial-chart-book-asks book)))
+
+(defun financial-chart-book--price (price)
+  "PRICE as a float rounded to 12 significant digits.
+A feed that computes prices (100.95 - 0.1 * i) leaves float noise;
+rounding makes a delta's price the same key as the snapshot's."
+  (float (string-to-number (format "%.12g" (float price)))))
 
 (defun financial-chart-book--level (level)
   "LEVEL ([PRICE SIZE], (PRICE SIZE) or {price, size}) as (PRICE . SIZE), or nil."
@@ -125,22 +137,33 @@ The message is FORMAT-STRING applied to ARGS."
           (financial-chart-book--fail "INVALID_BOOK" path index
                                       "%s level %d is %S; levels are [price, size], both positive"
                                       name index raw))
-        (when (gethash (float price) table)
+        (setq price (financial-chart-book--price price))
+        (when (gethash price table)
           (financial-chart-book--fail "INVALID_BOOK" path index
                                       "%s level %d repeats price %s; each price appears once per side"
                                       name index price))
-        (puthash (float price) size table)))))
+        (puthash price size table)))))
+
+(defun financial-chart-book--tick-option (tick)
+  "TICK (nil or a positive number) as a book's tick; signals INVALID_BOOK."
+  (unless (or (null tick) (and (numberp tick) (> tick 0)))
+    (financial-chart-book--fail "INVALID_BOOK" "/tick" nil
+                                "The tick is %S; a tick is a positive number (or omit it to infer one)" tick))
+  (and tick (financial-chart-book--price tick)))
 
 (defun financial-chart-book-make (&optional snapshot)
-  "A book holding SNAPSHOT: {bids: [[PRICE, SIZE], ...], asks: [...]}.
-Levels may also be (PRICE SIZE) lists or {price, size} objects.
+  "A book holding SNAPSHOT: {bids: [[PRICE, SIZE], ...], asks: [...], tick}.
+Levels may also be (PRICE SIZE) lists or {price, size} objects.  The
+optional tick (a positive number) is the price increment labels are
+printed to; without it the book infers one (`financial-chart-book-tick').
 Signals INVALID_BOOK naming the bad level, or CROSSED_BOOK."
   (let ((book (financial-chart-book--make)))
     (unless (and (eas-object-p snapshot)
-                 (seq-every-p (lambda (k) (memq k '(:bids :asks))) (eas-plist-keys snapshot)))
+                 (seq-every-p (lambda (k) (memq k '(:bids :asks :tick))) (eas-plist-keys snapshot)))
       (financial-chart-book--fail "INVALID_BOOK" "" nil
-                                  "An order book is an object {bids: [[price, size], ...], asks: [...]}, got %S"
+                                  "An order book is an object {bids: [[price, size], ...], asks: [...], tick?}, got %S"
                                   snapshot))
+    (setf (financial-chart-book-fixed-tick book) (financial-chart-book--tick-option (plist-get snapshot :tick)))
     (financial-chart-book--fill-side book :bids (plist-get snapshot :bids))
     (financial-chart-book--fill-side book :asks (plist-get snapshot :asks))
     (financial-chart-book--check-crossed book nil)
@@ -191,7 +214,7 @@ INDEX is the last delta of the batch to report, or nil for a snapshot."
         (financial-chart-book--fail
          "INVALID_DELTA" (concat path "/size") index
          "Delta %d (%s) has size %S; a size is a positive number (delete removes a level)" index op size))
-      (list op side (float price) size))))
+      (list op side (financial-chart-book--price price) size))))
 
 (defun financial-chart-book--check-op (op side price old index)
   "Signal when OP on SIDE's PRICE (now OLD, or nil) at INDEX is out of sync."
@@ -214,7 +237,8 @@ and leaves BOOK unchanged.  Changed levels are stamped with NOW
   (let* ((now (or now (funcall eas-stream-clock)))
          (trial (financial-chart-book--make
                  :bids (copy-hash-table (financial-chart-book-bids book))
-                 :asks (copy-hash-table (financial-chart-book-asks book))))
+                 :asks (copy-hash-table (financial-chart-book-asks book))
+                 :fixed-tick (financial-chart-book-fixed-tick book)))
          (index -1) touched)
     (seq-doseq (raw deltas)
       (setq index (1+ index))
@@ -230,12 +254,49 @@ and leaves BOOK unchanged.  Changed levels are stamped with NOW
     (dolist (key touched) (puthash key now (financial-chart-book-changed book)))
     book))
 
-;;; Rows
+;;; Tick size
 
-(defun financial-chart-book--fmt (number)
-  "NUMBER printed with at most ten significant digits."
-  (let ((s (format "%.10g" number)))
-    (if (string-match-p "e" s) (number-to-string number) s)))
+(defconst financial-chart-book--max-decimals 10
+  "The most decimal places a price is printed with.")
+
+(defun financial-chart-book--decimals (number)
+  "The fewest decimal places (at most ten) that print NUMBER exactly."
+  (let ((d 0))
+    (while (and (< d financial-chart-book--max-decimals)
+                (let ((y (* number (expt 10.0 d)))) (> (abs (- y (fround y))) 1e-6)))
+      (setq d (1+ d)))
+    d))
+
+(defun financial-chart-book--fmt (number decimals)
+  "NUMBER printed with DECIMALS places."
+  (format (format "%%.%df" decimals) number))
+
+(defun financial-chart-book--round (number decimals)
+  "NUMBER rounded to DECIMALS places."
+  (float (string-to-number (financial-chart-book--fmt number decimals))))
+
+(defun financial-chart-book-tick (book)
+  "BOOK's tick and price precision as (TICK . DECIMALS).
+TICK is the book's tick option, else the smallest step between two
+of its prices (nil with fewer than two).  DECIMALS prints every price:
+the tick option's places, else the most any price needs."
+  (if-let* ((tick (financial-chart-book-fixed-tick book)))
+      (cons tick (financial-chart-book--decimals tick))
+    (let (prices (decimals 0) step)
+      (dolist (table (list (financial-chart-book-bids book) (financial-chart-book-asks book)))
+        (maphash (lambda (p _) (push p prices)) table))
+      (setq prices (sort (delete-dups prices) #'<))
+      (dolist (p prices) (setq decimals (max decimals (financial-chart-book--decimals p))))
+      (cl-loop for (a b) on prices while b
+               do (setq step (if step (min step (- b a)) (- b a))))
+      (cons (and step (financial-chart-book--round step decimals)) decimals))))
+
+(defun financial-chart-book--mid-decimals (mid decimals)
+  "Places for MID between prices of DECIMALS places.
+One more than DECIMALS when halving the two prices needs it."
+  (if (> (financial-chart-book--decimals mid) decimals) (1+ decimals) decimals))
+
+;;; Rows
 
 (defun financial-chart-book--sorted (book side levels)
   "The nearest LEVELS of BOOK's SIDE as (PRICE . SIZE), best first."
@@ -246,13 +307,21 @@ and leaves BOOK unchanged.  Changed levels are stamped with NOW
     (if (and levels (> (length out) levels)) (seq-take out levels) out)))
 
 (defun financial-chart-book-summary (book)
-  "BOOK's top of book: (:best-bid :best-ask :mid :spread :bids :asks :deltas).
-Missing prices are :null."
+  "BOOK's top of book: (:best-bid :best-ask :mid :spread :tick :decimals
+:bids :asks :deltas).  Mid and spread are rounded to the tick's
+precision (DECIMALS, see `financial-chart-book-tick').  Missing prices
+and an unknown tick are :null."
   (let* ((bid (financial-chart-book--best (financial-chart-book-bids book) :bids))
-         (ask (financial-chart-book--best (financial-chart-book-asks book) :asks)))
+         (ask (financial-chart-book--best (financial-chart-book-asks book) :asks))
+         (tick (financial-chart-book-tick book))
+         (decimals (cdr tick))
+         (mid (and bid ask (/ (+ bid ask) 2.0))))
     (list :best-bid (or bid :null) :best-ask (or ask :null)
-          :mid (if (and bid ask) (/ (+ bid ask) 2.0) :null)
-          :spread (if (and bid ask) (- ask bid) :null)
+          :mid (if mid (financial-chart-book--round
+                        mid (financial-chart-book--mid-decimals mid decimals))
+                 :null)
+          :spread (if (and bid ask) (financial-chart-book--round (- ask bid) decimals) :null)
+          :tick (or (car tick) :null) :decimals decimals
           :bids (hash-table-count (financial-chart-book-bids book))
           :asks (hash-table-count (financial-chart-book-asks book))
           :deltas (financial-chart-book-deltas book))))
@@ -260,50 +329,60 @@ Missing prices are :null."
 (defun financial-chart-book--mid-row (summary)
   "The {side: \"mid\"} row for book SUMMARY."
   (let* ((spread (plist-get summary :spread))
+         (decimals (plist-get summary :decimals))
          (price (seq-find #'numberp (list (plist-get summary :mid) (plist-get summary :best-bid)
-                                          (plist-get summary :best-ask) 0))))
-    (list :side "mid" :price price :size 0 :cumulative 0 :level -1 :changed 0
+                                          (plist-get summary :best-ask) 0)))
+         (label (financial-chart-book--fmt
+                 price (financial-chart-book--mid-decimals price decimals))))
+    (list :side "mid" :price price :price_label label :size 0 :cumulative 0 :level -1 :changed 0
           :mid price :spread (if (numberp spread) spread 0)
           :label (if (numberp spread)
-                     (format "mid %s  spread %s" (financial-chart-book--fmt price)
-                             (financial-chart-book--fmt spread))
+                     (format "mid %s  spread %s" label (financial-chart-book--fmt spread decimals))
                    "spread -"))))
 
-(defun financial-chart-book--side-rows (book side levels mid flash now)
+(defun financial-chart-book--side-rows (book side levels mid decimals flash now)
   "Rows of BOOK's nearest LEVELS on SIDE, best first, with MID's fields.
-A level stamped within FLASH seconds of NOW has changed 1."
+Prices are labelled with DECIMALS places.  A level stamped within
+FLASH seconds of NOW has changed 1."
   (let ((cum 0) (level -1) (name (if (eq side :bids) "bid" "ask"))
         (changed (financial-chart-book-changed book)))
     (mapcar (lambda (ps)
               (let ((at (gethash (cons side (car ps)) changed)))
                 (setq cum (+ cum (cdr ps)) level (1+ level))
-                (list :side name :price (car ps) :size (cdr ps) :cumulative cum :level level
+                (list :side name :price (car ps)
+                      :price_label (financial-chart-book--fmt (car ps) decimals)
+                      :size (cdr ps) :cumulative cum :level level
                       :changed (if (and flash at (< (- now at) flash)) 1 0)
                       :mid (plist-get mid :mid) :spread (plist-get mid :spread) :label "")))
             (financial-chart-book--sorted book side levels))))
 
 (cl-defun financial-chart-book-rows (book &key levels (flash financial-chart-book-flash) now)
   "BOOK's nearest LEVELS per side as eas rows: asks high to low, mid, bids.
-Each row is {side, price, size, cumulative, level, changed, mid, spread,
-label}; level 0 is the best price and cumulative sums size outward from
-it.  Changed is 1 for a level changed within FLASH seconds of NOW.  The
-{side: \"mid\"} row sits at the mid price (the only side's best, or 0,
-when a side is empty) and its label states mid and spread."
+Each row is {side, price, price_label, size, cumulative, level, changed,
+mid, spread, label}; level 0 is the best price and cumulative sums size
+outward from it.  Price_label is the price at the book's tick precision
+\(`financial-chart-book-tick'), the mid row's one place finer when the
+mid falls between ticks.  Changed is 1 for a level changed within
+FLASH seconds of NOW.  The {side: \"mid\"} row sits at the mid price
+\(the only side's best, or 0, when a side is empty) and its label
+states mid and spread."
   (let* ((now (or now (funcall eas-stream-clock)))
          (levels (or levels financial-chart-book-levels))
-         (mid (financial-chart-book--mid-row (financial-chart-book-summary book)))
+         (summary (financial-chart-book-summary book))
+         (decimals (plist-get summary :decimals))
+         (mid (financial-chart-book--mid-row summary))
          (changed (financial-chart-book-changed book)))
     ;; Forget stamps that can no longer flash.
     (maphash (lambda (k at) (unless (and flash (< (- now at) flash)) (remhash k changed))) changed)
-    (vconcat (nreverse (financial-chart-book--side-rows book :asks levels mid flash now))
+    (vconcat (nreverse (financial-chart-book--side-rows book :asks levels mid decimals flash now))
              (list mid)
-             (financial-chart-book--side-rows book :bids levels mid flash now))))
+             (financial-chart-book--side-rows book :bids levels mid decimals flash now))))
 
 ;;; Live views
 
 (defvar financial-chart-book--views (make-hash-table :test 'equal)
   "Live book views by view id.
-Each is a plist (:view :book :levels :flash :max-fps :dirty :timer).")
+Each is a plist (:view :book :levels :flash :max-fps :tick :dirty :timer).")
 
 (defun financial-chart-book--live (view)
   "The live book state of VIEW (an id or view); signal NO_BOOK without one."
@@ -315,7 +394,7 @@ Each is a plist (:view :book :levels :flash :max-fps :dirty :timer).")
                                   "View %S is not a live order book; open one with financial-chart-book-open" id))
     live))
 
-(cl-defun financial-chart-book-open (snapshot &key (template "ladder") levels
+(cl-defun financial-chart-book-open (snapshot &key (template "ladder") levels tick
                                               (flash financial-chart-book-flash)
                                               max-fps title subject size target show)
   "Open a live eas view of the order book SNAPSHOT and return it.
@@ -323,7 +402,9 @@ SNAPSHOT is as in `financial-chart-book-make' (or a book).  TEMPLATE is
 \"ladder\" or \"depth-live\"; LEVELS per side are drawn (default
 `financial-chart-book-levels'); FLASH seconds highlight changed levels
 \(nil: off); MAX-FPS caps frames (default `financial-chart-book-max-fps',
-else `financial-chart-book-default-fps').  TITLE fills the template
+else `financial-chart-book-default-fps'); TICK fixes the price
+increment labels are printed to (default: the snapshot's tick, else
+inferred, see `financial-chart-book-tick').  TITLE fills the template
 slot; SUBJECT, SIZE and TARGET are as in `eas-view-open'; SHOW displays
 the view.  Feed it with `financial-chart-book-push'."
   (unless (member template financial-chart-book-templates)
@@ -331,14 +412,16 @@ the view.  Feed it with `financial-chart-book-push'."
                                 "No order-book template %S; templates: %s" template
                                 (string-join financial-chart-book-templates ", ")))
   (let* ((book (if (financial-chart-book-p snapshot) snapshot (financial-chart-book-make snapshot)))
+         (tick (or (financial-chart-book--tick-option tick) (financial-chart-book-fixed-tick book)))
          (levels (or levels financial-chart-book-levels))
          (max-fps (or max-fps financial-chart-book-max-fps (financial-chart-book-default-fps levels)))
-         (rows (financial-chart-book-rows book :levels levels :flash flash))
+         (rows (progn (setf (financial-chart-book-fixed-tick book) tick)
+                      (financial-chart-book-rows book :levels levels :flash flash)))
          (view (eas-view-open template :subject subject :size size :target target
                               :bindings (append (list :data rows) (and title (list :title title))))))
     (eas-stream-attach view (list :max-fps max-fps :window (length rows)))
     (puthash (eas-view-id view)
-             (list :view view :book book :levels levels :flash flash :max-fps max-fps)
+             (list :view view :book book :levels levels :flash flash :max-fps max-fps :tick tick)
              financial-chart-book--views)
     (when show (eas-show view))
     view))
@@ -387,9 +470,13 @@ leave; deltas arriving meanwhile fold into it.  Returns
     (financial-chart-book-inspect view)))
 
 (defun financial-chart-book-reset (view snapshot)
-  "Replace VIEW's book with SNAPSHOT (a resync) and stream it."
-  (let ((live (financial-chart-book--live view)))
-    (plist-put live :book (financial-chart-book-make snapshot))
+  "Replace VIEW's book with SNAPSHOT (a resync) and stream it.
+The view's tick holds unless SNAPSHOT gives one."
+  (let* ((live (financial-chart-book--live view))
+         (book (financial-chart-book-make snapshot)))
+    (unless (financial-chart-book-fixed-tick book)
+      (setf (financial-chart-book-fixed-tick book) (plist-get live :tick)))
+    (plist-put live :book book)
     (financial-chart-book--offer live)
     (financial-chart-book-inspect view)))
 

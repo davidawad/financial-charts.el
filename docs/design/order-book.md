@@ -7,7 +7,7 @@ book, and eas draws it with the `ladder` and `depth-live` templates
 
 ## Flow
 
-1. `financial-chart-book-open SNAPSHOT :template :levels :flash :max-fps`
+1. `financial-chart-book-open SNAPSHOT :template :levels :tick :flash :max-fps`
    validates the snapshot (`INVALID_BOOK` names `/bids/3`; `CROSSED_BOOK`),
    opens an eas view and attaches an eas stream.
 2. `financial-chart-book-push VIEW DELTAS` applies one batch to a copy of
@@ -18,9 +18,15 @@ book, and eas draws it with the `ladder` and `depth-live` templates
    Each changed level is stamped with the stream clock so it can flash.
 3. The book becomes rows (`financial-chart-book-rows`): the nearest
    LEVELS asks (high to low), one `mid` row, then the nearest LEVELS bids.
-   Every row has `{side, price, size, cumulative, level, changed, mid,
-   spread, label}`. All rows share one schema, so eas's push schema
-   check holds. The mid row's label reads `mid M  spread S`.
+   Every row has `{side, price, price_label, size, cumulative, level,
+   changed, mid, spread, label}`. All rows share one schema, so eas's
+   push schema check holds. The mid row's label reads `mid M  spread S`.
+   `price_label` is the price at the book's tick precision (the `:tick`
+   option, else the smallest price step; `financial-chart-book-tick`),
+   recomputed every frame, so a finer price from a delta refines the
+   labels. The ladder's price axis is `price_label`, sorted by `price`;
+   mid and spread are rounded to the same precision (the mid one place
+   finer when it falls between ticks).
 4. The rows go out through `eas-push`. eas-stream applies the frame cap
    and holds frames while a drag is in progress or for
    `eas-stream-hover-hold` seconds after a pointer event.

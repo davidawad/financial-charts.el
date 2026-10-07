@@ -152,6 +152,70 @@
       (should (equal (plist-get (aref rows 0) :label) "spread -")))
     (should (equal (length (financial-chart-book-rows (financial-chart-book-make nil) :now 0)) 1))))
 
+;;; Tick size
+
+(defun financial-chart-book-test--noisy (n)
+  "A book whose N levels per side are computed as a feed would: 100.95 - 0.1 * i."
+  (list :bids (vconcat (cl-loop for i below n collect (vector (- 100.95 (* 0.1 i)) (1+ i))))
+        :asks (vconcat (cl-loop for i below n collect (vector (+ 101.05 (* 0.1 i)) (1+ i))))))
+
+(ert-deftest financial-chart-book-infers-the-tick-from-price-steps ()
+  ;; The feed's arithmetic leaves float noise: 101.05 + 0.1 * 11 is 102.14999999999999.
+  (should (equal (number-to-string (+ 101.05 (* 0.1 11))) "102.14999999999999"))
+  (let* ((book (financial-chart-book-make (financial-chart-book-test--noisy 12)))
+         (summary (financial-chart-book-summary book))
+         (rows (financial-chart-book-rows book :now 0)))
+    (should (equal (plist-get summary :tick) 0.1))
+    (should (equal (plist-get summary :decimals) 2))
+    (should (equal (plist-get summary :mid) 101.0))
+    (should (equal (plist-get summary :spread) 0.1))
+    (should (equal (mapcar (lambda (r) (plist-get r :price_label)) (seq-take rows 3))
+                   '("102.15" "102.05" "101.95")))
+    (should (equal (plist-get (aref rows 12) :label) "mid 101.00  spread 0.10"))
+    (should (equal (plist-get (aref rows 12) :price_label) "101.00"))
+    ;; No label, price, mid or spread carries the noise.
+    (seq-doseq (row rows)
+      (dolist (key '(:price :mid :spread))
+        (should (equal (number-to-string (plist-get row key))
+                       (number-to-string (string-to-number (format "%.6f" (plist-get row key)))))))
+      (should-not (string-match-p "[0-9]\{7,\}" (concat (plist-get row :price_label) (plist-get row :label))))))
+  ;; A delta whose price is 102.15 exactly finds the snapshot's 102.14999999999999.
+  (let ((book (financial-chart-book-make (financial-chart-book-test--noisy 12))))
+    (financial-chart-book-apply book (vector (list :op "update" :side "ask" :price (+ 101.15 (* 0.1 10)) :size 9)) 0)
+    (should (equal (cdr (assoc 102.15 (financial-chart-book-test--levels book :asks))) 9))
+    ;; A finer price from a delta refines the precision.
+    (financial-chart-book-apply book [(:op "insert" :side "ask" :price 101.075 :size 1)] 0)
+    (should (equal (plist-get (financial-chart-book-summary book) :tick) 0.025))
+    (should (equal (plist-get (aref (financial-chart-book-rows book :levels 1 :now 0) 0) :price_label)
+                   "101.050"))))
+
+(ert-deftest financial-chart-book-tick-option-sets-the-precision ()
+  (let ((book (financial-chart-book-make '(:bids [[100 2] [99 3]] :asks [[101 1]] :tick 0.25))))
+    (should (equal (plist-get (financial-chart-book-summary book) :tick) 0.25))
+    (should (equal (mapcar (lambda (r) (plist-get r :price_label)) (financial-chart-book-rows book :now 0))
+                   '("101.00" "100.50" "100.00" "99.00")))
+    (should (equal (plist-get (aref (financial-chart-book-rows book :now 0) 1) :label)
+                   "mid 100.50  spread 1.00")))
+  ;; Whole-number prices print whole; a mid between them takes one place more.
+  (let ((rows (financial-chart-book-rows (financial-chart-book-test--book) :now 0)))
+    (should (equal (mapcar (lambda (r) (plist-get r :price_label)) rows) '("102" "101" "100.5" "100" "99"))))
+  (financial-chart-book-test--should-code "INVALID_BOOK"
+    (financial-chart-book-make '(:bids [[100 2]] :tick -1))))
+
+(ert-deftest financial-chart-book-ladder-labels-noisy-prices-at-the-tick ()
+  (let* ((rows (financial-chart-book-rows (financial-chart-book-make (financial-chart-book-test--noisy 6)) :now 0))
+         (text (substring-no-properties
+                (eas-text-render (eas-compile (eas-resolve "ladder" (list :data rows)) :target 'text
+                                              :size '(:cols 80 :rows 30)))))
+         (svg (eas-svg-render (eas-compile (eas-resolve "depth-live" (list :data rows)) :target 'svg
+                                           :size '(640 . 360)))))
+    (should (string-match-p "101\.55" text))
+    (should (string-match-p "mid 101\.00  spread 0\.10" text))
+    ;; Asks above bids: the band order is numeric, not the labels' text order.
+    (should (< (string-match "101\.55" text) (string-match "100\.45" text)))
+    (dolist (out (list text svg))
+      (should-not (string-match-p "[0-9]\.[0-9]\{7,\}" out)))))
+
 (ert-deftest financial-chart-book-rows-flash-changed-levels-for-a-while ()
   (let ((book (financial-chart-book-test--book))
         (changed (lambda (rows) (delq nil (mapcar (lambda (r) (and (eql (plist-get r :changed) 1)

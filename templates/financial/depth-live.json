@@ -11,7 +11,7 @@
       "data": {
         "shape": "plist",
         "required": true,
-        "doc": "rows {side: bid|ask|mid, price, size, cumulative, level, changed, mid, spread, label} from financial-chart-book-rows"
+        "doc": "rows {side: bid|ask|mid, price, price_label, size, cumulative, level, changed, mid, spread, label} from financial-chart-book-rows"
       },
       "title": {
         "type": "string",
@@ -99,7 +99,7 @@
         },
         "tooltip": [
           {"field": "side", "type": "nominal"},
-          {"field": "price", "type": "quantitative"},
+          {"field": "price_label", "type": "nominal", "title": "price"},
           {"field": "size", "type": "quantitative"},
           {"field": "cumulative", "type": "quantitative"}
         ]

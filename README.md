@@ -300,6 +300,16 @@ beyond that. `docs/design/order-book.md` has the design and the measured
 frame costs. `examples/order-book/` holds a book, a delta batch and the
 rows both templates render (`fc-eas example ladder`).
 
+Prices are labelled to the book's tick: `:tick` in the snapshot or on
+`financial-chart-book-open` fixes it, otherwise it is the smallest step
+between the book's prices, and labels carry as many decimals as its
+prices need. A feed that computes its prices (`100.95 - 0.1 * i`) shows
+`102.15`, not `102.14999999999999`, on every ladder level, tooltip,
+mid and spread (depth-live's price axis ticks are the scale's own round
+values). Incoming prices are rounded to 12 significant digits, so a
+delta priced `102.15` finds the snapshot's `102.14999999999999` level.
+`financial-chart-book-inspect` reports the `:tick` and `:decimals` in use.
+
 ## Indicator catalog: studies, zones and annotations
 
 Every common indicator is one word in a composed chart. The math runs on

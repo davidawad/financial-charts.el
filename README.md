@@ -40,6 +40,11 @@ With Emacs 30's `use-package :vc`:
 or add eas.el's and this repository's `src/` directories to `load-path` and
 `(require 'financial-chart)`.
 
+On MELPA the package is `financial-charts` (recipe in `recipes/financial-charts`);
+it installs flat, every `src/` module beside `templates/` and the `examples/`
+JSON the templates and examples read, and finds them there as it does in a
+checkout (`financial-chart-root`).
+
 ## Use
 
 ```elisp
@@ -587,6 +592,7 @@ Source is grouped by responsibility under src/:
 ```sh
 make test      # needs eas.el (EAS=/path/to/eas.el); every src module's *-test.el files, offline, no display (< 1 min)
 make compile   # byte-compile with warnings as errors
+make melpa-check  # the recipe's files flat, as MELPA installs them: compile, render every example, package-lint
 ```
 
 ERT tests live beside the source modules they cover. The template text

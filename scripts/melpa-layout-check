@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Prove the package works in the flat layout MELPA installs: expand the
+# recipe (recipes/financial-charts) with package-build's own files-spec
+# code, copy those files into one temp directory, byte-compile them
+# there (warnings are errors) with only that directory and eas on
+# load-path, render every catalog template's example (and every
+# composed-chart and indicator example) in SVG and text, and run
+# package-lint on every file.
+#
+#   scripts/melpa-layout-check          # or: make melpa-check
+#
+# EAS=path/to/eas.el checkout (default ../../Personal/emacs/eas.el; or
+# git clone https://github.com/davidawad/eas.el /tmp/eas.el), EMACS,
+# ELPA (temp package-user-dir for package-build and package-lint;
+# default /tmp/fc-melpa-elpa, fetched from MELPA when missing),
+# KEEP=1 keeps the flat directory.
+#
+# Until eas is on MELPA, package-lint reports "Package eas is not
+# installable."  That error is expected and does not fail the check;
+# any other package-lint error does.
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+EAS=${EAS:-$ROOT/../../Personal/emacs/eas.el}
+EAS=$(cd "$EAS" && pwd)
+EMACS=${EMACS:-emacs}
+ELPA=${ELPA:-/tmp/fc-melpa-elpa}
+FLAT=$(mktemp -d "${TMPDIR:-/tmp}/financial-charts-flat.XXXXXX")
+[ "${KEEP:-}" = 1 ] || trap 'rm -rf "$FLAT"' EXIT
+
+elpa() {
+  "$EMACS" -Q --batch --eval "(progn (setq package-user-dir \"$ELPA\")
+    (require 'package)
+    (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)
+    (package-initialize))" "$@"
+}
+
+if ! ls -d "$ELPA"/package-lint-* "$ELPA"/package-build-* >/dev/null 2>&1; then
+  echo "== installing package-lint and package-build from MELPA into $ELPA"
+  elpa --eval "(progn (package-refresh-contents)
+    (package-install 'package-lint) (package-install 'package-build))"
+fi
+
+echo "== copying the recipe's files into $FLAT"
+elpa --eval "(progn (require 'package-build) (require 'package-recipe)
+  (setq package-build-recipes-dir \"$ROOT/recipes/\")
+  (let* ((rcp (package-recipe-lookup \"financial-charts\"))
+         (default-directory \"$ROOT/\"))
+    (package-build--copy-package-files
+     rcp (package-build-expand-files-spec rcp t default-directory) \"$FLAT\")))" >"$FLAT.log" 2>&1 || { cat "$FLAT.log"; exit 1; }
+rm -f "$FLAT.log"
+(cd "$FLAT" && find . -type f | sort | awk -F/ '{print $2}' | uniq -c | sed 's/^/  /')
+if find "$FLAT" -name '*-test.el' | grep -q .; then echo "FAIL: test files in the package"; exit 1; fi
+
+echo "== byte-compiling in $FLAT (warnings are errors)"
+"$EMACS" -Q --batch -L "$FLAT" -L "$EAS/src" --eval '(setq byte-compile-error-on-warn t)' \
+  -f batch-byte-compile "$FLAT"/*.el
+
+echo "== rendering from $FLAT"
+FC_FLAT="$FLAT" "$EMACS" -Q --batch -L "$FLAT" -L "$EAS/src" -l "$ROOT/scripts/melpa-layout-check.el" \
+  | grep -v '^ok  '
+
+echo "== package-lint on every file"
+lint=$(cd "$FLAT" && elpa --eval "(progn (require 'package-lint)
+  (setq package-lint-main-file \"financial-chart.el\"))" \
+  -L "$FLAT" -L "$EAS/src" -f package-lint-batch-and-exit *.el 2>&1) || true
+echo "$lint" | grep -E ':[0-9]+:[0-9]+: (error|warning)' | sed 's/^/  /' || true
+unexpected=$(echo "$lint" | grep -E ':[0-9]+:[0-9]+: error' | grep -v 'Package eas is not installable' || true)
+if [ -n "$unexpected" ]; then echo "FAIL: package-lint errors (above)"; exit 1; fi
+if echo "$lint" | grep -q 'Package eas is not installable'; then
+  echo "  (expected until eas is on MELPA: \"Package eas is not installable.\")"
+fi
+echo "== flat layout ok"

@@ -241,8 +241,7 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
 ;;; The chart
 
 (defconst financial-chart-compose-examples-directory
-  (expand-file-name "../../examples/compose"
-                    (file-name-directory (or load-file-name buffer-file-name)))
+  (expand-file-name "examples/compose" financial-chart-root)
   "Example chart descriptions, one per price style (STYLE.json).
 calendar.json is the candles example on calendar time.")
 
@@ -317,23 +316,23 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
                (panes (append (financial-chart-series-get chart :panes) nil))
                (_ (financial-chart-compose--check-panes panes))
                (n (length panes))
-               (all (financial-chart-series-finish
-                     (cl-loop for pane in (cons price panes) for p from -1
-                              append (mapcar (lambda (s) (append (list :pane p) s))
-                                             (financial-chart-compose--pane-series
-                                              pane bars (if (< p 0) "/price" (format "/panes/%d" p)))))))
-               (all (financial-chart-shift-series all (length bars)))
-               (ctx (financial-chart-trading-context (financial-chart-shift-context ctx all)))
+               (all-series (financial-chart-series-finish
+                            (cl-loop for pane in (cons price panes) for p from -1
+                                     append (mapcar (lambda (s) (append (list :pane p) s))
+                                                    (financial-chart-compose--pane-series
+                                                     pane bars (if (< p 0) "/price" (format "/panes/%d" p)))))))
+               (all-series (financial-chart-shift-series all-series (length bars)))
+               (ctx (financial-chart-trading-context (financial-chart-shift-context ctx all-series)))
                (style (financial-chart-styles-price (financial-chart-compose--pane-context ctx -1 n)
                                                     price))
                (columns (append (plist-get style :columns)
                                 (cl-remove-duplicates
-                                 (mapcar (lambda (s) (cons (plist-get s :column) (plist-get s :values))) all)
+                                 (mapcar (lambda (s) (cons (plist-get s :column) (plist-get s :values))) all-series)
                                  :key #'car :test #'equal)))
                (entries
                 (cl-loop for pane in (cons price panes) for p from -1
                          for path = (if (< p 0) "/price" (format "/panes/%d" p))
-                         for series = (cl-remove-if-not (lambda (s) (eql (plist-get s :pane) p)) all)
+                         for series = (cl-remove-if-not (lambda (s) (eql (plist-get s :pane) p)) all-series)
                          for volume = (and (>= p 0) (financial-chart-series-get pane :volume))
                          for pctx = (financial-chart-compose--pane-context ctx p n)
                          do (when (and volume (not (plist-get ctx :volume)))
@@ -360,7 +359,7 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
                                 :fills (cl-loop for fill in (append (financial-chart-series-get pane :fills) nil)
                                                 for i from 0
                                                 collect (financial-chart-series-fill
-                                                         fill all bars (format "%s/fills/%d" path i)))))))
+                                                         fill all-series bars (format "%s/fills/%d" path i)))))))
                (hits (mapcar (lambda (e) (format "%s-hit" (plist-get e :name))) entries))
                (title (financial-chart-series-get chart :title)))
     (append
@@ -369,7 +368,7 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
      (list :description (or (financial-chart-series-get chart :description)
                             (format "%s price%s of %d bars%s."
                                     (or (financial-chart-series-get price :style) "candles")
-                                    (if all (format " with %d series" (length all)) "")
+                                    (if all-series (format " with %d series" (length all-series)) "")
                                     (length bars)
                                     (if panes (format " and %d pane%s below" n (if (> n 1) "s" "")) "")))
            :data (list :values (financial-chart-compose--rows bars (append (plist-get ctx :xs) nil) columns

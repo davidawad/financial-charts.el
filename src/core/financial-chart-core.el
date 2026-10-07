@@ -16,12 +16,22 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'seq)
 
 (define-error 'financial-chart-error "financial-chart error")
 (define-error 'financial-chart-unknown-kind
   "financial-chart: unknown chart kind" 'financial-chart-error)
 (define-error 'financial-chart-invalid-data
   "financial-chart: invalid chart data" 'financial-chart-error)
+
+(defconst financial-chart-root
+  (let ((here (file-name-directory (or load-file-name buffer-file-name default-directory))))
+    (seq-find (lambda (dir) (file-exists-p (expand-file-name "templates/ohlc.json" dir)))
+              (list here (expand-file-name "../../" here))
+              here))
+  "Directory holding financial-chart's templates/ and examples/.
+The repository root when loaded from src/core/; the package directory
+itself in the flat layout MELPA installs.")
 
 (defgroup financial-chart nil
   "Financial charts from caller-supplied data, drawn by eas."

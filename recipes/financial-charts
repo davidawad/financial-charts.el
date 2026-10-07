@@ -1,0 +1,8 @@
+(financial-charts :fetcher github :repo "davidawad/financial-charts.el"
+                  :files ("src/*.el" "src/*/*.el"
+                          (:exclude "src/*-test.el" "src/*/*-test.el" "src/examples/*")
+                          "templates"
+                          ("examples" "examples/*.json")
+                          ("examples/compose" "examples/compose/*.json")
+                          ("examples/indicators" "examples/indicators/*.json")
+                          ("examples/order-book" "examples/order-book/*.json")))

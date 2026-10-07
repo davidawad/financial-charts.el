@@ -216,8 +216,7 @@ level with the most volume."
 ;;; templates
 
 (defconst financial-chart-eas-templates-root
-  (expand-file-name "../../templates"
-                    (file-name-directory (or load-file-name buffer-file-name)))
+  (expand-file-name "templates" financial-chart-root)
   "financial-chart's templates directory (ohlc, panes, depth, payoff, ...).
 The generic ones (line, bars, area, ...) ship with eas.el itself.")
 

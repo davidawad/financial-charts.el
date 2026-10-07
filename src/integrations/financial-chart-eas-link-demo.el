@@ -15,6 +15,7 @@
 ;;; Code:
 
 (require 'eas)
+(require 'financial-chart-core)
 (require 'financial-chart-eas)
 
 (declare-function eas-link-open "eas-link-bus" (source bus &rest args))
@@ -27,7 +28,7 @@
   "Open the demo's two views on BUS (default \"tickers\"); return them.
 Nothing is displayed, so this runs in --batch."
   (let ((bus (or bus "tickers"))
-        (root (file-name-directory (directory-file-name financial-chart-eas-templates-root))))
+        (root financial-chart-root))
     (list (eas-link-open "panes" bus :bindings (eas-template-example "panes") :subject "TSM"
                          :params '("crosshair" "zoom"))
           (eas-link-open "panes" bus :subject "DEMO"

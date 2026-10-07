@@ -10,7 +10,7 @@ SOURCES := $(shell find src -type f -name '*.el' ! -name '*-test.el' -print)
 ERT = $(EMACS) -Q --batch $(LOAD_PATHS) -L test $(foreach t,$(1),-l $(t)) \
 	--eval '(ert-run-tests-batch-and-exit (quote $(2)))'
 
-.PHONY: test compile clean
+.PHONY: test compile melpa-check clean
 
 test:
 	$(call ERT,$(TESTS),t)
@@ -18,6 +18,11 @@ test:
 compile:
 	$(EMACS) -Q --batch $(LOAD_PATHS) --eval '(setq byte-compile-error-on-warn t)' -f batch-byte-compile $(SOURCES)
 	@find src -name '*.elc' -delete
+
+# The recipe's files copied flat (as MELPA installs them), compiled,
+# rendered and package-linted: scripts/melpa-layout-check.
+melpa-check:
+	EAS=$(EAS) EMACS=$(EMACS) scripts/melpa-layout-check
 
 clean:
 	find src -name '*.elc' -delete

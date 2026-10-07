@@ -55,7 +55,9 @@
 ;; package-vc and a plain load-path entry to load the public entry point.
 (let ((source-directory (file-name-directory (or load-file-name buffer-file-name))))
   (dolist (directory '("." "core" "indicators" "charts" "integrations"))
-    (add-to-list 'load-path (expand-file-name directory source-directory))))
+    (let ((dir (expand-file-name directory source-directory)))
+      (when (file-directory-p dir)
+        (add-to-list 'load-path (directory-file-name dir))))))
 
 (require 'cl-lib)
 (require 'financial-chart-core)
@@ -71,7 +73,7 @@
 (require 'financial-chart-eas)
 (require 'financial-chart-eas-parity)
 
-(defconst financial-chart-version "0.4.0"
+(defconst financial-chart-version "0.4.2"
   "Version of the financial-chart package.")
 
 (defconst financial-chart-entry-points

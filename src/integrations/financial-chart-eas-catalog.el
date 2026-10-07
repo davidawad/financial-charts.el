@@ -32,6 +32,7 @@
 (require 'cl-lib)
 (require 'seq)
 (require 'subr-x)
+(require 'financial-chart-core)
 (require 'financial-chart-eas-series)
 (require 'financial-chart-eas-palette)
 (require 'financial-chart-eas-studies)
@@ -224,8 +225,7 @@ BARS are its validated bars (some studies compute from them)."
     chart))
 
 (defconst financial-chart-catalog-examples-directory
-  (expand-file-name "../../examples/indicators"
-                    (file-name-directory (or load-file-name buffer-file-name)))
+  (expand-file-name "examples/indicators" financial-chart-root)
   "Example charts, one per study and kind of annotation (NAME.json).")
 
 (defun financial-chart-catalog-examples ()

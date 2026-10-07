@@ -216,6 +216,13 @@
     (dolist (out (list text svg))
       (should-not (string-match-p "[0-9]\.[0-9]\{7,\}" out)))))
 
+(ert-deftest financial-chart-book-summary-mid-and-spread-are-decimal ()
+  "Cent prices give a cent mid and spread, not float noise on the axis."
+  (let ((s (financial-chart-book-summary
+            (financial-chart-book-make '(:bids [[99.89 1]] :asks [[100.09 1]])))))
+    (should (equal (plist-get s :mid) 99.99))
+    (should (equal (plist-get s :spread) 0.2))))
+
 (ert-deftest financial-chart-book-rows-flash-changed-levels-for-a-while ()
   (let ((book (financial-chart-book-test--book))
         (changed (lambda (rows) (delq nil (mapcar (lambda (r) (and (eql (plist-get r :changed) 1)

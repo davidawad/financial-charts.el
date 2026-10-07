@@ -306,6 +306,10 @@ One more than DECIMALS when halving the two prices needs it."
                           (lambda (a b) (< (car a) (car b))))))
     (if (and levels (> (length out) levels)) (seq-take out levels) out)))
 
+(defun financial-chart-book--decimal (x)
+  "X with float noise below 1e-9 rounded off (100.09 + 99.89 halves to 99.99)."
+  (/ (fround (* x 1e9)) 1e9))
+
 (defun financial-chart-book-summary (book)
   "BOOK's top of book: (:best-bid :best-ask :mid :spread :tick :decimals
 :bids :asks :deltas).  Mid and spread are rounded to the tick's

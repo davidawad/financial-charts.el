@@ -16,6 +16,10 @@ the only external process is optional PNG export.
 
 [See the indicator chart samples](docs/indicator-examples.md).
 
+[Watch the animated charts](docs/videos/README.md): a live order book
+(ladder, depth, both, and in a terminal) and candles with indicators
+updating as bars stream in.
+
 Daily NYSE: TSM candles, August 20–October 1, 2026. [Source data](examples/tsmc-daily.csv)
 and [regeneration script](src/examples/render-tsmc-chart.el); source: [Nasdaq historical
 data](https://api.nasdaq.com/api/quote/TSM/historical?assetclass=stocks&fromdate=2026-08-01&todate=2026-10-02&limit=30).
@@ -267,6 +271,12 @@ and exits 1. `examples/compose/` has one description per style
 (regenerate with `src/examples/render-compose-examples.el`); their text
 and SVG renderings are goldens in `test/golden/compose/`.
 
+![Candles with SMA 10/30, volume, RSI and MACD as bars stream in](docs/videos/candles.gif)
+
+A composed chart redrawn as bars stream in, indicators recomputed each
+frame ([MP4](docs/videos/candles.mp4); the same
+[in a terminal](docs/videos/candles-text.mp4)).
+
 ## Live order books: ladder and depth from deltas
 
 Send the book once, then stream deltas. financial-chart keeps the book,
@@ -309,6 +319,13 @@ mid and spread (depth-live's price axis ticks are the scale's own round
 values). Incoming prices are rounded to 12 significant digits, so a
 delta priced `102.15` finds the snapshot's `102.14999999999999` level.
 `financial-chart-book-inspect` reports the `:tick` and `:decimals` in use.
+
+![Ladder and depth-live on one simulated feed](docs/videos/book-pair.gif)
+
+Ladder and depth-live on one seeded feed
+([MP4](docs/videos/book-pair.mp4); the ladder
+[in a terminal](docs/videos/book-text.mp4)). `scripts/record-videos`
+records these clips; `docs/videos/README.md` says how.
 
 ## Indicator catalog: studies, zones and annotations
 

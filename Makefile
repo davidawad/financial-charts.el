@@ -3,7 +3,7 @@ TESTS := $(sort $(shell find src -type f -name '*-test.el' -print))
 # eas.el, the chart engine, is a separate package: a checkout of it beside
 # this one by default, overridable (make test EAS=/path/to/eas.el).
 EAS ?= ../../Personal/emacs/eas.el
-SRC_DIRS := src src/core src/indicators src/charts src/integrations
+SRC_DIRS := src src/core src/indicators src/charts src/integrations src/examples
 LOAD_PATHS := -L $(EAS)/src $(foreach dir,$(SRC_DIRS),-L $(dir))
 SOURCES := $(shell find src -type f -name '*.el' ! -name '*-test.el' -print)
 

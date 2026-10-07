@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Record the docs videos (docs/videos/README.md): render every frame
+# offline on a virtual clock (src/examples/financial-chart-video.el),
+# rasterize the SVG frames with rsvg-convert and encode MP4 (H.264) and
+# a looping GIF with ffmpeg.  Re-runnable; output is deterministic up to
+# the encoders.
+#
+#   scripts/record-videos [CLIP...]     # default: every clip
+#
+# EAS=path/to/eas.el (default ../../Personal/emacs/eas.el), EMACS,
+# OUT (default docs/videos), WORK (frames; default /tmp/fc-videos),
+# JOBS (rasterizer processes; default nproc).  Without ffmpeg or
+# rsvg-convert on PATH, a static ffmpeg and a micromamba-installed
+# librsvg (with fonts) are fetched into $TOOLS (default /tmp/fc-video-tools);
+# no root needed.
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+EAS=${EAS:-$ROOT/../../Personal/emacs/eas.el}
+EAS=$(cd "$EAS" && pwd)
+EMACS=${EMACS:-emacs}
+OUT=${OUT:-$ROOT/docs/videos}
+WORK=${WORK:-/tmp/fc-videos}
+TOOLS=${TOOLS:-/tmp/fc-video-tools}
+JOBS=${JOBS:-$(nproc)}
+CLIPS=("$@")
+[ ${#CLIPS[@]} -gt 0 ] || CLIPS=(ladder depth-live book-pair book-text candles candles-text)
+
+fetch_tools() {
+  mkdir -p "$TOOLS"
+  if ! command -v ffmpeg >/dev/null; then
+    if [ ! -x "$TOOLS/ffmpeg/ffmpeg" ]; then
+      echo "fetching static ffmpeg into $TOOLS/ffmpeg" >&2
+      mkdir -p "$TOOLS/ffmpeg"
+      curl -fsSL https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz |
+        tar xJ -C "$TOOLS/ffmpeg" --strip-components=1
+    fi
+    PATH=$TOOLS/ffmpeg:$PATH
+  fi
+  if ! command -v rsvg-convert >/dev/null; then
+    if [ ! -x "$TOOLS/rsvg/bin/rsvg-convert" ]; then
+      echo "fetching librsvg (conda-forge, via micromamba) into $TOOLS/rsvg" >&2
+      mkdir -p "$TOOLS/mm"
+      curl -fsSL https://micro.mamba.pm/api/micromamba/linux-64/latest |
+        tar xj -C "$TOOLS/mm" bin/micromamba
+      "$TOOLS/mm/bin/micromamba" create -y -q -r "$TOOLS/mamba" -p "$TOOLS/rsvg" \
+        -c conda-forge librsvg fonts-conda-forge fontconfig >&2
+    fi
+    PATH=$TOOLS/rsvg/bin:$PATH
+  fi
+  export PATH
+}
+
+render_frames() {
+  "$EMACS" -Q --batch -L "$EAS/src" \
+    -L "$ROOT/src" -L "$ROOT/src/core" -L "$ROOT/src/indicators" -L "$ROOT/src/charts" \
+    -L "$ROOT/src/integrations" -L "$ROOT/src/examples" \
+    -l financial-chart-video -f financial-chart-video-main "$WORK" "$@"
+}
+
+rasterize() {  # DIR: every NNNNN.svg to NNNNN.png
+  find "$1" -maxdepth 1 -name '*.svg' -print0 |
+    xargs -0 -P "$JOBS" -n 20 sh -c 'for f; do rsvg-convert -b white -o "${f%.svg}.png" "$f"; done' _
+}
+
+encode() {  # CLIP INPUT-ARGS...: docs/videos/CLIP.mp4 and CLIP.gif
+  local clip=$1; shift
+  ffmpeg -loglevel error -y "$@" -r 30 -c:v libx264 -preset slow -crf 26 \
+    -pix_fmt yuv420p -movflags +faststart "$OUT/$clip.mp4"
+  # The GIF: 640 wide at 15 fps, one shared palette, loops forever.
+  ffmpeg -loglevel error -y -i "$OUT/$clip.mp4" -vf \
+    "fps=15,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
+    -loop 0 "$OUT/$clip.gif"
+}
+
+fetch_tools
+mkdir -p "$OUT"
+for clip in "${CLIPS[@]}"; do rm -rf "${WORK:?}/$clip"; done
+render_frames "${CLIPS[@]}"
+for clip in "${CLIPS[@]}"; do
+  dir=$WORK/$clip
+  if [ "$clip" = book-pair ]; then
+    rasterize "$dir/left"; rasterize "$dir/right"
+    encode "$clip" -framerate 30 -i "$dir/left/%05d.png" -framerate 30 -i "$dir/right/%05d.png" \
+      -filter_complex hstack=inputs=2
+  else
+    rasterize "$dir"
+    encode "$clip" -framerate 30 -i "$dir/%05d.png"
+  fi
+  ls -l "$OUT/$clip.mp4" "$OUT/$clip.gif" | awk '{print $5, $9}' >&2
+done

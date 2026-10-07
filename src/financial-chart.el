@@ -1,11 +1,11 @@
-;;; financial-chart.el --- Financial charts in Emacs: text in a terminal, SVG in a GUI -*- lexical-binding: t; -*-
+;;; financial-chart.el --- Financial charts: text in a terminal, SVG in a GUI -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026 David Awad
 
 ;; Author: David Awad <me@davidaw.ad>
 ;; Maintainer: David Awad <me@davidaw.ad>
 ;; Version: 0.4.2
-;; Package-Requires: ((emacs "30.1") (eas "0.1.0"))
+;; Package-Requires: ((emacs "30.1") (eas "0.2.2"))
 ;; Keywords: data, finance, tools
 ;; URL: https://github.com/davidawad/financial-charts.el
 

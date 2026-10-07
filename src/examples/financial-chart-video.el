@@ -38,6 +38,8 @@
 (require 'eas-svg)
 (require 'eas-text)
 
+(defvar eas-live-budget-factor)
+
 (defvar financial-chart-video-fps 30 "Frames per second of every video.")
 (defvar financial-chart-video-seconds 12 "Length of every video in seconds.")
 (defvar financial-chart-video-levels 20 "Price levels drawn per side of a book.")
@@ -182,6 +184,8 @@ LEVELS are drawn per side."
   (let* ((feed (financial-chart-video-feed-make seed))
          (now 0.0)
          (eas-stream-use-timers nil)
+         ;; Offline frames at fixed timestamps: never drop one for its real cost.
+         (eas-live-budget-factor 0)
          (eas-stream-clock (lambda () (+ now 0.001)))
          (view (financial-chart-book-open
                 (financial-chart-video-feed-snapshot feed)

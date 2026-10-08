@@ -298,6 +298,39 @@
       (should (stringp (nth 2 (assoc "ema" series))))
       (should-not (equal (nth 2 (assoc "ema" series)) (nth 2 (assoc "rsi" series)))))))
 
+(defun financial-chart-readout-test--up-down (view)
+  "The colours VIEW's candles, wicks and volume bars draw, and the palette's up and down."
+  (let ((colours (list financial-chart-palette-up financial-chart-palette-down)))
+    (seq-doseq (pane (plist-get (eas-view-scene view) :views))
+      (seq-doseq (mark (plist-get pane :marks))
+        (when (member (plist-get mark :id) '("candles" "wicks" "volume"))
+          (seq-doseq (item (plist-get mark :items))
+            (dolist (c (list (plist-get item :stroke) (plist-get item :fill)))
+              (when (and (stringp c) (not (equal c "none"))) (cl-pushnew c colours :test #'equal)))))))
+    colours))
+
+(ert-deftest financial-chart-readout-overlays-never-take-the-up-down-colours ()
+  ;; fc-t9m: the ohlc template's overlays inherited the candles' up/down
+  ;; rule (SMA red, EMA green), and the readout repeated it.
+  (let ((eas-views (make-hash-table :test 'equal)) (inhibit-message t) (eas-action-inhibit t))
+    (let* ((v (eas-view-open "ohlc" :bindings (financial-chart-readout-test--bindings "ohlc") :id "up-down"))
+           (up-down (financial-chart-readout-test--up-down v))
+           (series (financial-chart-readout--scene-series v))
+           (colours (mapcar #'caddr series))
+           (d (append '(:sma 101.5 :ema 101.25 :rsi 48.2) financial-chart-readout-test--down))
+           (spans (financial-chart-readout-test--line '(:component "indicator-values") d :view v)))
+      (should (= (length up-down) 4))
+      (should (equal (mapcar #'car series) '("sma" "ema" "rsi")))
+      (dolist (c colours)
+        (should (stringp c))
+        (should-not (member c up-down)))
+      ;; Each series has its own colour, across panes.
+      (should (equal colours (seq-uniq colours)))
+      ;; The readout shows each value in its line's colour.
+      (should (equal (mapcar (lambda (text) (plist-get (financial-chart-readout-test--style spans text) :color))
+                             '("101.50" "101.25" "48.20"))
+                     colours)))))
+
 ;;; Composed charts
 
 (ert-deftest financial-chart-readout-composed-charts-carry-theirs ()

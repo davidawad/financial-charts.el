@@ -2,7 +2,7 @@
   "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
   "x-eas": {
     "template": "ohlc",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "readout": {
         "max_lines": 1,
         "component": "row",
@@ -55,12 +55,12 @@
       "indicators": {
         "type": "array",
         "default": [],
-        "doc": "price overlays, each an indicator name (\"sma\") or {\"name\", \"params\", \"output\", \"as\"}: one line per entry, coloured by AS (default: the name; give AS when an indicator repeats). Multi-output indicators draw OUTPUT, else their first. Needs the indicator transform (financial-chart-eas). A precomputed series is {\"transform\": \"values\", \"values\": [...], \"as\": LABEL}, one value per bar."
+        "doc": "price overlays, each an indicator name (\"sma\") or {\"name\", \"params\", \"output\", \"as\"}: one line per entry, coloured by AS (default: the name; give AS when an indicator repeats) from the theme's series colours, never the candles' up/down. Multi-output indicators draw OUTPUT, else their first. Needs the indicator transform (financial-chart-eas). A precomputed series is {\"transform\": \"values\", \"values\": [...], \"as\": LABEL}, one value per bar."
       },
       "oscillators": {
         "type": "array",
         "default": [],
-        "doc": "one pane per entry under the price pane, same entry form as indicators, e.g. {\"name\": \"rsi\", \"params\": [14]}"
+        "doc": "one pane per entry under the price pane, same entry form and series colours as indicators, e.g. {\"name\": \"rsi\", \"params\": [14]}"
       },
       "crosshair": {
         "type": "boolean",
@@ -93,13 +93,6 @@
           "field": "time",
           "type": "temporal",
           "title": "date"
-        },
-        "color": {
-          "condition": {
-            "test": "datum.open <= datum.close",
-            "value": "#06982d"
-          },
-          "value": "#ae1325"
         },
         "tooltip": [
           {
@@ -134,6 +127,13 @@
           "name": "wicks",
           "mark": "rule",
           "encoding": {
+            "color": {
+              "condition": {
+                "test": "datum.open <= datum.close",
+                "value": "#06982d"
+              },
+              "value": "#ae1325"
+            },
             "y": {
               "field": "low",
               "type": "quantitative",
@@ -153,6 +153,13 @@
             "type": "bar"
           },
           "encoding": {
+            "color": {
+              "condition": {
+                "test": "datum.open <= datum.close",
+                "value": "#06982d"
+              },
+              "value": "#ae1325"
+            },
             "y": {
               "field": "open",
               "type": "quantitative",
@@ -380,6 +387,11 @@
           "x": {
             "field": "time",
             "type": "temporal",
+            "title": null
+          },
+          "color": {
+            "field": "indicator",
+            "type": "nominal",
             "title": null
           },
           "y": {

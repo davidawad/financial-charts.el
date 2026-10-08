@@ -15,10 +15,6 @@
   "vconcat": [
     {
       "encoding": {
-        "color": {
-          "condition": {"test": "datum.open <= datum.close", "value": "#06982d"},
-          "value": "#ae1325"
-        },
         "tooltip": [
           {"field": "time", "title": "date", "type": "temporal"},
           {"field": "open", "type": "quantitative"},
@@ -33,6 +29,10 @@
       "layer": [
         {
           "encoding": {
+            "color": {
+              "condition": {"test": "datum.open <= datum.close", "value": "#06982d"},
+              "value": "#ae1325"
+            },
             "y": {
               "field": "low",
               "scale": {"zero": false},
@@ -46,6 +46,10 @@
         },
         {
           "encoding": {
+            "color": {
+              "condition": {"test": "datum.open <= datum.close", "value": "#06982d"},
+              "value": "#ae1325"
+            },
             "y": {
               "field": "open",
               "scale": {"zero": false},

@@ -3,6 +3,34 @@
   "x-eas": {
     "template": "ohlc",
     "version": "1.1.0",
+    "readout": {
+        "max_lines": 1,
+        "component": "row",
+        "children": [
+            {
+                "component": "text",
+                "props": {
+                    "text": {
+                        "expr": "at"
+                    },
+                    "priority": 10,
+                    "style": {
+                        "dim": true
+                    }
+                }
+            },
+            {
+                "component": "ohlc-readout",
+                "props": {
+                    "style": "candles",
+                    "basis": "open"
+                }
+            },
+            {
+                "component": "indicator-values"
+            }
+        ]
+    },
     "doc": "Candlesticks from OHLC bars: a low-high wick and an open-close body per bar, up bars green; optional volume pane, indicator overlays and oscillator panes.",
     "slots": {
       "bars": {

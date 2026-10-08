@@ -3,6 +3,70 @@
   "x-eas": {
     "template": "drawdown",
     "version": "1.0.0",
+    "readout": {
+        "max_lines": 1,
+        "component": "row",
+        "children": [
+            {
+                "component": "text",
+                "props": {
+                    "text": {
+                        "expr": "at"
+                    },
+                    "priority": 10,
+                    "style": {
+                        "dim": true
+                    }
+                }
+            },
+            {
+                "component": "when",
+                "props": {
+                    "test": "isValid(datum.drawdown)"
+                },
+                "children": [
+                    {
+                        "component": "row",
+                        "children": [
+                            {
+                                "component": "quantity",
+                                "props": {
+                                    "field": "x",
+                                    "format": "plain",
+                                    "priority": 90
+                                }
+                            },
+                            {
+                                "component": "quantity",
+                                "props": {
+                                    "field": "y",
+                                    "label": "value",
+                                    "priority": 85
+                                }
+                            },
+                            {
+                                "component": "signed-value",
+                                "props": {
+                                    "field": "drawdown",
+                                    "format": "percent",
+                                    "sign": false,
+                                    "priority": 95
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "else": [
+                    {
+                        "component": "fields",
+                        "props": {
+                            "source": "auto"
+                        }
+                    }
+                ]
+            }
+        ]
+    },
     "doc": "Running percent decline from the high-water mark of a value series; the maximum drawdown is marked.",
     "slots": {
       "data": {

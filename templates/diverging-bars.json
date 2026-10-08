@@ -3,6 +3,61 @@
   "x-eas": {
     "template": "diverging-bars",
     "version": "1.0.0",
+    "readout": {
+        "max_lines": 1,
+        "component": "row",
+        "children": [
+            {
+                "component": "text",
+                "props": {
+                    "text": {
+                        "expr": "at"
+                    },
+                    "priority": 10,
+                    "style": {
+                        "dim": true
+                    }
+                }
+            },
+            {
+                "component": "when",
+                "props": {
+                    "test": "isValid(datum.value)"
+                },
+                "children": [
+                    {
+                        "component": "row",
+                        "children": [
+                            {
+                                "component": "quantity",
+                                "props": {
+                                    "field": "label",
+                                    "label": "",
+                                    "priority": 90
+                                }
+                            },
+                            {
+                                "component": "signed-value",
+                                "props": {
+                                    "field": "value",
+                                    "label": "",
+                                    "priority": 95
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "else": [
+                    {
+                        "component": "fields",
+                        "props": {
+                            "source": "auto"
+                        }
+                    }
+                ]
+            }
+        ]
+    },
     "doc": "One horizontal bar per label from a zero line, positive green and negative red, e.g. P/L per position.",
     "slots": {
       "data": {

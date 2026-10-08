@@ -3,6 +3,85 @@
   "x-eas": {
     "template": "volume-profile",
     "version": "1.0.0",
+    "readout": {
+        "max_lines": 1,
+        "component": "row",
+        "children": [
+            {
+                "component": "text",
+                "props": {
+                    "text": {
+                        "expr": "at"
+                    },
+                    "priority": 10,
+                    "style": {
+                        "dim": true
+                    }
+                }
+            },
+            {
+                "component": "when",
+                "props": {
+                    "test": "isValid(datum.volume)"
+                },
+                "children": [
+                    {
+                        "component": "row",
+                        "children": [
+                            {
+                                "component": "quantity",
+                                "props": {
+                                    "field": "low",
+                                    "label": "price",
+                                    "priority": 90
+                                }
+                            },
+                            {
+                                "component": "quantity",
+                                "props": {
+                                    "field": "high",
+                                    "label": "to",
+                                    "priority": 85
+                                }
+                            },
+                            {
+                                "component": "quantity",
+                                "props": {
+                                    "field": "volume",
+                                    "label": "Vol",
+                                    "format": "abbrev",
+                                    "priority": 95
+                                }
+                            },
+                            {
+                                "component": "when",
+                                "props": {
+                                    "test": "datum.poc == true"
+                                },
+                                "children": [
+                                    {
+                                        "component": "badge",
+                                        "props": {
+                                            "text": "POC",
+                                            "priority": 60
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "else": [
+                    {
+                        "component": "fields",
+                        "props": {
+                            "source": "auto"
+                        }
+                    }
+                ]
+            }
+        ]
+    },
     "doc": "Estimated traded volume by price level from OHLCV bars (each bar's volume spread over its low-high range), point of control and last close marked.",
     "slots": {
       "title": {

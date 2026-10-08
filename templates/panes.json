@@ -3,6 +3,46 @@
  "x-eas": {
   "template": "panes",
   "version": "1.0.0",
+  "readout": {
+    "max_lines": 1,
+    "component": "row",
+    "children": [
+      {
+        "component": "text",
+        "props": {
+          "text": {
+            "expr": "at"
+          },
+          "priority": 10,
+          "style": {
+            "dim": true
+          }
+        }
+      },
+      {
+        "component": "ohlc-readout",
+        "props": {
+          "style": "line",
+          "basis": "previous-close",
+          "previous_close_field": "prev"
+        }
+      },
+      {
+        "component": "indicator-values",
+        "props": {
+          "decimals": 1,
+          "series": [
+            {
+              "field": "rsi",
+              "label": "RSI",
+              "pane": "rsi",
+              "color": "#2a78d6"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "doc": "Price, volume and RSI(14) panes on one time axis: one crosshair and one zoom (wheel, drag, +/-) drive all three.",
   "slots": {
    "bars": {

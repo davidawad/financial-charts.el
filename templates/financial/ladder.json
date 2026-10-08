@@ -3,6 +3,48 @@
   "x-eas": {
     "template": "ladder",
     "version": "1.0.0",
+    "readout": {
+        "max_lines": 1,
+        "component": "row",
+        "children": [
+            {
+                "component": "text",
+                "props": {
+                    "text": {
+                        "expr": "at"
+                    },
+                    "priority": 10,
+                    "style": {
+                        "dim": true
+                    }
+                }
+            },
+            {
+                "component": "when",
+                "props": {
+                    "test": "isValid(datum.side)"
+                },
+                "children": [
+                    {
+                        "component": "row",
+                        "children": [
+                            {
+                                "component": "order-book-level"
+                            }
+                        ]
+                    }
+                ],
+                "else": [
+                    {
+                        "component": "fields",
+                        "props": {
+                            "source": "auto"
+                        }
+                    }
+                ]
+            }
+        ]
+    },
     "doc": "Live order-book price ladder: one row per price level, bid size left of the spine and ask size right, the spread row between them, changed levels flashed. Fed by financial-chart-book-open and order-book deltas.",
     "stream": {
       "max-fps": 10

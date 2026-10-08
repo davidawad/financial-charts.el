@@ -377,7 +377,37 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
      (unless (and (plist-member chart :crosshair)
                   (not (financial-chart-series-get chart :crosshair)))
        (list :params (financial-chart-compose--params hits)))
-     (list :vconcat (vconcat entries)))))
+     (list :vconcat (vconcat entries))
+     (list :x-eas (list :readout (or (financial-chart-series-get chart :readout)
+                                     (financial-chart-compose--readout
+                                      ctx price panes entries all-series)))))))
+
+(defun financial-chart-compose--readout (ctx price panes entries series)
+  "The hover readout of a composed chart: its x-eas.readout (fc-gy6).
+The bar's prices (`ohlc-readout', the fields PRICE's style draws, in
+CTX's up and down colours), then every SERIES in its colour, bold in
+the pane under the cursor (ENTRIES, one per pane of PRICE and PANES)."
+  (let ((pane-name (lambda (p) (plist-get (nth (1+ p) entries) :name))))
+    (list :max_lines 1 :component "row"
+          :children
+          (vector '(:component "text" :props (:text (:expr "at") :priority 10 :style (:dim t)))
+                  (list :component "ohlc-readout"
+                        :props (list :style (or (financial-chart-series-get price :style) "candles")
+                                     :up (plist-get ctx :up) :down (plist-get ctx :down)
+                                     :date_field (if (plist-get ctx :times) "date" "time")
+                                     :price_pane (funcall pane-name -1)
+                                     :volume_pane (or (cl-loop for pane in panes for p from 0
+                                                               when (financial-chart-series-get pane :volume)
+                                                               return (funcall pane-name p))
+                                                      "volume")))
+                  (list :component "indicator-values"
+                        :props (list :series
+                                     (vconcat
+                                      (mapcar (lambda (s)
+                                                (list :field (plist-get s :column) :label (plist-get s :label)
+                                                      :color (plist-get s :color)
+                                                      :pane (funcall pane-name (plist-get s :pane))))
+                                              series))))))))
 
 (defun financial-chart-compose--params (hits)
   "The shared crosshair and zoom params over the HITS layers."
@@ -422,6 +452,7 @@ STYLE may also be \"calendar\": the candles example on calendar time."
                  :title "string" :description "string" :width "pixels, default container"
                  :x "\"trading\" (default: one slot per bar, no non-trading gaps, date ticks), \"calendar\" (dates to scale) or {scale, ticks}"
                  :colors "{up, down, price}" :crosshair "boolean, default true"
+                 :readout "an eas x-eas.readout component tree; default: ohlc-readout and indicator-values (README, \"Hover readout\")"
                  :price "{style, field, color, width, dash, baseline, above, below, height, series, fills, rules, studies, zones, annotations}"
                  :panes "[{series, fills, rules, volume, title, domain, height, id, study, studies, zones, annotations}]")
         :series '(:forms ["\"sma\"" "{indicator, params, output}" "{values, label}" "{field}"]

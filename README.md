@@ -282,6 +282,51 @@ A composed chart redrawn as bars stream in, indicators recomputed each
 frame ([MP4](docs/videos/candles.mp4); the same
 [in a terminal](docs/videos/candles-text.mp4)).
 
+## Hover readout: financial components
+
+eas reserves one line under every live chart for its readout, so
+hovering never changes the chart's layout (eas.el's README, "Interaction /
+Hover readout"). Each template here and each composed chart fills that
+line with components this package registers with eas
+(`eas-define-component`). They are named in the chart's JSON, under
+`x-eas.readout`:
+
+```
+ cursor  Aug 26, 2026  O 427.40 H 429.00 L 419.60 C 420.25 -7.15 (-1.67%) Vol 11.0M  sma 423.68
+ cursor  BID  100.87500  × 4  cum 7.5  L 1  spread 0.09375
+```
+
+```json
+"x-eas": {"readout": {"max_lines": 1, "component": "row", "children": [
+  {"component": "text", "props": {"text": {"expr": "at"}, "priority": 10, "style": {"dim": true}}},
+  {"component": "ohlc-readout", "props": {"style": "candles", "basis": "open", "up": "#06982d"}},
+  {"component": "indicator-values"}]}}
+```
+
+| component | props (default) | draws |
+|---|---|---|
+| `ohlc-readout` | `fields` (`["date","open","high","low","close","change","change_pct","volume"]`), `style` (`candles`), `basis` (`auto`, `open`, `previous-close`), `up`, `down`, `volume_format` (`abbrev`, `number`, `plain`), `decimals` (2), `date_field` (`time`), `date_format` (`%b %d, %Y`), `previous_close_field` (`prev_close`), `price_pane` (`price`), `volume_pane` (`volume`) | the bar's date and prices. Close, change and change % are colored up when close ≥ the basis and down below it. `auto` compares with the open, or with the previous close on line styles. Open, high and low are hidden on `line`, `step`, `area` and `baseline`. Volume is abbreviated (`1.2M`). Close is bold while the cursor is in the price pane, volume while it is in the volume pane. |
+| `indicator-values` | `series` (`[{field, label, color, pane}]`, else found in the scene), `decimals` (2), `priority` (30) | each indicator's value at the bar, in its series color, bold when its pane is under the cursor. Null values are hidden. |
+| `order-book-level` | `fields` (`["side","price","size","cumulative","level","spread"]`), `bid`, `ask`, `price_field` (`price_label`), `size_format` (`abbrev`), `decimals` (2) | a book level: the side, price and size in the side's color. The mid row shows the mid price and the spread. |
+| `signed-value` | `field` (required), `label`, `format` (`number`, `percent`, `abbrev`, `plain`), `decimals` (2), `sign` (true), `up`, `down`, `priority` (80) | a number colored up when ≥ 0 and down below: P/L, drawdown, a position |
+| `quantity` | `field` (required), `label` (`""` for none), `format` (`number`, `percent`, `abbrev`, `plain`, `time`), `decimals` (2), `style`, `priority` (50) | a labeled value, hidden when the datum lacks it |
+
+Colors come from the props. Without them, they follow the chart's theme
+(its Vega `config`, `"financial": {"up", "down", "bid", "ask"}`; a bid
+without its own color uses up, and an ask uses down), then
+`financial-chart-palette-up` and `-down`. A composed chart passes its
+`"colors"` to the readout and gets one by default: `ohlc-readout` for its
+price style plus `indicator-values` with every series' color and pane. A
+`"readout"` key in the chart replaces that default with any component
+tree. Every component works with eas's built-ins (`row`, `when`, `field`,
+`badge`, `sep`, ...), and `eas-define-component` adds your own.
+
+The line never wraps. When it is too long, eas's fit drops the
+lowest-priority atoms first (the `at` label, then volume and indicator
+values; close is always kept), then shortens labels to one letter and
+abbreviates numbers. `make test` checks that every template's readout is
+one line at 80 columns, and that hovering changes no cell outside it.
+
 ## Live order books: ladder and depth from deltas
 
 Send the book once, then stream deltas. financial-chart keeps the book,
@@ -582,7 +627,7 @@ Source is grouped by responsibility under src/:
 - src/core/ — configuration, errors, data shapes and validation.
 - src/indicators/ — normalized indicator API, registry, built-in families and cohorts.
 - src/charts/ — the kind registry, `financial-chart-plot` and each chart kind.
-- src/integrations/ — eas adapters, transforms, templates and parity checks.
+- src/integrations/ — eas adapters, transforms, templates, hover-readout components and parity checks.
 - src/examples/ — Elisp scripts that regenerate chart examples.
 - templates/ — financial-chart's eas templates; test/ — test support and template goldens;
   examples/ — sample TSMC bars and template bindings; docs/ — guide and captures.

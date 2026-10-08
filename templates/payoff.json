@@ -3,6 +3,60 @@
   "x-eas": {
     "template": "payoff",
     "version": "1.0.0",
+    "readout": {
+        "max_lines": 1,
+        "component": "row",
+        "children": [
+            {
+                "component": "text",
+                "props": {
+                    "text": {
+                        "expr": "at"
+                    },
+                    "priority": 10,
+                    "style": {
+                        "dim": true
+                    }
+                }
+            },
+            {
+                "component": "when",
+                "props": {
+                    "test": "isValid(datum.pnl)"
+                },
+                "children": [
+                    {
+                        "component": "row",
+                        "children": [
+                            {
+                                "component": "quantity",
+                                "props": {
+                                    "field": "price",
+                                    "priority": 90
+                                }
+                            },
+                            {
+                                "component": "signed-value",
+                                "props": {
+                                    "field": "pnl",
+                                    "label": "P/L",
+                                    "priority": 95
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "else": [
+                    {
+                        "component": "fields",
+                        "props": {
+                            "source": "auto"
+                        }
+                    }
+                ]
+            }
+        ]
+    },
     "doc": "Profit and loss against the underlying price at expiry: gains green, losses red, breakevens marked on the zero line.",
     "slots": {
       "data": {

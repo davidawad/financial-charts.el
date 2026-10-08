@@ -3,6 +3,68 @@
   "x-eas": {
     "template": "payoff-curves",
     "version": "1.0.0",
+    "readout": {
+        "max_lines": 1,
+        "component": "row",
+        "children": [
+            {
+                "component": "text",
+                "props": {
+                    "text": {
+                        "expr": "at"
+                    },
+                    "priority": 10,
+                    "style": {
+                        "dim": true
+                    }
+                }
+            },
+            {
+                "component": "when",
+                "props": {
+                    "test": "isValid(datum.pnl)"
+                },
+                "children": [
+                    {
+                        "component": "row",
+                        "children": [
+                            {
+                                "component": "quantity",
+                                "props": {
+                                    "field": "curve",
+                                    "label": "",
+                                    "priority": 70
+                                }
+                            },
+                            {
+                                "component": "quantity",
+                                "props": {
+                                    "field": "price",
+                                    "priority": 90
+                                }
+                            },
+                            {
+                                "component": "signed-value",
+                                "props": {
+                                    "field": "pnl",
+                                    "label": "P/L",
+                                    "priority": 95
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "else": [
+                    {
+                        "component": "fields",
+                        "props": {
+                            "source": "auto"
+                        }
+                    }
+                ]
+            }
+        ]
+    },
     "doc": "Several P/L curves on one price grid (strategies, or one strategy at several dates), with a zero line.",
     "slots": {
       "data": {

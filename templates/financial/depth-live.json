@@ -3,6 +3,48 @@
   "x-eas": {
     "template": "depth-live",
     "version": "1.0.0",
+    "readout": {
+        "max_lines": 1,
+        "component": "row",
+        "children": [
+            {
+                "component": "text",
+                "props": {
+                    "text": {
+                        "expr": "at"
+                    },
+                    "priority": 10,
+                    "style": {
+                        "dim": true
+                    }
+                }
+            },
+            {
+                "component": "when",
+                "props": {
+                    "test": "isValid(datum.side)"
+                },
+                "children": [
+                    {
+                        "component": "row",
+                        "children": [
+                            {
+                                "component": "order-book-level"
+                            }
+                        ]
+                    }
+                ],
+                "else": [
+                    {
+                        "component": "fields",
+                        "props": {
+                            "source": "auto"
+                        }
+                    }
+                ]
+            }
+        ]
+    },
     "doc": "Live cumulative order-book depth: bid size summed down from the best bid, ask size up from the best ask, as step areas, with the mid price ruled and the spread labelled and changed levels flashed. Fed by financial-chart-book-open and order-book deltas.",
     "stream": {
       "max-fps": 10

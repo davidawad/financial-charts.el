@@ -26,6 +26,11 @@
 ;;               the generic Vega-Lite ones (line, bars, area, ...) come
 ;;               from eas.el
 ;;
+;;   readout     the hover readout's components (ohlc-readout,
+;;               indicator-values, order-book-level, signed-value,
+;;               quantity) that every template's x-eas.readout names
+;;               (financial-chart-eas-readout)
+;;
 ;;   compose     `financial-chart-compose' (financial-chart-eas-compose):
 ;;               a declarative chart (price style, overlays, fills,
 ;;               oscillator panes) compiled to one plain eas spec
@@ -45,6 +50,7 @@
 (require 'financial-chart-multi)
 (require 'financial-chart-depth)
 (require 'financial-chart-matrix)
+(require 'financial-chart-eas-readout)
 
 (defun financial-chart-eas--validate (shape data)
   "Validate DATA with SHAPE's financial-chart validator, failing as eas data."

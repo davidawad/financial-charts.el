@@ -308,9 +308,18 @@ callExpDateMap and putExpDateMap (the 11-day 768 strike has none)."
   (let* ((rows (financial-chart-3d-vol-surface-rows (financial-chart-3d-vol-test--iv-surface)
                                                     :time "2026-10-30T16:00:00"
                                                     :contracts (financial-chart-3d-vol-test--schwab)))
-         (tips (financial-chart-3d-vol-test--tooltips
-                (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d") (append rows nil))))
+         (surface (financial-chart-3d-vol-test--prim
+                   (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d") (append rows nil))
+                   "surface"))
+         (tips (plist-get surface :tooltips))
+         (data (plist-get surface :data))
          (at (lambda (j i) (aref tips (+ (* j 3) i)))))
+    (should (= (length data) (length tips)))
+    (should (equal (plist-get (aref data 1) :strike) 769.0))
+    (should (string-match-p "261110C00769000" (plist-get (aref data 1) :contracts)))
+    (should (eq (plist-get (aref data 0) :interpolated) t))
+    (should (equal (plist-get (aref data 0) :interpolation)
+                   "from strike 769 (the nearest)"))
     ;; Rows take their contracts and, lacking one, the contracts' expiry.
     (should (equal (plist-get (aref rows 2) :expiry) "2026-12-01"))
     (should (string-prefix-p "CALL NVDA  261201C00768000" (plist-get (aref rows 2) :contracts)))
@@ -330,6 +339,40 @@ callExpDateMap and putExpDateMap (the 11-day 768 strike has none)."
     (should (equal (funcall at 0 0)
                    (concat "K 768  2026-11-10 (11 DTE)\nIV 20.0% (interpolated)  moneyness 0.998\n"
                            "interpolated from strike 769 (the nearest): no quote here")))))
+
+(ert-deftest financial-chart-3d-vol-surface-hover-shows-contract-and-interpolation ()
+  "The rendered surface's cell help-echoes expose its quote and filled samples."
+  (let* ((view (financial-chart-3d-vol-surface-open
+                (financial-chart-3d-vol-test--iv-surface)
+                :time "2026-10-30T16:00:00"
+                :chain (financial-chart-3d-vol-test--schwab)
+                :id "fc3d-test-vol-hover"))
+         (buffer (graphics-eas-show view 60 24))
+         (window (get-buffer-window buffer t))
+         (g (graphics-eas-get view))
+         (picks (graphics-eas-view-picks g))
+         texts pick-texts)
+    (unwind-protect
+        (progn
+          (with-current-buffer buffer
+            (let ((pos (point-min)))
+              (while (< pos (point-max))
+                (let ((help (get-text-property pos 'help-echo)))
+                  (when (functionp help)
+                    (let ((text (funcall help window buffer pos)))
+                      (when text (push text texts)))))
+                (setq pos (1+ pos)))))
+          (maphash (lambda (_ entry) (when (cdr entry) (push (cdr entry) pick-texts)))
+                   (graphics-eas-picks-entries picks)))
+      (when (buffer-live-p buffer) (kill-buffer buffer)))
+    (should (seq-some (lambda (text)
+                        (and (string-match-p "NVDA  261201C00770000" text)
+                             (string-match-p "NVDA  261201P00770000" text)))
+                      texts))
+    (should (seq-some (lambda (text)
+                        (and (string-match-p "interpolated" text)
+                             (string-match-p "no quote here" text)))
+                      pick-texts))))
 
 (ert-deftest financial-chart-3d-vol-surface-tooltips-without-a-chain ()
   (let ((tips (financial-chart-3d-vol-test--tooltips
@@ -374,12 +417,17 @@ callExpDateMap and putExpDateMap (the 11-day 768 strike has none)."
       (unwind-protect
           (progn
             (graphics-eas-frame view 60 24)
-            (let* ((shown (graphics-eas-anim-shown (graphics-eas-view-anim (graphics-eas-get view))))
-                   (tips (financial-chart-3d-vol-test--tooltips shown)))
+            (let* ((g (graphics-eas-get view))
+                   (shown (graphics-eas-anim-shown (graphics-eas-view-anim g)))
+                   (surface (financial-chart-3d-vol-test--prim shown "surface"))
+                   (picks (graphics-eas-view-picks g))
+                   (tips (mapcar (lambda (id)
+                                   (cdr (graphics-eas-pick-entry picks id)))
+                                 (append (plist-get surface :ids) nil))))
               (should (= (length tips) 6))
-              (should (string-match-p "^CALL NVDA  261201C00769000  bid 22.37 " (aref tips 4)))
-              (should (string-match-p "^PUT NVDA  261110P00770000  bid 10.36 " (aref tips 2)))
-              (should (string-match-p "interpolated" (aref tips 0)))))
+              (should (string-match-p "^CALL NVDA  261201C00769000  bid 22.37 " (nth 4 tips)))
+              (should (string-match-p "^PUT NVDA  261110P00770000  bid 10.36 " (nth 2 tips)))
+              (should (string-match-p "interpolated" (nth 0 tips)))))
         (financial-chart-3d--close view)))))
 
 (ert-deftest financial-chart-3d-vol-surface-solid-at-every-size-and-phase ()

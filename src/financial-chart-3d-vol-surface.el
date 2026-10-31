@@ -619,12 +619,31 @@ the surface moves in place from one quote time to the next."
                        (vconcat
                         (cl-loop for dte in dtes for smile in smiles for j from 0
                                  nconc (cl-loop for k in strikes for i from 0
+                                                for source = (aref (aref (cdr grid) j) i)
+                                                for row = (gethash (cons k dte) cells)
+                                                for expiry = (gethash dte expiries)
+                                                for iv = (aref smile i)
+                                                for sample-spot = (or (gethash dte spots) spot)
+                                                for contracts = (and row (financial-chart-3d--value row :contracts))
                                                 collect (financial-chart-3d--vol-tooltip
-                                                         k dte (gethash dte expiries) (aref smile i)
-                                                         (or (gethash dte spots) spot)
-                                                         (when-let* ((r (gethash (cons k dte) cells)))
-                                                           (financial-chart-3d--value r :contracts))
-                                                         (aref (aref (cdr grid) j) i))))))
+                                                         k dte expiry iv sample-spot contracts source))))
+                       ;; Heightfield samples are picked row-major, like
+                       ;; :heights and :tooltips.  Include interpolated
+                       ;; samples too: the mark knows the synthetic value
+                       ;; and its source, even when no input row exists.
+                       :data
+                       (vconcat
+                        (cl-loop for dte in dtes for smile in smiles for j from 0
+                                 nconc (cl-loop for k in strikes for i from 0
+                                                for source = (aref (aref (cdr grid) j) i)
+                                                for row = (gethash (cons k dte) cells)
+                                                collect (append
+                                                         (and row (copy-sequence row))
+                                                         (list :strike k :dte dte :iv (aref smile i)
+                                                               :spot (or (gethash dte spots) spot)
+                                                               :expiry (gethash dte expiries)
+                                                               :interpolated (and source t)
+                                                               :interpolation source))))))
                  (list :id "grid" :type "segments"
                        :color (financial-chart-3d--opt graphics "grid_color" financial-chart-3d-vol-surface-grid-color)
                        :segments (vconcat (nreverse segments))))))

@@ -177,12 +177,13 @@ interpolated from strike 769 (the nearest): no quote here
 (or `between strikes 765 and 770`, or `between 7 and 14 DTE` / `from 7 DTE
 (the nearest expiry)` for an expiry filled along the term structures).
 
-The tooltips are the heightfield primitive's `tooltips`: a vector of
-strings, row-major as its `heights` (row j is the j-th nearest expiry,
-column i the i-th strike, so sample (j, i) is `tooltips[j * strikes + i]`).
-graphics.el's per-element tooltip API (gfx-t29) had not landed when this
-was written. Until it does, nothing shows them on hover, and wiring them
-to it (with the `GRAPHICS_REV` bump) is a follow-up.
+The heightfield carries both `:tooltips` and `:data`, flat vectors in
+row-major order like `:heights` (row j is the j-th nearest expiry,
+column i the i-th strike, so sample (j, i) is index `j * strikes + i`).
+The tooltip names the contracts for quoted cells and the interpolation
+source for filled cells. The datum records strike, expiry, days to expiry,
+IV, spot, and whether the sample was interpolated. graphics.el shows the
+tooltip on hover and describes the full datum on `i` or `RET`.
 
 ## Opening it
 

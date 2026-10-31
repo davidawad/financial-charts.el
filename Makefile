@@ -34,7 +34,7 @@ clean:
 # Rust module.  `make test-3d' runs every test/financial-chart-3d*-test.el
 # against them; `make golden-3d' rewrites test/golden/3d/ and docs/3d.md.
 GRAPHICS_REPO ?= git@gitlab.com:davidawad/graphics-el.git
-GRAPHICS_REV ?= 6474ca449d7465c3adfdc487ee697638f7700f47
+GRAPHICS_REV ?= 6a374eadd25096ad4cba835a2da9f98f049c2774
 EAS_REPO ?= git@gitlab.com:davidawad/eas-el.git
 DEPS := test/deps
 GRAPHICS_DIR := $(DEPS)/graphics-el

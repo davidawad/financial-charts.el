@@ -350,7 +350,7 @@ the first SHOWN are ghosts (`financial-chart-3d-ghost-color')."
          (x0 (plist-get layout :x0))
          (up (financial-chart-3d--opt graphics "up_color" financial-chart-3d-up-color))
          (down (financial-chart-3d--opt graphics "down_color" financial-chart-3d-down-color))
-         bodies wicks colors)
+         bodies wicks colors data)
     (cl-loop for r in rows for i from 0 do
              (let ((x (financial-chart-3d--bar-x layout r))
                    (o (financial-chart-3d--value r :open)) (h (financial-chart-3d--value r :high))
@@ -371,11 +371,13 @@ the first SHOWN are ghosts (`financial-chart-3d-ghost-color')."
                    (push (cond ((and shown (>= i shown)) financial-chart-3d-ghost-color)
                                ((>= c o) up)
                                (t down))
-                         colors)))))
-    (let ((colors (vconcat (nreverse colors))))
+                         colors)
+                   (push r data)))))
+    (let ((colors (vconcat (nreverse colors)))
+          (data (vconcat (nreverse data))))
       (list (financial-chart-3d--axes "axes" (- -0.5 x0) (+ 0.5 x0) height 0 dmax)
-            (list :id "wicks" :type "segments" :segments (vconcat (nreverse wicks)) :colors colors)
-            (list :id "bodies" :type "boxes" :boxes (vconcat (nreverse bodies)) :colors colors)))))
+            (list :id "wicks" :type "segments" :segments (vconcat (nreverse wicks)) :colors colors :data data)
+            (list :id "bodies" :type "boxes" :boxes (vconcat (nreverse bodies)) :colors colors :data data)))))
 
 (defun financial-chart-3d--candle-mark (graphics rows)
   "Primitives of the fc-candle3d mark: GRAPHICS over bar ROWS.

@@ -660,6 +660,61 @@ Non-nil when it did; until then it waits on `after-load-functions'."
 (unless (financial-chart-3d-market--register-marks)
   (add-hook 'after-load-functions #'financial-chart-3d-market--register-marks))
 
+;;; From invest metric outputs to bindings
+
+(declare-function financial-chart-3d-metric-entries "financial-chart-3d" (output))
+(declare-function financial-chart-3d-metric-stamp "financial-chart-3d" (entry args keys &optional default))
+(declare-function financial-chart-3d-metric-get "financial-chart-3d" (object &rest keys))
+(declare-function financial-chart-3d-metric-list "financial-chart-3d" (v))
+
+(defun financial-chart-3d-market--from-rel-strength (_template output args)
+  "rrg bindings from ta.rel_strength OUTPUT, one entry per symbol.
+Each entry {symbol, output}: value.relative_series (close over the
+benchmark's, oldest first) is the symbol's rs, from which
+`financial-chart-3d-rrg-rows' makes RS-Ratio and RS-Momentum.  ARGS:
+:dates (one per observation, default the index), :ratio and
+:momentum (default 10 and 5, shortened so a short series still
+gives its last observation)."
+  (let* ((series (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+                          collect (cons (format "%s" (financial-chart-3d-metric-stamp e args '(:symbol :name)
+                                                                                      (format "S%d" (1+ i))))
+                                        (or (financial-chart-3d-metric-list
+                                             (financial-chart-3d-metric-get (plist-get e :output) :value :relative_series))
+                                            (financial-chart--invalid i "relative_series" "missing_series"
+                                                                      "ta.rel_strength output needs value.relative_series")))))
+         (n (length (cdar series)))
+         (ratio (or (plist-get args :ratio) (if (>= n 14) 10 (max 1 (/ (1+ n) 2)))))
+         (momentum (or (plist-get args :momentum) (if (>= n 14) 5 (max 1 (- n ratio -1))))))
+    (cl-loop for s in series for i from 0
+             unless (= (length (cdr s)) n)
+             do (financial-chart--invalid i "relative_series" "length_mismatch"
+                                         "every symbol's relative_series needs %d observations" n))
+    (list :data (vconcat (financial-chart-3d-rrg-rows series (make-list n 1.0)
+                                                      :dates (plist-get args :dates)
+                                                      :ratio ratio :momentum momentum)))))
+
+(defun financial-chart-3d-market--from-breadth (_template output args)
+  "sector-breadth bindings from market.breadth_pct_above_200d OUTPUT.
+Each entry {date, sector, output}: value is the percent of the
+sector's members above their 200-session average; an unavailable
+value (null, too little coverage) is left out."
+  (list :data
+        (vconcat
+         (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+                  for date = (financial-chart-3d-metric-stamp e args '(:date :as_of :time))
+                  for sector = (financial-chart-3d-metric-stamp e args '(:sector))
+                  for pct = (financial-chart-3d-metric-get (plist-get e :output) :value)
+                  do (unless (and date sector)
+                       (financial-chart--invalid i "sector" "missing_stamp" "each entry needs its date and sector"))
+                  when (numberp pct)
+                  collect (list :date date :sector sector :pct (financial-chart-3d-market--round pct 2))))))
+
+(defconst financial-chart-3d-market-metric-adapters
+  '(("ta.rel_strength" "rrg" financial-chart-3d-market--from-rel-strength)
+    ("market.breadth_pct_above_200d" "sector-breadth" financial-chart-3d-market--from-breadth))
+  "The market templates' metric adapters, (METRIC-ID TEMPLATE FUNCTION):
+`financial-chart-3d-bindings-from-metric' calls them.")
+
 ;;; Live liquidity heatmaps
 
 (defvar financial-chart-3d-market--liquidity (make-hash-table :test 'equal)

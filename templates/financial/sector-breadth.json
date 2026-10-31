@@ -58,7 +58,7 @@
       "data": {
         "shape": "plist",
         "required": true,
-        "doc": "rows {date, sector, pct}: pct 0-100 of the sector's members above their moving average (breadth.rs), one per sector per date"
+        "doc": "rows {date, sector, pct}: pct 0-100 of the sector's members above their moving average (market.breadth_pct_above_200d), one per sector per date"
       },
       "title": {
         "type": "string",

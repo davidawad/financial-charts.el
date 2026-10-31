@@ -747,6 +747,81 @@ last column, set apart, is each holding's whole duration."
 (with-eval-after-load 'graphics-eas-marks
   (financial-chart-3d-rates--register-marks))
 
+;;; From invest metric outputs to bindings
+
+(declare-function financial-chart-3d-metric-entries "financial-chart-3d" (output))
+(declare-function financial-chart-3d-metric-stamp "financial-chart-3d" (entry args keys &optional default))
+
+(defun financial-chart-3d-rates--entry (e key)
+  "Entry E as a history entry: its fields but :output, the output at KEY."
+  (append (cl-loop for (k v) on e by #'cddr unless (eq k :output) append (list k v))
+          (list key (plist-get e :output))))
+
+(defun financial-chart-3d-rates--dated (output args key)
+  "OUTPUT's entries as history entries {as_of, KEY: output, ...}.
+A single output is dated by ARGS's :as-of; other fields of an entry
+\(curve_regime, forward_path, rolldown_carry beside an nss_fit) stay."
+  (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+           for date = (or (financial-chart-3d-metric-stamp e args '(:as_of :date :time))
+                          (financial-chart--invalid i "as_of" "missing_date" "each curve needs its date (as_of)"))
+           collect (append (list :as_of date) (financial-chart-3d-rates--entry e key))))
+
+(defun financial-chart-3d-rates--from-nss-fit (_template output args)
+  "yield-curve bindings from fi.nss_fit OUTPUT by date (entries {as_of, output})."
+  (list :data (vconcat (financial-chart-3d-rates-curve-rows
+                        (financial-chart-3d-rates--dated output args :nss_fit)))))
+
+(defun financial-chart-3d-rates--from-curve-regime (_template output args)
+  "yield-curve bindings from fi.curve_regime OUTPUT by date.
+The output echoes the curve it classified (inputs.curve_years and
+curve_rates); its value names the regime."
+  (list :data (vconcat (financial-chart-3d-rates-curve-rows
+                        (mapcar (lambda (e)
+                                  (let ((inputs (financial-chart-3d-rates--get e :curve_regime :inputs)))
+                                    (append e (list :curve_years (financial-chart-3d--value inputs :curve_years)
+                                                    :curve_rates (financial-chart-3d--value inputs :curve_rates)))))
+                                (financial-chart-3d-rates--dated output args :curve_regime))))))
+
+(defun financial-chart-3d-rates--from-spreads (_template output _args)
+  "credit-spreads bindings from fi.spread_suite / fi.spread_pctile OUTPUT.
+OUTPUT is one output, a list of them (both metrics may mix), or entries
+{output}; each output's inputs name its rating and tenor."
+  (list :data (vconcat (financial-chart-3d-rates-spread-rows
+                        (let ((entries (financial-chart-3d-metric-entries output)))
+                          (if (and (= (length entries) 1)
+                                   (not (keywordp (car-safe (plist-get (car entries) :output)))))
+                              (plist-get (car entries) :output)
+                            (mapcar (lambda (e) (plist-get e :output)) entries)))))))
+
+(defun financial-chart-3d-rates--from-krd (_template output args)
+  "key-rate-durations bindings from fi.krd OUTPUT, one entry per holding.
+Each entry {holding, output, dv01?, tenors?}; a single output takes
+ARGS's :holding."
+  (list :data (vconcat (financial-chart-3d-rates-krd-rows
+                        (cl-loop for e in (financial-chart-3d-metric-entries output)
+                                 collect (append (list :holding (financial-chart-3d-metric-stamp e args '(:holding)))
+                                                 (financial-chart-3d-rates--entry e :krd)))))))
+
+(defun financial-chart-3d-rates--from-cds (_template output args)
+  "cds-term-structure bindings from credit.cds_isda_implied_hazard_pd OUTPUT.
+OUTPUT is one output, entries {input?, output} by date (the input
+gives the par spreads), or a list of outputs.  ARGS's :measure picks
+the value drawn (`financial-chart-3d-rates-cds-measures')."
+  (let ((entries (if (and (sequencep output) (not (keywordp (car-safe output))))
+                     (append output nil)
+                   (list output))))
+    (list :data (vconcat (financial-chart-3d-rates-cds-rows entries (plist-get args :measure))))))
+
+(defconst financial-chart-3d-rates-metric-adapters
+  '(("fi.nss_fit" "yield-curve" financial-chart-3d-rates--from-nss-fit)
+    ("fi.curve_regime" "yield-curve" financial-chart-3d-rates--from-curve-regime)
+    ("fi.spread_suite" "credit-spreads" financial-chart-3d-rates--from-spreads)
+    ("fi.spread_pctile" "credit-spreads" financial-chart-3d-rates--from-spreads)
+    ("fi.krd" "key-rate-durations" financial-chart-3d-rates--from-krd)
+    ("credit.cds_isda_implied_hazard_pd" "cds-term-structure" financial-chart-3d-rates--from-cds))
+  "The rates templates' metric adapters, (METRIC-ID TEMPLATE FUNCTION):
+`financial-chart-3d-bindings-from-metric' calls them.")
+
 ;;; Showing one, in 3D or 2D
 
 (defconst financial-chart-3d-rates-templates

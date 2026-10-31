@@ -38,19 +38,29 @@ boards can feed them directly:
 
 `financial-chart-3d-options-bindings TEMPLATE OUTPUT &rest SLOTS` maps a
 metric run to bindings: `rows` to `data` (adding `day` where missing),
-`params.spot` to `spot`, `title` to `title`, then SLOTS.
+`params.spot` to `spot` (null without one, so the spot rule is left
+out), `title` to `title`, then SLOTS.
+`financial-chart-3d-bindings-from-metric TEMPLATE METRIC-ID OUTPUT &rest
+ARGS` does the same for every 3D template that a metric feeds (README,
+"From invest metrics"). Here it is the identity plus checks: OUTPUT's
+`metric` must be the template's own (`wrong_metric`), and every row
+needs its grid coordinates as numbers (`spot` or `strike`, and `dte`;
+`missing_field`). Of a list of entries `{as_of, output}` it draws the
+newest, because a grid is a snapshot whose replay runs toward expiry.
+ARGS set slots (`:greek`, `:metric`, `:spot`, `:title`).
 
-## Request for the invest-metrics lane
+## The grid metrics (invest-metrics)
 
-The scalar metrics this needs exist (`opt.bsm_greeks`,
-`opt.greeks.second_order`, `opt.spread.payoff` / `opt.payoff_curve`,
-`opt.probability_of_profit`, `opt.prob_touch`), but each evaluates one
-point. The surfaces need them over a grid. Requested: three grid metrics
-that evaluate those over the grid their params name and emit the shapes
-below. Until they land the templates are driven from the fixtures, which
-are exactly what they should emit for the params shown (closed-form
-Black-Scholes-Merton, no dividends; `financial-chart-3d-options-test.el`
-checks the fixtures against its own BSM).
+The scalar metrics (`opt.bsm_greeks`, `opt.greeks.second_order`,
+`opt.spread.payoff`, `opt.probability_of_profit`, `opt.prob_touch`) each
+evaluate one point. Three grid metrics evaluate them over the grid their
+params name and emit the envelope below: `opt.greeks_grid`,
+`opt.payoff_grid` and `opt.pop_grid`. Their golden cases replay this
+package's fixtures, which are what they emit for the params shown
+(closed-form Black-Scholes-Merton, no dividends;
+`financial-chart-3d-options-test.el` checks the fixtures against its own
+BSM, and `financial-chart-3d-metrics-test.el` draws the metrics' own
+output).
 
 Common envelope (what `financial-chart-3d-options-bindings` reads):
 

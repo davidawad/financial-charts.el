@@ -8,12 +8,12 @@
       "data": {
         "shape": "plist",
         "required": true,
-        "doc": "rows {edge, fraction, growth}: stats.kelly.binary or stats.kelly.continuous evaluated over the grid (docs/3d-valuation.md; financial-chart-3d-kelly-surface computes it)"
+        "doc": "rows {edge, fraction, growth}: stats.kelly.growth over the grid (invest metric run --grid; docs/3d-valuation.md; financial-chart-3d-kelly-surface computes it)"
       },
       "model": {
         "type": "string",
         "default": "continuous",
-        "doc": "\"binary\" (stats.kelly.binary) or \"continuous\" (stats.kelly.continuous): the model the growth rows come from, for the record"
+        "doc": "\"binary\" or \"continuous\" (stats.kelly.growth's model): the model the growth rows come from, for the record"
       },
       "sigma": {
         "type": "number",

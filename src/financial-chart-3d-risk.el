@@ -27,11 +27,12 @@
 ;;                             volatility and date, coloured by Sharpe
 ;;
 ;; Each takes the rows docs/3d-risk.md specifies, which the
-;; invest-metrics metrics (stats.correlation, stats.risk_contribution,
-;; stats.factor_regression, port.stress, stats.max_drawdown,
-;; stats.var_cvar.*, port.frontier) lower to; this package never fetches
-;; them.  `financial-chart-3d-risk-matrix-rows' lowers correlation
-;; matrices.  `financial-chart-3d-risk-open' draws a template in 3D, or
+;; invest-metrics metrics (stats.rolling.correlation,
+;; stats.risk_contribution, stats.rolling.factor_regression,
+;; port.stress, stats.max_drawdown, stats.var, port.frontier) lower to;
+;; this package never fetches them.  `financial-chart-3d-risk-matrix-rows'
+;; lowers correlation matrices; `financial-chart-3d-bindings-from-metric'
+;; lowers each metric's output (the adapters at the end of this file).  `financial-chart-3d-risk-open' draws a template in 3D, or
 ;; in 2D when graphics.el is absent.
 ;;
 ;; The marks are registered with `graphics-eas-define-mark' when
@@ -662,6 +663,192 @@ See `financial-chart-3d--replay'."
 ;; Now if graphics.el's marks are loaded, else when they load.
 (with-eval-after-load 'graphics-eas-marks
   (financial-chart-3d-risk--register-marks))
+
+;;; From invest metric outputs to bindings
+
+(declare-function financial-chart-3d-metric-entries "financial-chart-3d" (output))
+(declare-function financial-chart-3d-metric-stamp "financial-chart-3d" (entry args keys &optional default))
+(declare-function financial-chart-3d-metric-get "financial-chart-3d" (object &rest keys))
+(declare-function financial-chart-3d-metric-list "financial-chart-3d" (v))
+(declare-function financial-chart-3d-metric-round "financial-chart-3d" (v digits))
+(declare-function financial-chart-3d-metric-key-name "financial-chart-3d" (key))
+
+(defun financial-chart-3d-risk--need (value index field code message)
+  "VALUE, or signal `financial-chart-invalid-data' at entry INDEX's FIELD."
+  (or value (financial-chart--invalid index field code "%s" message)))
+
+(defun financial-chart-3d-risk--from-correlation (_template output args)
+  "risk-correlation bindings from stats.rolling.correlation OUTPUT.
+OUTPUT is {windows: [{window, labels, matrix}]}, or a series of
+entries {as_of, output}, each output such windows or one matrix that
+the entry's as_of stamps."
+  (let ((windows
+         (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+                  for out = (plist-get e :output)
+                  append (or (financial-chart-3d-metric-list (financial-chart-3d-metric-get out :windows))
+                             (list (append (list :window (financial-chart-3d-metric-stamp
+                                                          e args '(:as_of :time :date :window) i))
+                                           out))))))
+    (list :data (vconcat (financial-chart-3d-risk-matrix-rows (list :windows (vconcat windows)))))))
+
+(defun financial-chart-3d-risk--from-factor-regression (_template output _args)
+  "risk-factor-exposure bindings from stats.rolling.factor_regression OUTPUT.
+OUTPUT is {windows: [{window, betas: {FACTOR: beta}}]} (or a series of
+entries {output}); rows {date, factor, beta}, one per window and factor."
+  (list :data (vconcat (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+           for windows = (financial-chart-3d-risk--need
+                          (financial-chart-3d-metric-list
+                           (financial-chart-3d-metric-get (plist-get e :output) :windows))
+                          i "windows" "missing_windows"
+                          "stats.rolling.factor_regression output needs windows [{window, betas}]")
+           append (cl-loop for w in windows
+                           for betas = (financial-chart-3d-risk--need
+                                        (financial-chart-3d-metric-get w :betas) i "betas" "missing_betas"
+                                        "each window needs betas {FACTOR: beta}")
+                           append (cl-loop for (k v) on betas by #'cddr
+                                           when (numberp v)
+                                           collect (list :date (plist-get w :window)
+                                                         :factor (financial-chart-3d-metric-key-name k)
+                                                         :beta (financial-chart-3d-risk--r3 v))))))))
+
+(defun financial-chart-3d-risk--from-beta-weighted-delta (_template output args)
+  "risk-factor-exposure bindings from port.beta_weighted_delta OUTPUT by date.
+OUTPUT is the metric's output (one date, ARGS's :as-of) or entries
+{as_of, output}; its inputs.positions give one row per position
+{date, factor: asset, beta: quantity x multiplier x delta x
+underlying_price x beta}, the terms the output's value sums."
+  (list :data (vconcat (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+           for date = (financial-chart-3d-metric-stamp e args '(:as_of :time :date) i)
+           for positions = (financial-chart-3d-risk--need
+                            (financial-chart-3d-metric-list
+                             (financial-chart-3d-metric-get (plist-get e :output) :inputs :positions))
+                            i "inputs" "missing_positions"
+                            "port.beta_weighted_delta output needs inputs.positions")
+           append (cl-loop for p in positions
+                           collect (list :date date :factor (format "%s" (plist-get p :asset))
+                                         :beta (financial-chart-3d-risk--r3
+                                                (* (or (financial-chart-3d-metric-get p :quantity) 0)
+                                                   (or (financial-chart-3d-metric-get p :multiplier) 1)
+                                                   (or (financial-chart-3d-metric-get p :delta) 0)
+                                                   (or (financial-chart-3d-metric-get p :underlying_price) 0)
+                                                   (or (financial-chart-3d-metric-get p :beta) 1) 1.0))))))))
+
+(defun financial-chart-3d-risk--from-risk-contribution (_template output args)
+  "risk-contribution bindings from stats.risk_contribution OUTPUT by date.
+Each entry {as_of, output, labels?}: value.assets[].fraction_of_variance
+\(a fraction) is the asset's contribution in percent.  The assets are
+indices; :labels (the entry's, else ARGS's) names them in order."
+  (list :data (vconcat (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+           for date = (financial-chart-3d-metric-stamp e args '(:as_of :time :date) i)
+           for labels = (financial-chart-3d-metric-list (financial-chart-3d-metric-stamp e args '(:labels)))
+           for assets = (financial-chart-3d-risk--need
+                         (financial-chart-3d-metric-list
+                          (financial-chart-3d-metric-get (plist-get e :output) :value :assets))
+                         i "value" "missing_assets"
+                         "stats.risk_contribution output needs value.assets [{asset, fraction_of_variance}]")
+           append (cl-loop for a in assets
+                           for id = (plist-get a :asset)
+                           for share = (financial-chart-3d-metric-get a :fraction_of_variance)
+                           when (numberp share)
+                           collect (list :date date
+                                         :asset (format "%s" (if (and (integerp id) (< id (length labels)))
+                                                                 (nth id labels)
+                                                               id))
+                                         :contribution (financial-chart-3d-metric-round (* 100 share) 2)))))))
+
+(defun financial-chart-3d-risk--from-stress (_template output args)
+  "risk-stress bindings from port.stress OUTPUT, one per scenario.
+Each entry {scenario, output}: inputs.exposures give each asset's
+P/L, weight x scenario_return, in percent of NAV."
+  (list :data (vconcat (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+           for scenario = (financial-chart-3d-metric-stamp e args '(:scenario :name) (format "Scenario %d" (1+ i)))
+           for exposures = (financial-chart-3d-risk--need
+                            (financial-chart-3d-metric-list
+                             (financial-chart-3d-metric-get (plist-get e :output) :inputs :exposures))
+                            i "inputs" "missing_exposures"
+                            "port.stress output needs inputs.exposures [{asset, weight, scenario_return}]")
+           append (cl-loop for x in exposures
+                           collect (list :scenario scenario :asset (format "%s" (plist-get x :asset))
+                                         :pnl (financial-chart-3d-metric-round
+                                               (* 100 (or (financial-chart-3d-metric-get x :weight) 0)
+                                                  (or (financial-chart-3d-metric-get x :scenario_return) 0))
+                                               3)))))))
+
+(defun financial-chart-3d-risk--returns (output)
+  "The return samples a stats.var / var_cvar / max_drawdown OUTPUT echoes."
+  (financial-chart-3d-metric-list (or (financial-chart-3d-metric-get output :inputs :returns)
+                                      (financial-chart-3d-metric-get output :inputs :input :returns))))
+
+(defun financial-chart-3d-risk--from-var (_template output args)
+  "risk-return-distribution bindings from stats.var (or var_cvar) OUTPUT.
+Each entry {horizon, output}: inputs.returns (fractions) are the
+horizon's samples, in percent."
+  (list :data (vconcat (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+           for horizon = (financial-chart-3d-metric-stamp e args '(:horizon) (format "h%d" (1+ i)))
+           append (cl-loop for r in (financial-chart-3d-risk--need
+                                     (financial-chart-3d-risk--returns (plist-get e :output))
+                                     i "inputs" "missing_returns" "the output needs inputs.returns")
+                           when (numberp r)
+                           collect (list :horizon (format "%s" horizon)
+                                         :return (financial-chart-3d-metric-round (* 100 r) 4)))))))
+
+(defun financial-chart-3d-risk--from-max-drawdown (_template output args)
+  "risk-underwater bindings from stats.max_drawdown OUTPUT, one per strategy.
+Each entry {strategy, output, dates?}: the returns it echoes compound
+from 100 into the strategy's equity, one row per period (dates, else
+the period's index; 0 is the start)."
+  (list :data (vconcat (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+           for strategy = (financial-chart-3d-metric-stamp e args '(:strategy :name) (format "Strategy %d" (1+ i)))
+           for returns = (financial-chart-3d-risk--need
+                          (financial-chart-3d-risk--returns (plist-get e :output))
+                          i "inputs" "missing_returns" "stats.max_drawdown output needs its returns")
+           for dates = (financial-chart-3d-metric-list (financial-chart-3d-metric-stamp e args '(:dates)))
+           append (let ((equity 100.0))
+                    (cl-loop for r in (cons nil returns) for k from 0
+                             do (when (numberp r) (setq equity (* equity (+ 1 r))))
+                             collect (list :date (or (nth k dates) k) :strategy strategy
+                                           :equity (financial-chart-3d-metric-round equity 4))))))))
+
+(defun financial-chart-3d-risk--from-frontier (_template output args)
+  "risk-frontier bindings from port.frontier OUTPUT.
+OUTPUT is {asof, rf, labels, points: [{vol, ret, sharpe}]}, its as-of
+series {series: [...]}, or entries {as_of, output} of either.  vol and
+ret are fractions unless :output-scale (ARGS's or the entry's) is 100,
+the metric's output_scale; rows are in percent."
+  (let ((rows nil))
+    (cl-loop
+     for e in (financial-chart-3d-metric-entries output) for i from 0
+     for out = (plist-get e :output)
+     for scale = (if (eql (financial-chart-3d-metric-stamp e args '(:output_scale)) 100) 1 100)
+     do (dolist (f (or (financial-chart-3d-metric-list (financial-chart-3d-metric-get out :series)) (list out)))
+          (let ((date (or (financial-chart-3d-metric-get f :asof)
+                          (financial-chart-3d-metric-stamp e args '(:as_of :time :date) i)))
+                (points (financial-chart-3d-risk--need
+                         (financial-chart-3d-metric-list (financial-chart-3d-metric-get f :points))
+                         i "points" "missing_points" "port.frontier output needs points [{vol, ret, sharpe}]")))
+            (dolist (p points)
+              (let ((vol (financial-chart-3d-metric-get p :vol)) (ret (financial-chart-3d-metric-get p :ret))
+                    (sharpe (financial-chart-3d-metric-get p :sharpe)))
+                (when (and (numberp vol) (numberp ret))
+                  (push (list :date date :vol (financial-chart-3d-metric-round (* scale vol) 4)
+                              :ret (financial-chart-3d-metric-round (* scale ret) 4)
+                              :sharpe (if (numberp sharpe) (financial-chart-3d-metric-round sharpe 4) 0.0))
+                        rows)))))))
+    (list :data (vconcat (nreverse rows)))))
+
+(defconst financial-chart-3d-risk-metric-adapters
+  '(("stats.rolling.correlation" "risk-correlation" financial-chart-3d-risk--from-correlation)
+    ("stats.rolling.factor_regression" "risk-factor-exposure" financial-chart-3d-risk--from-factor-regression)
+    ("port.beta_weighted_delta" "risk-factor-exposure" financial-chart-3d-risk--from-beta-weighted-delta)
+    ("stats.risk_contribution" "risk-contribution" financial-chart-3d-risk--from-risk-contribution)
+    ("port.stress" "risk-stress" financial-chart-3d-risk--from-stress)
+    ("stats.var" "risk-return-distribution" financial-chart-3d-risk--from-var)
+    ("stats.var_cvar.historical" "risk-return-distribution" financial-chart-3d-risk--from-var)
+    ("stats.var_cvar.parametric" "risk-return-distribution" financial-chart-3d-risk--from-var)
+    ("stats.max_drawdown" "risk-underwater" financial-chart-3d-risk--from-max-drawdown)
+    ("port.frontier" "risk-frontier" financial-chart-3d-risk--from-frontier))
+  "The risk templates' metric adapters, (METRIC-ID TEMPLATE FUNCTION):
+`financial-chart-3d-bindings-from-metric' calls them.")
 
 ;;; Opening, in 3D or 2D
 

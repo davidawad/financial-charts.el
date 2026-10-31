@@ -130,6 +130,20 @@ time id show)` returns the view. `symbol` titles it "SYMBOL implied
 volatility", and `title` overrides that. `time` is the time of a single
 `opt.iv_surface` result.
 
+`financial-chart-3d-bindings-from-metric` routes the metric like every
+other (README, "From invest metrics"):
+
+```elisp
+(financial-chart-3d-bindings-from-metric "vol-surface" "opt.iv_surface" SURFACE :symbol "NVDA")
+;; a session: entries {time, output}, one per snapshot
+(financial-chart-3d-bindings-from-metric "vol-surface" "opt.iv_surface"
+                                         (list (list :time "2026-10-30T10:00:00" :output S1) ...))
+```
+
+It gives `(:data ROWS :title ...)`, the rows of
+`financial-chart-3d-vol-surface-rows`; a single result is at `:time`,
+else its own time, else now.
+
 A caller such as invest-vol-surface can offer the 3D view when
 `(financial-chart-3d-available-p)` is non-nil. It should keep its 2D
 heatmap otherwise.

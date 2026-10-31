@@ -644,6 +644,55 @@ M-x financial-chart-3d-demo-book   ; the order-book surface, streaming
 (financial-chart-3d-book-push v DELTAS)
 ```
 
+### From invest metrics
+
+The portfolio, options, rates, market, valuation and vol-surface
+templates draw what the invest-metrics metrics emit (`invest metric run
+ID`). One call turns a metric's output, parsed as eas parses JSON, into a
+template's bindings, the same for 3D and 2D:
+
+```elisp
+(financial-chart-3d-bindings-from-metric "risk-correlation" "stats.rolling.correlation" OUTPUT)
+;; a series of snapshots: entries {as_of|time|date, output, ...}
+(financial-chart-3d-bindings-from-metric "options-skew" "opt.skew_rr25_bf25"
+                                         (list (list :date "2026-10-30" :tenor 30 :output OUT) ...))
+(financial-chart-3d-metric-templates)   ; metric id -> the templates it feeds
+```
+
+ARGS after OUTPUT stamp a single output (`:as-of`, `:expiry`, ...) and set
+the template's slots (`:title`, `:spot`, ...). Errors are
+`financial-chart-invalid-data` with `:code`, `:index` (the entry) and
+`:field`. Each group's doc (`docs/3d-risk.md`, `-options`,
+`-positioning`, `-rates`, `-market`, `-valuation`, `-vol-surface`) says
+what its adapters read; this package still fetches nothing.
+
+| metric | template |
+|---|---|
+| `stats.rolling.correlation` | `risk-correlation` |
+| `stats.rolling.factor_regression`, `port.beta_weighted_delta` | `risk-factor-exposure` |
+| `stats.risk_contribution` | `risk-contribution` |
+| `port.stress` | `risk-stress` |
+| `stats.var`, `stats.var_cvar.historical`, `stats.var_cvar.parametric` | `risk-return-distribution` |
+| `stats.max_drawdown` | `risk-underwater` |
+| `port.frontier` | `risk-frontier` |
+| `opt.greeks_grid`, `opt.payoff_grid`, `opt.pop_grid` | `greeks-surface`, `position-pnl-surface`, `pop-surface` |
+| `opt.max_pain`, `opt.chain_stats` | `options-oi` |
+| `opt.gex` | `options-gex` |
+| `opt.skew_rr25_bf25` | `options-skew` |
+| `opt.vrp` | `options-vrp` |
+| `fi.nss_fit`, `fi.curve_regime` | `yield-curve` |
+| `fi.spread_suite`, `fi.spread_pctile` | `credit-spreads` |
+| `fi.krd` | `key-rate-durations` |
+| `credit.cds_isda_implied_hazard_pd` | `cds-term-structure` |
+| `ta.rel_strength` | `rrg` |
+| `market.breadth_pct_above_200d` | `sector-breadth` |
+| `eq.dcf` (`--grid`) | `dcf-sensitivity` |
+| `stats.kelly.growth` (`--grid`) | `kelly-surface` |
+| `opt.iv_surface` | `vol-surface` |
+
+`test/financial-chart-3d-metrics-test.el` draws every pair from real
+metric output (`test/fixtures/invest-metrics/runs.json`).
+
 ## Layout
 
 Source is grouped by responsibility under src/:

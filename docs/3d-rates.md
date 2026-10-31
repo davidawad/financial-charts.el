@@ -49,6 +49,21 @@ curve through a 2026 stress, seven holdings' key-rate durations), null
 inputs dropped. `financial-chart-3d-rates-test.el` checks them against
 each metric's rule.
 
+`financial-chart-3d-bindings-from-metric TEMPLATE METRIC-ID OUTPUT &rest
+ARGS` builds the `data` below from the runs themselves (the shapes then
+pass the flat rows through), the same in 2D and 3D:
+
+| metric | template | OUTPUT |
+|---|---|---|
+| `fi.nss_fit` | `yield-curve` | entries `{as_of, output, curve_regime?, forward_path?, rolldown_carry?}`, or one output with `:as-of`; each becomes `{as_of, nss_fit: output, ...}` |
+| `fi.curve_regime` | `yield-curve` | entries `{as_of, output}`: the output's `inputs.curve_years` and `curve_rates` are the curve, its value the regime |
+| `fi.spread_suite`, `fi.spread_pctile` | `credit-spreads` | one output, a list of them (both metrics mixed) or entries `{output}` |
+| `fi.krd` | `key-rate-durations` | entries `{holding, output, dv01?, tenors?}`, or one output with `:holding` |
+| `credit.cds_isda_implied_hazard_pd` | `cds-term-structure` | entries `{input, output}` by date, or outputs; `:measure` picks the field drawn |
+
+A curve without its date is `missing_date`; the other errors are the
+lowerings' below.
+
 ## yield-curve
 
 `data`: the curve history, oldest first, one entry per date:

@@ -7,7 +7,7 @@ Four templates added by `src/financial-chart-3d-market.el` (loaded by
 | template | 3D mark | replay | input metric |
 |---|---|---|---|
 | `rrg` | `fc-rrg3d` | date by date | `ta.rel_strength` |
-| `sector-breadth` | `fc-breadth3d` | day by day | `breadth.rs` |
+| `sector-breadth` | `fc-breadth3d` | day by day | `market.breadth_pct_above_200d` per sector |
 | `liquidity-heatmap` | `fc-liquidity3d` | step by step; streams live | order-book snapshots (as `depth-live`) |
 | `session-profile` | `fc-session-profile3d` | session by session | volume profile per session, `ta.vwap` |
 
@@ -32,6 +32,24 @@ golden render. Fields not listed are ignored, so a metric can carry more.
 The examples are `test/fixtures/3d/market/NAME.data.json`, written by
 `(financial-chart-3d-market-write-fixtures)` from seeded generators
 (`make test-3d` checks they still match).
+
+Two have adapters from the metrics' own output,
+`financial-chart-3d-bindings-from-metric TEMPLATE METRIC-ID ENTRIES
+&rest ARGS`:
+
+- `ta.rel_strength` -> `rrg`: entries `{symbol, output}`, one run per
+  symbol against one benchmark. `value.relative_series` (close over
+  the benchmark's close) is the symbol's rs;
+  `financial-chart-3d-rrg-rows` makes RS-Ratio and RS-Momentum from it.
+  ARGS: `:dates` (one per observation, default the index), `:ratio` and
+  `:momentum` (default 10 and 5; a series shorter than 14 observations
+  shortens them so its last one still has a point). Every symbol needs
+  as many observations (`length_mismatch`).
+- `market.breadth_pct_above_200d` -> `sector-breadth`: entries `{date,
+  sector, output}`, one run per sector per date over the sector's
+  members; `value` is `pct` (above the 200-session average, where the
+  example uses 50). An unavailable value (too little coverage) is left
+  out.
 
 ## rrg: relative rotation graph
 

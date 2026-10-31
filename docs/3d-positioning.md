@@ -9,7 +9,7 @@ are in [3d.md](3d.md).
 
 | chart | metrics | 3D mark | replay |
 |---|---|---|---|
-| `options-oi` | `opt.chain_stats`, `opt.max_pain` | `fc-strikes3d` | |
+| `options-oi` | `opt.max_pain` (or `opt.chain_stats`) | `fc-strikes3d` | |
 | `options-gex` | `opt.gex` | `fc-strikes3d` | |
 | `options-skew` | `opt.skew_rr25_bf25` (or `opt.positioning_skew`) | `fc-skew3d` | by snapshot date |
 | `options-vrp` | `opt.vrp`, `stats.realized_vol`, `opt.iv_rank`, `opt.calendar_iv_ratio` | `fc-vrp3d` | by day |
@@ -26,6 +26,21 @@ metric's output to a slot as it is:
 ;; 2D, no graphics.el needed:
 (eas-view-open "options-oi" :bindings (list :data CHAIN-ROWS :spot 586.15)) ; no max-pain marks
 ```
+
+Each of these metrics returns a few numbers for one chain, one expiry or
+one day, so a board runs it once per expiry (or date, tenor, side) and
+`financial-chart-3d-bindings-from-metric TEMPLATE METRIC-ID ENTRIES
+&rest ARGS` lowers the runs to the rows below. ENTRIES is a list of
+`{output, ...}`, each stamped; ARGS stamps a single output and sets
+slots (`:spot`, `:title`):
+
+| metric | template | entry | reads |
+|---|---|---|---|
+| `opt.max_pain` | `options-oi` | `{expiry, input, output}` | the chain from the input (`strikes`, `call_open_interest`, `put_open_interest`; the output does not echo it), max pain from `output.strike`; `:spot` required |
+| `opt.chain_stats` | `options-oi` | `{expiry, input, output}` | its outputs become the description (contracts, IV range); it carries no open interest, so the input must hold the chain as `opt.max_pain` takes it (the metric ignores the extra fields), else `missing_open_interest`; max pain is the template's own |
+| `opt.gex` | `options-gex` | `{expiry, side, input, output}` | one run per expiry and side (`"call"`, `"put"`; the input has no option type, so without `side` the sign decides); each strike's term `sign x gamma x OI x 100 x spot^2 x 1%` from the input, checked to sum to `output.gex` (`input_mismatch`); without strikes in the input, the entry's `strike` takes the whole value. Rows in $M; `spot` is `output.underlying_price` |
+| `opt.skew_rr25_bf25` | `options-skew` | `{date, tenor, output}` | `rr25`, `bf25` (IV fractions) x 100, vol points |
+| `opt.vrp` | `options-vrp` | `{date, output, iv_rank?, calendar_ratio?}` | `implied_vol`, `realized_vol` x 100 as `iv`, `rv`; `vrp` their difference; `iv_rank` and `calendar_ratio` numbers or the `opt.iv_rank` / `opt.calendar_iv_ratio` outputs |
 
 Rows are JSON objects (plists in Lisp), in a JSON array or a `data/v1`
 object. Field names below are the defaults; a variant's

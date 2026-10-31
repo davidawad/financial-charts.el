@@ -242,6 +242,7 @@ The 3D replay steps through :day; rows that carry one keep it."
 OUTPUT is the metric's JSON as a plist (docs/3d-options.md): its :rows
 become `data' (with :day added where missing,
 `financial-chart-3d-options-with-day'), :params :spot becomes `spot'
+\(null without one)
 and :title `title'.  SLOTS (a plist such as (:greek \"vega\")) are
 added last and win."
   (unless (member template financial-chart-3d-options-templates)
@@ -256,10 +257,52 @@ added last and win."
     (unless (and rows (> (length rows) 0))
       (signal 'financial-chart-invalid-data
               (list (format "%s needs the metric's rows" template) :code "empty_grid" :index nil :field "rows")))
-    (when (numberp spot) (setq bindings (plist-put bindings :spot spot)))
+    ;; No spot is null: the templates' spot rule then draws nothing.
+    (setq bindings (plist-put bindings :spot (if (numberp spot) spot :null)))
     (when (stringp (plist-get output :title)) (setq bindings (plist-put bindings :title (plist-get output :title))))
     (cl-loop for (k v) on slots by #'cddr do (setq bindings (plist-put bindings k v)))
     bindings))
+
+(declare-function financial-chart-3d-metric-entries "financial-chart-3d" (output))
+
+(defconst financial-chart-3d-options-metric-adapters
+  '(("opt.greeks_grid" "greeks-surface" financial-chart-3d-options--from-grid)
+    ("opt.payoff_grid" "position-pnl-surface" financial-chart-3d-options--from-grid)
+    ("opt.pop_grid" "pop-surface" financial-chart-3d-options--from-grid))
+  "The options surfaces' metric adapters, (METRIC-ID TEMPLATE FUNCTION):
+`financial-chart-3d-bindings-from-metric' calls them.")
+
+(defconst financial-chart-3d-options-grid-fields
+  '(("greeks-surface" :spot :dte) ("position-pnl-surface" :spot :dte) ("pop-surface" :strike :dte))
+  "The grid coordinates every row of each template's metric carries, numbers.")
+
+(defun financial-chart-3d-options--from-grid (template output _args)
+  "TEMPLATE's bindings from its grid metric's OUTPUT, the envelope as is.
+OUTPUT is {metric, title, as_of, params, rows} (docs/3d-options.md);
+of a series of entries {as_of, output}, the newest (last) is drawn: a
+grid is a snapshot, and its replay runs toward expiry.  Checks the
+envelope is the template's metric and every row has its grid fields,
+then `financial-chart-3d-options-bindings'; ARGS's slots (:greek,
+:metric, :spot, :title) are added last."
+  (let* ((metric (car (seq-find (lambda (a) (equal (nth 1 a) template))
+                                financial-chart-3d-options-metric-adapters)))
+         (entries (financial-chart-3d-metric-entries output))
+         (index (1- (length entries)))
+         (output (plist-get (car (last entries)) :output))
+         (named (plist-get output :metric))
+         (fields (cdr (assoc template financial-chart-3d-options-grid-fields))))
+    (unless (keywordp (car-safe output))
+      (financial-chart--invalid index "output" "not_an_envelope" "%s output must be {params, rows}" metric))
+    (when (and (stringp named) (not (equal named metric)))
+      (financial-chart--invalid index "metric" "wrong_metric" "%s draws %s output, not %s" template metric named))
+    (seq-do-indexed
+     (lambda (row i)
+       (dolist (f fields)
+         (unless (numberp (plist-get row f))
+           (financial-chart--invalid i (substring (symbol-name f) 1) "missing_field"
+                                     "every %s row needs a number %s" metric (substring (symbol-name f) 1)))))
+     (or (plist-get output :rows) []))
+    (financial-chart-3d-options-bindings template output)))
 
 ;;;###autoload
 (defun financial-chart-3d-options-show (template bindings)

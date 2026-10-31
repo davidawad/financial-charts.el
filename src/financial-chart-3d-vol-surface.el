@@ -355,6 +355,35 @@ the surface moves in place from one quote time to the next."
   (dolist (m financial-chart-3d-vol-surface-marks)
     (graphics-eas-define-mark (car m) (cdr m))))
 
+;;; From invest metric outputs to bindings
+
+(declare-function financial-chart-3d-metric-entries "financial-chart-3d" (output))
+(declare-function financial-chart-3d-metric-stamp "financial-chart-3d" (entry args keys &optional default))
+
+(defun financial-chart-3d-vol-surface--from-iv-surface (_template output args)
+  "vol-surface bindings from opt.iv_surface OUTPUT, verbatim.
+One output (at ARGS's :time, else its own, else now) or entries {time,
+output}, the snapshots of a replay: `financial-chart-3d-vol-surface-rows'.
+ARGS's :symbol titles it (\"NVDA implied volatility\")."
+  (let* ((entries (financial-chart-3d-metric-entries output))
+         (chain (if (and (= (length entries) 1) (not (financial-chart-3d-metric-stamp (car entries) nil '(:time))))
+                    (plist-get (car entries) :output)
+                  (cl-loop for e in entries for i from 0
+                           collect (list :time (or (financial-chart-3d-metric-stamp e nil '(:time :as_of :date))
+                                                   (financial-chart--invalid i "time" "missing_time"
+                                                                             "each snapshot needs its time"))
+                                         :surface (plist-get e :output)))))
+         (symbol (plist-get args :symbol)))
+    (append (list :data (financial-chart-3d-vol-surface-rows
+                         (if (keywordp (car-safe chain)) chain (vconcat chain))
+                         :time (plist-get args :time)))
+            (and symbol (list :title (format "%s implied volatility" symbol))))))
+
+(defconst financial-chart-3d-vol-surface-metric-adapters
+  '(("opt.iv_surface" "vol-surface" financial-chart-3d-vol-surface--from-iv-surface))
+  "The vol-surface template's metric adapter, (METRIC-ID TEMPLATE FUNCTION):
+`financial-chart-3d-bindings-from-metric' calls it.")
+
 ;;; Opening
 
 (cl-defun financial-chart-3d-vol-surface-open (surface-or-series &key symbol title time id show)

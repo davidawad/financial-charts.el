@@ -63,7 +63,7 @@ TEMPLATES = {
         "doc": "Rolling correlation matrix: the latest window's pairwise correlations as "
                "coloured cells on a diverging scale, values printed.",
         "data_doc": "rows {window, row, column, value}: one full matrix per window (an "
-                    "ISO date or index), windows oldest first; stats.correlation lowered by "
+                    "ISO date or index), windows oldest first; stats.rolling.correlation lowered by "
                     "financial-chart-3d-risk-matrix-rows (docs/3d-risk.md)",
         "body": body(200, {
             "transform": [

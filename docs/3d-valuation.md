@@ -4,9 +4,9 @@ Three templates show valuation over a grid of assumptions:
 
 | template | metric (`invest metric run ID`) | 2D fallback | 3D mark | replay |
 |---|---|---|---|---|
-| `dcf-sensitivity` | `eq.dcf` over a WACC x terminal growth grid; price from `eq.price_target` | heatmap, cells coloured against the price | `fc-dcf3d` | snapshots (`as_of`), one morphing into the next |
+| `dcf-sensitivity` | `eq.dcf --grid` over WACC x terminal growth, one run per as-of date; price from `eq.price_target` | heatmap, cells coloured against the price | `fc-dcf3d` | snapshots (`as_of`), one morphing into the next |
 | `revenue-surface` | `eq.revenue.possibility_surface` | fan of quantile lines, the median orange | `fc-revenue3d` | year by year |
-| `kelly-surface` | `stats.kelly.binary` / `stats.kelly.continuous` over an edge x fraction grid | heatmap, diverging at zero growth | `fc-kelly3d` | none (not a time series) |
+| `kelly-surface` | `stats.kelly.growth --grid` over edge x fraction | heatmap, diverging at zero growth | `fc-kelly3d` | none (not a time series) |
 
 Each one is a 2D template in `templates/financial/NAME.json` plus its 3D
 variant in `templates3d/NAME.json` (`fc3d/NAME`, written by
@@ -27,28 +27,74 @@ decimals (`0.085` is 8.5%). Rows are an array of objects, in any order:
 the grid axes are the distinct values, sorted. A grid with missing cells
 still draws: an empty cell sits at the surface's lowest value.
 
-## Grid requests (invest-metrics)
+## Grid runs (invest-metrics)
 
 The DCF and Kelly metrics each return one value for one set of
-assumptions. A sensitivity surface needs that value over a grid, so we
-ask invest-metrics for a grid mode. Until it exists, the fixtures here
-drive the charts.
+assumptions; `invest metric run ID --grid` evaluates one over a grid and
+emits one row per point, which is what these templates bind:
 
 ```text
-invest metric run eq.dcf TICKER --grid wacc=0.07:0.11:0.005 terminal_growth=0.01:0.04:0.005
-invest metric run stats.kelly.continuous --grid edge=0.01:0.12:0.01 fraction=0:3:0.25 --param sigma=0.2
-invest metric run stats.kelly.binary --grid edge=0.01:0.12:0.01 fraction=0:0.95:0.05 --param odds=1
+invest metric run eq.dcf \
+  --data '{"historical_fcf": [5.0, 5.4], "projection_years": 5, "growth_rate": 0.08,
+           "shares_outstanding": 1.0, "cash_and_equivalents": 0.0, "total_debt": 12.0,
+           "discount_rate": 0.0, "terminal_growth_rate": 0.0}' \
+  --grid wacc@discount_rate=0.07:0.11:0.005 \
+  --grid terminal_growth@terminal_growth_rate=0.01:0.04:0.005 \
+  --pick value_per_share@dcf_intrinsic_value_per_share \
+  --stamp price=141.2 --stamp as_of='"2026-09-30"'
+
+invest metric run stats.kelly.growth --data '{"model": "continuous", "sigma": 0.2}' \
+  --grid edge=0.01:0.12:0.01 --grid fraction=0:3:0.25 --pick growth
+invest metric run stats.kelly.growth --data '{"model": "binary", "odds": 1}' \
+  --grid edge=0.01:0.12:0.01 --grid fraction=0:0.95:0.05 --pick growth
 ```
 
-`--grid NAME=FROM:TO:STEP` (inclusive) evaluates the metric at every
-point of the cartesian product. It emits one row per point: the grid
-parameters under their own names plus the metric's value under the name
-given below (`value_per_share`, `growth`). Other parameters stay fixed
-at their usual inputs. For a DCF history, `--as-of DATE...` repeats the
-grid once per date and stamps each row with `as_of` and that date's
-`price`. Until the grid mode lands, Kelly grids can be computed locally
-with `financial-chart-3d-kelly-surface` (see below), which needs only
-the metric's parameters.
+- `--grid COLUMN[@FIELD]=FROM:TO:STEP` (inclusive) is an axis: the row
+  column `COLUMN`, set on the input field `FIELD` (default `COLUMN`).
+  Every point of the axes' cartesian product is one row, the first axis
+  slowest. Other inputs stay as `--data` gives them (the DCF input's own
+  `discount_rate` and `terminal_growth_rate` are overridden).
+- `--pick COLUMN[@KEY]` puts the output value named `KEY` (a
+  `MetricCalculation`'s `key`) in `COLUMN`; without `KEY`, a single
+  output's `value`. A point the metric rejects (WACC at or below growth)
+  gives null.
+- `--stamp NAME=JSON` adds a constant to every row. A DCF history is
+  one run per as-of date, each stamped with its `as_of` and that date's
+  `price`; there is no `--as-of` flag.
+- `stats.kelly.growth` takes `{model, edge, fraction, sigma | odds}` and
+  returns the growth rate at that fraction (null for ruin).
+  `stats.kelly.binary` and `stats.kelly.continuous` return the optimal
+  fraction, not growth, so they do not feed this surface.
+
+`financial-chart-3d-bindings-from-metric` turns these rows into
+bindings (`(financial-chart-3d-metric-templates)` lists every metric and
+the templates it feeds):
+
+```elisp
+(financial-chart-3d-bindings-from-metric "dcf-sensitivity" "eq.dcf" ROWS)
+;; or the runs of a history, each stamped by its entry when the rows are not:
+(financial-chart-3d-bindings-from-metric
+ "dcf-sensitivity" "eq.dcf"
+ (list (list :as_of "2026-06-30" :price 118.6 :output ROWS-JUNE)
+       (list :as_of "2026-09-30" :price 141.2 :output ROWS-SEPT)))
+(financial-chart-3d-bindings-from-metric "kelly-surface" "stats.kelly.growth" ROWS)
+```
+
+- `eq.dcf`: rows without a number `value_per_share` (the rejected
+  points) are left out; the `price` slot is `:price` if given, else the
+  newest row's `price`. Rows need `wacc` and `terminal_growth`
+  (`missing_axis` otherwise).
+- `stats.kelly.growth`: grid rows `{edge, fraction, growth}`, or one
+  output per point (a list), whose `inputs` give edge and fraction and
+  whose model, sigma or odds become the slots. Ruin (null) and growth
+  below `:floor` (default -1) are drawn at the floor, as
+  `financial-chart-3d-kelly-surface` draws them.
+
+`financial-chart-3d-kelly-surface` still computes a Kelly grid locally
+from the metric's parameters (see below). The revenue surface has no
+adapter: `eq.revenue.possibility_surface` emits a confidence grid over
+revenue levels (`{periods, revenues, z}`), not the quantiles by year this
+template draws.
 
 ## dcf-sensitivity
 

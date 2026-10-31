@@ -30,13 +30,13 @@ defaults; a variant's `encoding` can rename them.
 
 | template | rows | source metric | 3D mark | replay |
 |---|---|---|---|---|
-| `risk-correlation` | `{window, row, column, value}` | `stats.correlation`, rolling (requested) | `fc-risk-grid3d` | window by window (frame mode, eased) |
+| `risk-correlation` | `{window, row, column, value}` | `stats.rolling.correlation` | `fc-risk-grid3d` | window by window (frame mode, eased) |
 | `risk-contribution` | `{date, asset, contribution}` | `stats.risk_contribution` per date | `fc-risk-ribbons3d` | cumulative by date |
-| `risk-factor-exposure` | `{date, factor, beta}` | `stats.factor_regression`, rolling (requested); `port.beta_weighted_delta` | `fc-risk-ribbons3d` | cumulative by date |
-| `risk-stress` | `{scenario, asset, pnl}` | `port.stress` | `fc-risk-grid3d` | none (one snapshot) |
-| `risk-underwater` | `{date, strategy, equity}` | `stats.max_drawdown` (its equity input) | `fc-risk-ribbons3d` (`transform: underwater`) | cumulative by date |
+| `risk-factor-exposure` | `{date, factor, beta}` | `stats.rolling.factor_regression`; `port.beta_weighted_delta` | `fc-risk-ribbons3d` | cumulative by date |
+| `risk-stress` | `{scenario, asset, pnl}` | `port.stress` per scenario | `fc-risk-grid3d` | none (one snapshot) |
+| `risk-underwater` | `{date, strategy, equity}` | `stats.max_drawdown` per strategy (its returns) | `fc-risk-ribbons3d` (`transform: underwater`) | cumulative by date |
 | `risk-return-distribution` | `{horizon, return}` | `stats.var`, `stats.var_cvar.*` (their return samples) | `fc-risk-histogram3d` | horizon by horizon |
-| `risk-frontier` | `{date, vol, ret, sharpe}` | `port.frontier` (requested) | `fc-risk-frontier3d` | cumulative by date |
+| `risk-frontier` | `{date, vol, ret, sharpe}` | `port.frontier` | `fc-risk-frontier3d` | cumulative by date |
 
 ## risk-correlation
 
@@ -65,10 +65,9 @@ time and tweens each bar into the next window, so you watch the
 stock-bond correlation flip. 2D: a heatmap of the latest window, values
 printed.
 
-**Request for the invest-metrics lane:** a rolling wrapper,
-`stats.rolling` (or `stats.correlation --window N --step M`), that
-emits `{windows: [{window: END_DATE, labels, matrix}, ...]}`. Until it
-lands, the fixture drives the template.
+`stats.rolling.correlation` emits `{windows: [{window: END_DATE,
+labels, matrix}, ...]}` (input `{dates, series: [{label, values}],
+window, step?}`); its adapter lowers every window.
 
 ## risk-contribution
 
@@ -100,9 +99,12 @@ stacked area chart reaching 100%.
 above it and short exposure hangs below. 2D: one line per factor, with
 a dashed zero rule.
 
-**Request:** the same rolling wrapper as for correlation, around
-`stats.factor_regression`, emitting `{windows: [{window, betas: {FACTOR:
-beta}}]}`. Lower it to one row per window and factor.
+`stats.rolling.factor_regression` emits `{windows: [{window, betas:
+{FACTOR: beta}}]}`; its adapter makes one row per window and factor.
+`port.beta_weighted_delta`'s adapter makes one row per position and date
+from the positions its output echoes (`inputs.positions`):
+`quantity x multiplier x delta x underlying_price x beta`, the terms its
+value sums, in dollars.
 
 ## risk-stress
 
@@ -175,11 +177,34 @@ the way to the next, coloured blue to amber by Sharpe. The newest
 frontier is drawn white, and an amber path joins each date's
 maximum-Sharpe portfolio. 2D: one line per date.
 
-**Request:** a new metric, `port.frontier`, emitting `{asof, rf, points:
-[{vol, ret, sharpe, weights}]}` for N target returns from the
-minimum-variance portfolio upward, plus a rolling or as-of series of
-those. Until it exists, the fixture (a closed-form hyperbolic frontier
-per quarter) drives the template.
+`port.frontier` emits `{asof, rf, labels, points: [{vol, ret, sharpe,
+weights}]}` for N target returns from the minimum-variance portfolio
+upward, or its as-of series `{series: [...]}` (with `dates`, `series`
+and `window` in its input). `vol` and `ret` are decimals unless the run
+set `output_scale: 100`; the output does not say which, so pass
+`:output-scale 100` to the adapter for such a run.
+
+## From the metrics' output
+
+`financial-chart-3d-bindings-from-metric TEMPLATE METRIC-ID OUTPUT &rest
+ARGS` (`src/financial-chart-3d-risk.el` holds these adapters) takes one
+run's output, or a series of entries `{output, ...}` each stamped as
+below; ARGS stamps a single output (`:as-of`, `:scenario`, ...) and sets
+the template's slots (`:title`):
+
+| metric | template | entry | rows from |
+|---|---|---|---|
+| `stats.rolling.correlation` | `risk-correlation` | the output (or `{as_of, output}` per matrix) | every window's matrix |
+| `stats.rolling.factor_regression` | `risk-factor-exposure` | the output | `windows[].betas` |
+| `port.beta_weighted_delta` | `risk-factor-exposure` | `{as_of, output}` | `inputs.positions` |
+| `stats.risk_contribution` | `risk-contribution` | `{as_of, output, labels?}` | `value.assets[].fraction_of_variance` x 100; `labels` (or `:labels`) name the asset indices |
+| `port.stress` | `risk-stress` | `{scenario, output}` | `inputs.exposures`: `weight x scenario_return` x 100, percent of NAV |
+| `stats.var`, `stats.var_cvar.historical`, `stats.var_cvar.parametric` | `risk-return-distribution` | `{horizon, output}` | `inputs.returns` x 100 |
+| `stats.max_drawdown` | `risk-underwater` | `{strategy, output, dates?}` | its returns compounded from 100 (period 0 is the start) |
+| `port.frontier` | `risk-frontier` | the output, or `{as_of, output}` | `points`, x 100 unless `:output-scale 100` |
+
+Each metric's output echoes the input it was run on (`inputs`), so the
+samples and exposures are read from the output itself.
 
 ## Without graphics.el
 

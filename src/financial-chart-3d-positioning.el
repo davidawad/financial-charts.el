@@ -492,6 +492,188 @@ default [12 4.5]) and `height' (default 4)."
          (list (list :id "iv-ratio" :type "segments" :segments (vconcat (nreverse ratio-line))
                      :colors (vconcat (nreverse ratio-colors)))))))))
 
+;;; From invest metric outputs to bindings
+
+(defun financial-chart-3d-positioning--entries (output args stamp what)
+  "OUTPUT's entries as (VALUE . ENTRY), VALUE the first of keys STAMP it has.
+ARGS stand in for a single output's stamp; an entry with none signals,
+WHAT naming the stamp."
+  (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+           collect (cons (or (financial-chart-3d-metric-stamp e args stamp)
+                             (financial-chart--invalid i (financial-chart-3d-metric-key-name (car stamp))
+                                                       "missing_stamp" "each entry needs its %s" what))
+                         e)))
+
+(defun financial-chart-3d-positioning--oi-rows (output args)
+  "Open-interest rows {expiry, strike, call_oi, put_oi} of OUTPUT's entries.
+Each entry {expiry, input, output}: the input opt.max_pain takes
+\(strikes, call_open_interest, put_open_interest)."
+  (cl-loop for (expiry . e) in (financial-chart-3d-positioning--entries output args '(:expiry) "expiry")
+           for i from 0
+           for input = (plist-get e :input)
+           for strikes = (financial-chart-3d-metric-list (financial-chart-3d-metric-get input :strikes))
+           for calls = (financial-chart-3d-metric-list (financial-chart-3d-metric-get input :call_open_interest))
+           for puts = (financial-chart-3d-metric-list (financial-chart-3d-metric-get input :put_open_interest))
+           do (unless (and strikes (or calls puts))
+                (financial-chart--invalid
+                 i "input" "missing_open_interest"
+                 "each entry needs the input it ran on, with strikes, call_open_interest and put_open_interest"))
+           append (cl-loop for k in strikes for j from 0
+                           collect (list :expiry expiry :strike k
+                                         :call_oi (or (nth j calls) 0) :put_oi (or (nth j puts) 0)))))
+
+(defun financial-chart-3d-positioning--spot (args index)
+  "The :spot of ARGS, or signal at entry INDEX: options-oi and -gex need it."
+  (let ((spot (plist-get args :spot)))
+    (if (numberp spot) spot
+      (financial-chart--invalid index "spot" "missing_spot" "pass :spot, the underlying's price"))))
+
+(defun financial-chart-3d-positioning--from-max-pain (_template output args)
+  "options-oi bindings from opt.max_pain OUTPUT, one entry per expiry.
+Each entry {expiry, input, output}: the chain is the input, the
+output's strike that expiry's max pain.  ARGS: :spot (required)."
+  (let ((pain (cl-loop for (expiry . e) in (financial-chart-3d-positioning--entries output args '(:expiry) "expiry")
+                       for i from 0
+                       collect (list :expiry expiry
+                                     :max_pain (or (financial-chart-3d-metric-get (plist-get e :output) :strike)
+                                                   (financial-chart--invalid i "strike" "missing_strike"
+                                                                             "opt.max_pain output needs its strike"))))))
+    (list :data (vconcat (financial-chart-3d-positioning--oi-rows output args))
+          :spot (financial-chart-3d-positioning--spot args nil)
+          :max_pain (vconcat pain))))
+
+(defun financial-chart-3d-positioning--from-chain-stats (_template output args)
+  "options-oi bindings from opt.chain_stats OUTPUT, one entry per expiry.
+opt.chain_stats summarises a chain (contracts, strikes, IV range) and
+carries no open interest, so each entry {expiry, input, output} needs
+the open interest in its input as opt.max_pain takes it (strikes,
+call_open_interest, put_open_interest; extra fields are ignored by
+the metric).  The summaries become the description; max pain is the
+template's own.  ARGS: :spot (required)."
+  (let* ((entries (financial-chart-3d-metric-entries output))
+         (outs (mapcar (lambda (e) (plist-get e :output)) entries))
+         (sum (lambda (k) (apply #'+ (mapcar (lambda (o) (or (financial-chart-3d-metric-get o k) 0)) outs))))
+         (ivs (lambda (k f) (let ((v (delq nil (mapcar (lambda (o) (financial-chart-3d-metric-get o k)) outs))))
+                              (and v (apply f v))))))
+    (list :data (vconcat (financial-chart-3d-positioning--oi-rows output args))
+          :spot (financial-chart-3d-positioning--spot args nil)
+          :description (format "%d contracts over %d expiries; IV %s"
+                               (funcall sum :contract_count) (length entries)
+                               (let ((lo (funcall ivs :min_iv #'min)) (hi (funcall ivs :max_iv #'max)))
+                                 (if (and lo hi) (format "%.1f%% to %.1f%%" (* 100 lo) (* 100 hi)) "n/a"))))))
+
+(defun financial-chart-3d-positioning--from-gex (_template output args)
+  "options-gex bindings from opt.gex OUTPUT, entries by expiry and side.
+Each entry {expiry, side, input, output}: side \"call\" or \"put\" (a
+run per side, as the metric's input has no option type; without one
+the sign decides), the input its strikes, gamma, open_interest and
+dealer_position, from which each strike's exposure is the metric's
+term (sign x gamma x OI x 100 x spot^2 x 1%), checked to sum to the
+output's gex.  Without strikes in the input, the entry's :strike
+takes the whole gex.  Rows {expiry, strike, call_gex, put_gex,
+net_gex} in $M per 1% move; :spot is the output's underlying_price
+unless ARGS give one."
+  (let ((cells nil) (spot nil))
+    (cl-loop
+     for (expiry . e) in (financial-chart-3d-positioning--entries output args '(:expiry) "expiry")
+     for i from 0
+     for out = (plist-get e :output)
+     for input = (plist-get e :input)
+     for total = (financial-chart-3d-metric-get out :gex)
+     for price = (or (financial-chart-3d-metric-get out :underlying_price)
+                     (financial-chart-3d-metric-get input :underlying_price))
+     for strikes = (financial-chart-3d-metric-list (financial-chart-3d-metric-get input :strikes))
+     for terms = (if strikes
+                     (let ((gamma (financial-chart-3d-metric-list (financial-chart-3d-metric-get input :gamma)))
+                           (oi (financial-chart-3d-metric-list (financial-chart-3d-metric-get input :open_interest)))
+                           (sign (if (equal (financial-chart-3d-metric-get input :dealer_position) "long") 1 -1)))
+                       (cl-loop for k in strikes for j from 0
+                                collect (cons k (* sign (or (nth j gamma) 0) (or (nth j oi) 0) 100 (or price 0) (or price 0) 0.01))))
+                   (list (cons (or (financial-chart-3d-metric-stamp e args '(:strike))
+                                   (financial-chart--invalid i "strike" "missing_strike"
+                                                             "an entry without input.strikes needs its :strike"))
+                               total)))
+     do (unless (numberp total)
+          (financial-chart--invalid i "gex" "missing_gex" "opt.gex output needs its gex"))
+     (unless (numberp price)
+       (financial-chart--invalid i "underlying_price" "missing_spot" "opt.gex output needs underlying_price"))
+     (setq spot price)
+     (let ((sum (apply #'+ (mapcar #'cdr terms))))
+       (unless (<= (abs (- sum total)) (* 1e-6 (max 1 (abs total))))
+         (financial-chart--invalid i "input" "input_mismatch"
+                                   "the input gives gex %s, the output %s: pass the input it ran on" sum total)))
+     (dolist (term terms)
+       (let* ((side (or (financial-chart-3d-metric-stamp e args '(:side)) (if (>= (cdr term) 0) "call" "put")))
+              (key (cons expiry (car term)))
+              (cell (or (assoc key cells) (car (push (list key 0.0 0.0) cells)))))
+         (if (equal side "put")
+             (setcar (cddr cell) (+ (nth 2 cell) (cdr term)))
+           (setcar (cdr cell) (+ (nth 1 cell) (cdr term)))))))
+    (list :data (vconcat
+                 (mapcar (lambda (c)
+                           (let ((call (/ (nth 1 c) 1e6)) (put (/ (nth 2 c) 1e6)))
+                             (list :expiry (caar c) :strike (cdar c)
+                                   :call_gex (financial-chart-3d-metric-round call 4)
+                                   :put_gex (financial-chart-3d-metric-round put 4)
+                                   :net_gex (financial-chart-3d-metric-round (- (abs call) (abs put)) 4))))
+                         (nreverse cells)))
+          :spot spot)))
+
+(defun financial-chart-3d-positioning--from-skew (_template output args)
+  "options-skew bindings from opt.skew_rr25_bf25 OUTPUT by date and tenor.
+Each entry {date, tenor, output}; rr25 and bf25 (IV fractions) become
+vol points."
+  (list :data
+        (vconcat
+         (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+                  for date = (financial-chart-3d-metric-stamp e args '(:date :as_of :time))
+                  for tenor = (financial-chart-3d-metric-stamp e args '(:tenor))
+                  for out = (plist-get e :output)
+                  for rr = (financial-chart-3d-metric-get out :rr25)
+                  for bf = (financial-chart-3d-metric-get out :bf25)
+                  do (unless (and date (numberp tenor))
+                       (financial-chart--invalid i "tenor" "missing_stamp" "each entry needs its date and tenor (days)"))
+                  (unless (and (numberp rr) (numberp bf))
+                    (financial-chart--invalid i "rr25" "missing_skew" "opt.skew_rr25_bf25 output needs rr25 and bf25"))
+                  collect (list :date date :tenor tenor
+                                :rr25 (financial-chart-3d-metric-round (* 100 rr) 3)
+                                :bf25 (financial-chart-3d-metric-round (* 100 bf) 3))))))
+
+(defun financial-chart-3d-positioning--from-vrp (_template output args)
+  "options-vrp bindings from opt.vrp OUTPUT, one entry per date.
+Each entry {date, output, iv_rank?, calendar_ratio?}: implied_vol and
+realized_vol (fractions) become iv and rv in percent, vrp their
+difference; iv_rank and calendar_ratio are numbers or the
+opt.iv_rank and opt.calendar_iv_ratio outputs (their value)."
+  (let ((value (lambda (v) (if (keywordp (car-safe v)) (financial-chart-3d-metric-get v :value) v))))
+    (list :data
+          (vconcat
+           (cl-loop for e in (financial-chart-3d-metric-entries output) for i from 0
+                    for date = (financial-chart-3d-metric-stamp e args '(:date :as_of :time))
+                    for out = (plist-get e :output)
+                    for iv = (financial-chart-3d-metric-get out :implied_vol)
+                    for rv = (financial-chart-3d-metric-get out :realized_vol)
+                    for rank = (funcall value (financial-chart-3d--value e :iv_rank))
+                    for ratio = (funcall value (financial-chart-3d--value e :calendar_ratio))
+                    do (unless date (financial-chart--invalid i "date" "missing_stamp" "each entry needs its date"))
+                    (unless (and (numberp iv) (numberp rv))
+                      (financial-chart--invalid i "implied_vol" "missing_vol"
+                                                "opt.vrp output needs implied_vol and realized_vol"))
+                    collect (append (list :date date :iv (financial-chart-3d-metric-round (* 100 iv) 3)
+                                          :rv (financial-chart-3d-metric-round (* 100 rv) 3)
+                                          :vrp (financial-chart-3d-metric-round (* 100 (- iv rv)) 3))
+                                    (and (numberp rank) (list :iv_rank rank))
+                                    (and (numberp ratio) (list :calendar_ratio ratio))))))))
+
+(defconst financial-chart-3d-positioning-metric-adapters
+  '(("opt.max_pain" "options-oi" financial-chart-3d-positioning--from-max-pain)
+    ("opt.chain_stats" "options-oi" financial-chart-3d-positioning--from-chain-stats)
+    ("opt.gex" "options-gex" financial-chart-3d-positioning--from-gex)
+    ("opt.skew_rr25_bf25" "options-skew" financial-chart-3d-positioning--from-skew)
+    ("opt.vrp" "options-vrp" financial-chart-3d-positioning--from-vrp))
+  "The positioning templates' metric adapters, (METRIC-ID TEMPLATE FUNCTION):
+`financial-chart-3d-bindings-from-metric' calls them.")
+
 ;;; Registration
 
 (defun financial-chart-3d-positioning--vrp-replay (graphics rows)

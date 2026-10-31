@@ -19,10 +19,10 @@
 ;;   revenue-surface  eq.revenue.possibility_surface: revenue by year x
 ;;                    outcome quantile, the median traced; it grows
 ;;                    year by year
-;;   kelly-surface    stats.kelly.binary / stats.kelly.continuous: log
-;;                    growth over edge x bet fraction, the Kelly
-;;                    fraction traced along its ridge and the zero
-;;                    growth line where over-betting starts to lose
+;;   kelly-surface    stats.kelly.growth over edge x bet fraction: log
+;;                    growth, the Kelly fraction traced along its ridge
+;;                    and the zero growth line where over-betting
+;;                    starts to lose
 ;;
 ;; docs/3d-valuation.md is the data contract of each (the JSON its
 ;; invest-metrics metric emits); test/fixtures/3d/valuation/ holds an
@@ -253,6 +253,96 @@ the cells present, the rest of the grid empty.  Options:
   "The fc-revenue3d mark: the surface replayed year by year.
 See `financial-chart-3d--replay'."
   (financial-chart-3d--replay graphics rows "year" #'financial-chart-3d-valuation--surface-mark))
+
+;;; From invest metric outputs to bindings
+
+(defun financial-chart-3d-valuation--rows (output)
+  "OUTPUT's rows and entries: a list of (ROW . ENTRY).
+OUTPUT is `invest metric run --grid' rows, one metric output, a list
+of outputs, or entries {output, ...} of any of those."
+  (cl-loop for e in (financial-chart-3d-metric-entries output)
+           for out = (plist-get e :output)
+           append (mapcar (lambda (row) (cons row e))
+                          (if (keywordp (car-safe out)) (list out) (append out nil)))))
+
+(defun financial-chart-3d-valuation--from-dcf (_template output args)
+  "dcf-sensitivity bindings from eq.dcf --grid rows.
+OUTPUT is the rows of `invest metric run eq.dcf --grid
+wacc@discount_rate=... --grid terminal_growth@terminal_growth_rate=...
+--pick value_per_share@dcf_intrinsic_value_per_share --stamp price=P
+--stamp as_of=DATE', or entries {as_of, price, output: ROWS}, one per
+run (each as-of date), whose as_of and price stamp rows without them.
+Points the metric rejects (WACC at or below growth) come back null
+and are left out.  The price slot is ARGS's :price, else the newest
+row's."
+  (let ((rows (cl-loop for (row . e) in (financial-chart-3d-valuation--rows output) for i from 0
+                       for value = (financial-chart-3d--value row :value_per_share)
+                       do (unless (and (numberp (financial-chart-3d--value row :wacc))
+                                       (numberp (financial-chart-3d--value row :terminal_growth)))
+                            (financial-chart--invalid
+                             i "wacc" "missing_axis"
+                             "eq.dcf rows need wacc and terminal_growth: --grid wacc@discount_rate=... --grid terminal_growth@terminal_growth_rate=..."))
+                       when (numberp value)
+                       collect (append (list :wacc (plist-get row :wacc)
+                                             :terminal_growth (plist-get row :terminal_growth)
+                                             :value_per_share (financial-chart-3d-valuation--round4 value))
+                                       (let ((as-of (or (financial-chart-3d--value row :as_of)
+                                                        (financial-chart-3d--value e :as_of))))
+                                         (and as-of (list :as_of as-of)))
+                                       (let ((price (or (financial-chart-3d--value row :price)
+                                                        (financial-chart-3d--value e :price))))
+                                         (and (numberp price) (list :price price)))))))
+    (unless rows
+      (financial-chart--invalid nil "value_per_share" "empty_grid"
+                                "no row has a value_per_share: --pick value_per_share@dcf_intrinsic_value_per_share"))
+    (let ((price (or (plist-get args :price)
+                     (plist-get (car (last (sort (copy-sequence rows)
+                                                 (lambda (a b) (string< (format "%s" (plist-get a :as_of))
+                                                                        (format "%s" (plist-get b :as_of)))))))
+                                :price))))
+      (unless (numberp price)
+        (financial-chart--invalid nil "price" "missing_price" "pass :price, or --stamp price=P on the grid"))
+      (list :data (vconcat rows) :price price))))
+
+(defun financial-chart-3d-valuation--from-kelly-growth (_template output args)
+  "kelly-surface bindings from stats.kelly.growth OUTPUT.
+OUTPUT is the rows of `invest metric run stats.kelly.growth --grid
+edge=... --grid fraction=... --pick growth' (with --data {model,
+sigma|odds}), or one output per point (a list, or entries {output}),
+whose inputs carry edge and fraction (a ruin output echoes none: its
+entry's edge and fraction then).  Ruin (null) and growth below
+ARGS's :floor (default -1) are the floor, as
+`financial-chart-3d-kelly-surface' draws them.  The model, sigma and
+odds slots are ARGS's, else the outputs' inputs."
+  (let* ((floor (or (plist-get args :floor) -1.0))
+         (params nil)
+         (rows (cl-loop for (row . e) in (financial-chart-3d-valuation--rows output) for i from 0
+                        for inputs = (financial-chart-3d--value row :inputs)
+                        for edge = (or (financial-chart-3d--value row :edge) (financial-chart-3d--value inputs :edge)
+                                       (financial-chart-3d--value e :edge))
+                        for fraction = (or (financial-chart-3d--value row :fraction)
+                                           (financial-chart-3d--value inputs :fraction)
+                                           (financial-chart-3d--value e :fraction))
+                        for growth = (or (financial-chart-3d--value row :growth) (financial-chart-3d--value row :value))
+                        do (unless (and (numberp edge) (numberp fraction))
+                             (financial-chart--invalid i "edge" "missing_axis"
+                                                       "kelly rows need edge and fraction: --grid edge=... --grid fraction=..."))
+                        (when (and inputs (financial-chart-3d--value inputs :model) (not params))
+                          (setq params inputs))
+                        collect (list :edge edge :fraction fraction
+                                      :growth (financial-chart-3d-valuation--round4
+                                               (if (numberp growth) (max floor growth) floor)))))
+         (bindings (list :data (vconcat rows))))
+    (dolist (k '(:model :sigma :odds))
+      (let ((v (financial-chart-3d--value params k)))
+        (when v (setq bindings (plist-put bindings k v)))))
+    bindings))
+
+(defconst financial-chart-3d-valuation-metric-adapters
+  '(("eq.dcf" "dcf-sensitivity" financial-chart-3d-valuation--from-dcf)
+    ("stats.kelly.growth" "kelly-surface" financial-chart-3d-valuation--from-kelly-growth))
+  "The valuation templates' metric adapters, (METRIC-ID TEMPLATE FUNCTION):
+`financial-chart-3d-bindings-from-metric' calls them.")
 
 (defconst financial-chart-3d-valuation-marks
   '(("fc-dcf3d" . financial-chart-3d-valuation--surface-mark)

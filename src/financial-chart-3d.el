@@ -26,6 +26,11 @@
 ;;   M-x financial-chart-3d-demo-book   ; the order-book surface, streaming
 ;;   (financial-chart-3d-book-open SNAPSHOT) + `financial-chart-3d-book-push'
 ;;
+;; `financial-chart-3d-bindings-from-metric' turns what `invest metric
+;; run ID' emits into a template's bindings, one adapter per metric and
+;; template in each group's file (`financial-chart-3d-metric-templates'
+;; lists the pairs).
+;;
 ;; The marks graphics.el lacks are registered here with
 ;; `graphics-eas-define-mark' when a 3D command loads graphics.el (or at
 ;; load, when graphics.el is already loaded):
@@ -1360,6 +1365,107 @@ example book)."
      (expand-file-name "depth-live.data.json" directory)
      (list :title "Order book, 40 steps"
            :data (financial-chart-3d-book-history (financial-chart-3d--example-snapshot) 39)))))
+
+;;; From an invest metric's output to a template's bindings
+
+(defconst financial-chart-3d-metric-adapter-groups
+  '(financial-chart-3d-risk-metric-adapters financial-chart-3d-options-metric-adapters
+    financial-chart-3d-positioning-metric-adapters financial-chart-3d-rates-metric-adapters
+    financial-chart-3d-market-metric-adapters financial-chart-3d-valuation-metric-adapters
+    financial-chart-3d-vol-surface-metric-adapters)
+  "Each group's adapters: a list of (METRIC-ID TEMPLATE FUNCTION).
+FUNCTION takes TEMPLATE, the metric's OUTPUT and ARGS (a plist) and
+returns TEMPLATE's bindings; each lives in its group's file.")
+
+(defun financial-chart-3d--metric-adapters ()
+  "Every adapter, (METRIC-ID TEMPLATE FUNCTION), of each group.
+The groups are `financial-chart-3d-metric-adapter-groups'."
+  (require 'financial-chart-3d-valuation)
+  (apply #'append (mapcar #'symbol-value financial-chart-3d-metric-adapter-groups)))
+
+(defun financial-chart-3d-metric-templates ()
+  "Which templates each invest metric feeds: an alist (METRIC-ID TEMPLATE ...).
+Metric ids are `invest metric run' ids; every pair is one
+`financial-chart-3d-bindings-from-metric' call."
+  (let (alist)
+    (pcase-dolist (`(,metric ,template ,_) (financial-chart-3d--metric-adapters))
+      (let ((cell (assoc metric alist)))
+        (if cell (nconc cell (list template)) (push (list metric template) alist))))
+    (nreverse alist)))
+
+(defun financial-chart-3d-bindings-from-metric (template metric-id output &rest args)
+  "Bindings for TEMPLATE from OUTPUT, what `invest metric run METRIC-ID' emits.
+OUTPUT is the metric's JSON parsed as eas parses it (plists with
+keyword keys, vectors, :null).  It is one run's output, or a series
+of snapshots: a list or vector of entries {output, as_of|time|date,
+...}, each an output with what stamps it (its date, and for some
+metrics its tenor, expiry, holding, scenario, strategy or symbol; the
+group docs, docs/3d-*.md, name them) plus, for metrics whose output
+does not echo it, the input it was run on.  ARGS is a plist of the
+same stamps for a single output, of the adapter's options, and of
+TEMPLATE's own slots (:title, :spot, ...), which are added last (the
+rest are not bindings).  Returns the plist
+`financial-chart-3d-open' and `eas-resolve' take as bindings, the
+same in 3D and 2D.  `financial-chart-3d-metric-templates' lists the
+pairs.  Signals `financial-chart-invalid-data' with :code, :index (the
+entry) and :field when OUTPUT is not what METRIC-ID emits."
+  (let ((adapter (seq-find (lambda (a) (and (equal (car a) metric-id) (equal (nth 1 a) template)))
+                           (financial-chart-3d--metric-adapters))))
+    (unless adapter
+      (let ((feeds (cdr (assoc metric-id (financial-chart-3d-metric-templates)))))
+        (financial-chart--invalid
+         nil "metric" "unknown_metric"
+         (if feeds
+             "%s does not feed %s; it feeds %s"
+           "%s feeds no 3D template%s%s; see `financial-chart-3d-metric-templates'")
+         metric-id (if feeds template "") (if feeds (string-join feeds ", ") ""))))
+    (let ((bindings (funcall (nth 2 adapter) template output args))
+          (slots (plist-get (plist-get (eas-template-get template) :meta) :slots)))
+      (cl-loop for (k v) on args by #'cddr
+               when (plist-member slots k) do (setq bindings (plist-put bindings k v)))
+      bindings)))
+
+(defun financial-chart-3d-metric-entries (output)
+  "OUTPUT's snapshots: a list of entry plists, each with :output.
+OUTPUT is a sequence of entries {output, ...} (a series), or one
+output, which becomes the one entry (:output OUTPUT)."
+  (if (and (sequencep output) (not (stringp output)) (not (keywordp (car-safe output)))
+           (> (length output) 0)
+           (seq-every-p (lambda (e) (and (keywordp (car-safe e)) (plist-member e :output))) output))
+      (append output nil)
+    (list (list :output output))))
+
+(defun financial-chart-3d-metric-stamp (entry args keys &optional default)
+  "The first of KEYS ENTRY carries, else ARGS carries, else DEFAULT.
+KEYS are keywords; ARGS the plist `financial-chart-3d-bindings-from-metric'
+was given, read at the same keys and their dashed spellings (:as-of
+for :as_of)."
+  (or (seq-some (lambda (k) (financial-chart-3d--value entry k)) keys)
+      (seq-some (lambda (k)
+                  (or (financial-chart-3d--value args k)
+                      (financial-chart-3d--value
+                       args (intern (replace-regexp-in-string "_" "-" (symbol-name k))))))
+                keys)
+      default))
+
+(defun financial-chart-3d-metric-get (object &rest keys)
+  "OBJECT's value at the path KEYS (keywords); nil for null or missing."
+  (let ((v object))
+    (dolist (k keys v)
+      (setq v (and (keywordp (car-safe v)) (financial-chart-3d--value v k))))))
+
+(defun financial-chart-3d-metric-list (v)
+  "V, a JSON array (vector) or list, as a list; nil otherwise."
+  (cond ((vectorp v) (append v nil))
+        ((and (listp v) (not (keywordp (car-safe v)))) v)))
+
+(defun financial-chart-3d-metric-round (v digits)
+  "V rounded to DIGITS decimals, a float."
+  (let ((m (expt 10.0 digits))) (/ (fround (* v m)) m)))
+
+(defun financial-chart-3d-metric-key-name (key)
+  "KEY, a keyword of a parsed JSON object, as the name it had (no colon)."
+  (substring (symbol-name key) 1))
 
 (provide 'financial-chart-3d)
 (require 'financial-chart-3d-positioning)

@@ -7,6 +7,7 @@
 (require 'financial-chart-3d)
 (require 'financial-chart-3d-futures)
 (require 'graphics-eas)
+(require 'graphics-frame)
 (financial-chart-3d--ensure)
 
 (defun financial-chart-3d-futures-test--goldens ()
@@ -98,6 +99,56 @@
   (should (member "futures-curve" (cdr (assoc "fut.term_structure" (financial-chart-3d-metric-templates)))))
   (should (member "futures-curve" (financial-chart-3d-variants)))
   (should (eas-template-get "futures-curve")))
+
+;;; Bindings from a real single snapshot open in 3D (fc-jyr)
+
+(defun financial-chart-3d-futures-test--es-output (&rest extra)
+  "The recorded /ES fut.term_structure output (years, no expiry), plus EXTRA."
+  (append extra (eas-json-read-file (expand-file-name "test/fixtures/3d/futures/term-structure-es.json"
+                                                      financial-chart-test-root))))
+
+(ert-deftest financial-chart-3d-futures-adapter-takes-its-rows-in-every-shape ()
+  (let* ((rows (plist-get (financial-chart-3d-bindings-from-metric
+                           "futures-curve" "fut.term_structure"
+                           (financial-chart-3d-futures-test--es-output :spot 7580.07 :as_of "2026-10-31"))
+                          :data))
+         (contract (seq-find (lambda (r) (equal (plist-get r :kind) "contract")) rows))
+         (data (eas-data-from "invest/futures-curve" rows)))
+    (should (eq (plist-get contract :expiry) :null))
+    (should (numberp (plist-get contract :years)))
+    (dolist (shape (list rows (append rows nil) data (list :values rows)
+                         (eas-json-parse (eas-json-encode rows))
+                         (eas-data-make (vector)) (plist-get data :rows)))
+      (ert-info ((format "%S" (type-of shape)))
+        (let ((out (eas-data-from "invest/futures-curve" shape)))
+          (should (eas-data-p out))
+          (unless (equal shape (eas-data-make (vector)))
+            (should (= (length (plist-get out :rows)) (length rows)))))))
+    ;; The rows function itself is idempotent on its rows.
+    (should (equal (financial-chart-3d-futures-rows rows) rows))
+    (should (equal (financial-chart-3d-futures-rows (append rows nil)) rows))))
+
+(ert-deftest financial-chart-3d-futures-single-snapshot-opens-in-3d ()
+  ;; The live repro: one real output (years only), with and without the
+  ;; spot and as_of it was run on, through the full 3D open.
+  (dolist (output (list (financial-chart-3d-futures-test--es-output)
+                        (financial-chart-3d-futures-test--es-output :spot 7580.07 :as_of "2026-10-31")))
+    (ert-info ((format "spot %S" (plist-get output :spot)))
+      (let* ((b (financial-chart-3d-bindings-from-metric "futures-curve" "fut.term_structure" output))
+             (view (financial-chart-3d-open "futures-curve" :bindings b :id "fc3d-futures-test:single")))
+        (unwind-protect
+            (let ((frame (progn (financial-chart-3d-seek-end view) (graphics-eas-frame view 60 24)))
+                  (lit 0))
+              (dotimes (i (* 60 24))
+                (when (> (car (graphics-frame-cell frame i)) 0) (cl-incf lit)))
+              (should (> lit 0)))
+          (financial-chart-3d--close view))))))
+
+(ert-deftest financial-chart-3d-futures-missing-contracts-is-invalid-data ()
+  (let ((err (should-error (financial-chart-3d-futures-rows '(:spot 1 :as_of "2026-10-31"))
+                           :type 'financial-chart-invalid-data)))
+    (should (equal (plist-get (financial-chart-error-data err) :field) "contracts"))
+    (should (equal (plist-get (financial-chart-error-data err) :code) "missing_contracts"))))
 
 (provide 'financial-chart-3d-futures-test)
 ;;; financial-chart-3d-futures-test.el ends here

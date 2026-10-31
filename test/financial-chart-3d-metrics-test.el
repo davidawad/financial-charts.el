@@ -71,6 +71,14 @@ ID names the 3D view."
     (unwind-protect (should (> (financial-chart-3d-metrics-test--lit view) 0))
       (financial-chart-3d--close view))))
 
+(defun financial-chart-3d-metrics-test--opens (template bindings id)
+  "Check BINDINGS open TEMPLATE in 3D as view ID and draw a frame."
+  (let ((view (financial-chart-3d-open template :bindings bindings :id id)))
+    (unwind-protect
+        (progn (financial-chart-3d-seek-end view)
+               (should (graphics-eas-frame view 60 24)))
+      (financial-chart-3d--close view))))
+
 ;;; The runs are the metrics' output
 
 (defun financial-chart-3d-metrics-test--pointer (object pointer)
@@ -264,7 +272,11 @@ value of each enum slot and each of
                    (spec (eas-resolve template bindings)))
               (cl-incf adapted)
               (should (> (length (plist-get bindings :data)) 0))
-              (should-not (eas-spec-check spec))))))))
+              (should-not (eas-spec-check spec))
+              ;; And opens in 3D: bindings-from-metric alone let a
+              ;; template's open path fail on its own bindings (fc-jyr).
+              (financial-chart-3d-metrics-test--opens
+               template bindings (format "fc3d-metrics-test-golden:%s:%s" metric template))))))))
     (should (> adapted 20))))
 
 ;;; What each adapter reads

@@ -400,5 +400,57 @@ remediation) for a broken one."
       (should (string-match-p "nope.no.eval" (plist-get c :detail)))
       (should (> (length (plist-get c :remediation)) 0)))))
 
+;;; `financial-chart--invalid' call sites (fc-jyr)
+
+(defun financial-chart-test--invalid-calls (form)
+  "Every call of `financial-chart--invalid' in FORM, direct or by `apply'.
+Each as the list of its arguments; an apply's last (spread) argument
+is dropped.  A `declare-function' is not a call."
+  (when (and (consp form) (not (eq (car form) 'declare-function)))
+    (let ((calls (cond ((eq (car form) 'financial-chart--invalid) (list (cdr-safe form)))
+                       ((and (eq (car form) 'apply) (consp (cdr form))
+                             (member (cadr form) '(#'financial-chart--invalid 'financial-chart--invalid)))
+                        (list (butlast (cddr form)))))))
+      (while (consp form)
+        (setq calls (append calls (financial-chart-test--invalid-calls (car form))))
+        (setq form (cdr form)))
+      calls)))
+
+(ert-deftest financial-chart-invalid-call-sites-match-its-signature ()
+  "Every call passes INDEX FIELD CODE FMT: FIELD a string, nil or an
+expression giving one, never a quoted symbol or keyword; CODE and FMT
+are not symbols either.  A misordered or mistyped call would crash
+while reporting the bad data instead of reporting it."
+  (let* ((root (file-name-directory (locate-library "financial-chart.el" t)))
+         (files (directory-files-recursively root "\\.el\\'"))
+         (checked 0))
+    (dolist (file files)
+      (unless (string-suffix-p "-test.el" file)
+        (with-temp-buffer
+          (insert-file-contents file)
+          (goto-char (point-min))
+          (condition-case nil
+              (while t
+                (dolist (args (financial-chart-test--invalid-calls (read (current-buffer))))
+                  (cl-incf checked)
+                  (ert-info ((format "%s: %S" (file-name-nondirectory file) args))
+                    (pcase-let ((`(,_index ,field ,code ,fmt) args))
+                      (should (>= (length args) 4))
+                      (dolist (v (list field code fmt))
+                        (should-not (and (consp v) (eq (car v) 'quote) (symbolp (cadr v)) (cadr v)))
+                        (should-not (keywordp v)))
+                      (should-not (and (stringp field) (string-prefix-p ":" field)))
+                      (should-not (numberp field))
+                      (should-not (numberp code))))))
+            (end-of-file nil)))))
+    (should (> checked 50))))
+
+(ert-deftest financial-chart-invalid-reports-a-string-field ()
+  (let ((err (should-error (financial-chart--invalid 3 "contracts" "missing_contracts" "needs %s" "x")
+                           :type 'financial-chart-invalid-data)))
+    (should (equal (financial-chart-error-data err)
+                   '(:code "missing_contracts" :index 3 :field "contracts"
+                     :message "element 3 (contracts): needs x")))))
+
 (provide 'financial-chart-test)
 ;;; financial-chart-test.el ends here

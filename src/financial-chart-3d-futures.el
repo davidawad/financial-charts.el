@@ -26,7 +26,8 @@
 (declare-function financial-chart-3d-metric-get "financial-chart-3d" (object &rest keys))
 (declare-function financial-chart-3d-metric-list "financial-chart-3d" (v))
 (declare-function eas-register-adapter "eas-data" (name &rest properties))
-(declare-function eas-data-make "eas-data" (rows))
+(declare-function eas-data-make "eas-data" (rows &optional schema))
+(declare-function eas-template-get "eas-template" (name))
 
 (defun financial-chart-3d-futures--get (object &rest keys)
   "First non-nil field among KEYS in OBJECT."
@@ -58,13 +59,40 @@
           ;; invest-metrics uses ACT/365 for expiry-derived tenor.
           (/ (- (float-time expiry-time) (float-time as-of-time)) (* 365.0 86400.0)))))))
 
+(defun financial-chart-3d-futures--row-p (row)
+  "Non-nil when ROW is a futures-curve row: a plist with a :kind."
+  (and (keywordp (car-safe row)) (stringp (plist-get row :kind))))
+
+(defun financial-chart-3d-futures--normalized (value)
+  "VALUE's futures-curve rows as a list when it already holds rows, else nil.
+VALUE is rows in any shape eas hands an adapter: a list or vector of
+row plists, data/v1 {schema, rows} or Vega-Lite inline {values}."
+  (let ((rows (cond ((and (keywordp (car-safe value)) (plist-member value :rows)
+                          (plist-member value :schema))
+                     (plist-get value :rows))
+                    ((and (keywordp (car-safe value)) (plist-member value :values))
+                     (plist-get value :values))
+                    ((financial-chart-3d-futures--row-p value) nil)
+                    (t value))))
+    (when (and (sequencep rows) (not (stringp rows)) (> (length rows) 0)
+               (seq-every-p #'financial-chart-3d-futures--row-p rows))
+      (append rows nil))))
+
 (defun financial-chart-3d-futures-rows (output &optional as-of)
   "Rows for OUTPUT of fut.term_structure, optionally stamped at AS-OF.
 OUTPUT is one metric result or a sequence of {time, output} snapshots.
 The metric result has {spot?, rate?, as_of?, contracts}; contracts have
 {expiry|years, price, ...}.  Consecutive contracts also receive spread
 and annualized_roll, calculated from their prices and tenor gap when
-those fields are absent."
+those fields are absent.  OUTPUT that is already these rows (a list,
+vector, data/v1 or {values}) comes back as they are, a vector."
+  (if-let* ((normalized (financial-chart-3d-futures--normalized output)))
+      (vconcat normalized)
+    (financial-chart-3d-futures--metric-rows output as-of)))
+
+(defun financial-chart-3d-futures--metric-rows (output as-of)
+  "Rows for fut.term_structure OUTPUT stamped at AS-OF.
+See `financial-chart-3d-futures-rows'."
   (let ((entries (financial-chart-3d-metric-entries output)) rows)
     (cl-loop for entry in entries for si from 0
              for result = (plist-get entry :output)
@@ -130,7 +158,7 @@ those fields are absent."
                          (spread (car pair))
                          (roll (cadr pair)))
                     (push (list :kind "contract" :time date :shape shape
-                                :symbol (or (financial-chart-3d-metric-get c :symbol) (financial-chart-3d-metric-get c :contract))
+                                :symbol (or (financial-chart-3d-metric-get c :symbol) (financial-chart-3d-metric-get c :contract) :null)
                                 :expiry (or (financial-chart-3d-metric-get c :expiry) :null)
                                 :years years :price price :mark (or (financial-chart-3d-futures--get c :mark) price)
                                 :bid (or (financial-chart-3d-futures--get c :bid) :null)
@@ -149,9 +177,10 @@ those fields are absent."
 
 (defun financial-chart-3d-futures--tooltip (r)
   "Tooltip text for contract row R."
-  (let ((g (lambda (k) (plist-get r k))))
+  (let ((g (lambda (k) (or (financial-chart-3d--value r k) "-"))))
     (format "%s %s  %.2fy  price %s basis %s\nbid %s ask %s mark %s  OI %s vol %s\ncarry %s implied yield %s roll to next %s"
-            (or (funcall g :symbol) "contract") (or (funcall g :expiry) "") (funcall g :years)
+            (or (financial-chart-3d--value r :symbol) "contract")
+            (or (financial-chart-3d--value r :expiry) "") (plist-get r :years)
             (funcall g :price) (funcall g :basis) (funcall g :bid) (funcall g :ask) (funcall g :mark)
             (funcall g :oi) (funcall g :volume) (funcall g :carry) (funcall g :implied_yield)
             (funcall g :roll_to_next))))
@@ -265,14 +294,12 @@ those fields are absent."
  :doc "fut.term_structure output or its normalized futures-curve rows."
  :example (plist-get (eas-template-get "futures-curve") :example)
  :convert (lambda (value)
-            (if (and (keywordp (car-safe value)) (plist-get value :schema) (plist-get value :rows))
+            ;; The open path hands back what it was given: data/v1 as it
+            ;; is, rows (list, vector, {values}) as rows; only a metric
+            ;; output is adapted.
+            (if (and (keywordp (car-safe value)) (plist-member value :schema) (plist-member value :rows))
                 value
-              (let ((rows (if (vectorp value) (append value nil) value)))
-                (eas-data-make
-                 (vconcat
-                  (if (and rows (plist-member (car rows) :kind))
-                      rows
-                    (financial-chart-3d-futures-rows value))))))))
+              (eas-data-make (financial-chart-3d-futures-rows value)))))
 
 (provide 'financial-chart-3d-futures)
 ;;; financial-chart-3d-futures.el ends here

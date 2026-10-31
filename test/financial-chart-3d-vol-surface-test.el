@@ -81,6 +81,107 @@
     (should (equal (eas-template-example "vol-surface") example))
     (should (equal (eas-template-example "fc3d/vol-surface") example))))
 
+;;; opt.iv_surface input
+
+(defun financial-chart-3d-vol-test--iv-surface ()
+  "invest-vol-surface's opt.iv_surface fixture, verbatim."
+  (eas-json-read-file (expand-file-name "test/fixtures/3d/vol-surface/iv_surface.json" financial-chart-test-root)))
+
+(defun financial-chart-3d-vol-test--wide (&optional shift)
+  "A synthetic live-sized opt.iv_surface: 24 expiries by 125 strikes.
+Spot 500, a put skew and a term structure, IV raised by SHIFT; the far
+strikes of the near expiries and a scatter of cells are null."
+  (let* ((strikes (cl-loop for i below 125 collect (+ 345.0 (* i 2.5))))
+         (dtes (cl-loop for j below 24 collect (+ 3 (* j 15)))))
+    (list :strikes (vconcat strikes)
+          :moneyness (vconcat (mapcar (lambda (k) (/ k 500.0)) strikes))
+          :days_to_expiry (vconcat dtes)
+          :iv (vconcat
+               (cl-loop for dte in dtes for j from 0 collect
+                        (vconcat
+                         (cl-loop for k in strikes for i from 0 collect
+                                  (let ((m (log (/ k 500.0))))
+                                    (if (or (and (< j 4) (or (< i 10) (> i 115))) (zerop (% (+ i (* 7 j)) 17)))
+                                        :null
+                                      (+ 0.18 (or shift 0) (* 0.5 m m) (* -0.25 m)
+                                         (/ 0.06 (sqrt (/ dte 30.0)))))))))))))
+
+(ert-deftest financial-chart-3d-vol-surface-rows-from-opt-iv-surface ()
+  (let ((rows (append (financial-chart-3d-vol-surface-rows (financial-chart-3d-vol-test--iv-surface)
+                                                           :time "2026-10-30T16:00:00")
+                      nil)))
+    ;; Six cells, one null: five rows, nearest expiry first.
+    (should (equal (mapcar (lambda (r) (list (plist-get r :dte) (plist-get r :strike) (plist-get r :iv))) rows)
+                   '((11 769.0 0.2) (11 770.0 0.19) (32 768.0 0.26) (32 769.0 0.24) (32 770.0 0.22))))
+    (dolist (r rows)
+      (should (equal (plist-get r :time) "2026-10-30T16:00:00"))
+      (should (eq (plist-get r :expiry) :null))
+      ;; No underlying_price: the spot is strike / moneyness.
+      (should (< (abs (- (plist-get r :spot) 769.64)) 0.01))))
+  ;; underlying_price wins; the time defaults to now.
+  (let ((row (aref (financial-chart-3d-vol-surface-rows
+                    (append '(:underlying_price 770.5) (financial-chart-3d-vol-test--iv-surface)))
+                   0)))
+    (should (= (plist-get row :spot) 770.5))
+    (should (string-prefix-p (format-time-string "%Y-%m-%d") (plist-get row :time))))
+  (dolist (case '(((:strikes [1] :days_to_expiry [1] :iv [[0.1 0.2]] :underlying_price 1) "bad_shape")
+                  ((:strikes [1] :days_to_expiry [1] :iv [[0.1]]) "missing_spot")
+                  ((:strikes [] :days_to_expiry [1] :iv [[]] :underlying_price 1) "missing_strike")
+                  ((:strikes [1] :iv [[0.1]] :underlying_price 1) "missing_dte")))
+    (let ((err (should-error (financial-chart-3d-vol-surface-rows (car case)) :type 'financial-chart-invalid-data)))
+      (should (equal (plist-get (cddr err) :code) (cadr case)))))
+  (let ((err (should-error (financial-chart-3d-vol-surface-rows [(:time "t" :surface (:iv [[0.1]]))])
+                           :type 'financial-chart-invalid-data)))
+    (should (equal (plist-get (cddr err) :code) "missing_surface"))))
+
+(ert-deftest financial-chart-3d-vol-surface-opt-iv-surface-opens ()
+  ;; The real fixture, verbatim: one keyframe, a surface and an ATM line drawn.
+  (let ((view (financial-chart-3d-vol-surface-open (financial-chart-3d-vol-test--iv-surface)
+                                                   :symbol "NVDA" :id "fc3d-test-vol-iv")))
+    (unwind-protect
+        (let ((text (graphics-eas-braille-text (graphics-eas-frame view 60 24) 60)))
+          (should (string-match-p "[^⠀\n]" text)))
+      (financial-chart-3d--close view))))
+
+(ert-deftest financial-chart-3d-vol-surface-live-size-stays-readable ()
+  (let* ((rows (financial-chart-3d-vol-surface-rows (financial-chart-3d-vol-test--wide) :time "2026-10-30T16:00:00"))
+         (prims (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d") (append rows nil)))
+         (mesh (financial-chart-3d-vol-test--prim prims "surface"))
+         (atm (financial-chart-3d-vol-test--prim prims "atm")))
+    (should (< (length rows) (* 24 125)))
+    ;; The mesh is downsampled to 41 strikes: 24 smiles of 40 segments
+    ;; and 7 term lines of 23; the ATM line still crosses every expiry.
+    (should (= (length (plist-get mesh :segments)) (+ (* 24 40) (* 7 23))))
+    (should (= (length (plist-get atm :segments)) 23))
+    (let ((view (financial-chart-3d-vol-surface-open rows :id "fc3d-test-vol-wide")))
+      (unwind-protect
+          (let* ((text (graphics-eas-braille-text (graphics-eas-frame view 60 24) 60))
+                 (lines (seq-filter (lambda (l) (string-match-p "[^⠀]" l)) (split-string text "
+" t)))
+                 (cells (with-temp-buffer (insert text) (count-matches "[^⠀
+ ]" (point-min) (point-max)))))
+            ;; Drawn across most of the frame, and not a solid sheet.
+            (should (>= (length lines) 12))
+            (should (< 200 cells (* 0.8 60 24))))
+        (financial-chart-3d--close view)))))
+
+(ert-deftest financial-chart-3d-vol-surface-series-replays ()
+  (let* ((series (vector (list :time "2026-10-30T10:00:00" :surface (financial-chart-3d-vol-test--wide))
+                         (list :time "2026-10-30T12:00:00" :surface (financial-chart-3d-vol-test--wide 0.08))
+                         (list :time "2026-10-30T14:00:00" :surface (financial-chart-3d-vol-test--wide 0.02))))
+         (rows (financial-chart-3d-vol-surface-rows series))
+         (view (financial-chart-3d-vol-surface-open series :symbol "NVDA" :id "fc3d-test-vol-series")))
+    (should (equal (delete-dups (mapcar (lambda (r) (plist-get r :time)) rows))
+                   '("2026-10-30T10:00:00" "2026-10-30T12:00:00" "2026-10-30T14:00:00")))
+    (unwind-protect
+        (let ((timeline (graphics-eas-timeline view)))
+          (should (>= (plist-get timeline :keyframes) 3))
+          (graphics-eas-timeline-set view :seconds 0.0 :playing nil)
+          (let ((open (graphics-eas-frame view 60 24)))
+            (financial-chart-3d-seek-end view)
+            (should-not (equal open (graphics-eas-frame view 60 24)))))
+      (financial-chart-3d--close view))))
+
 ;;; The mark
 
 (ert-deftest financial-chart-3d-vol-surface-mark-wire-and-surface ()

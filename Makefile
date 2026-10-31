@@ -56,8 +56,12 @@ deps-3d:
 	  git -C $(EAS3D_DIR) checkout -q --detach $$rev
 	$(MAKE) -C $(GRAPHICS_DIR) module EAS_DIR=$(CURDIR)/$(EAS3D_DIR)/src
 
+# One line per test file.
+TESTS_3D := test/financial-chart-3d-test.el
+TESTS_3D += test/financial-chart-3d-rates-test.el
+
 test-3d: deps-3d
-	$(BATCH_3D) -l test/financial-chart-3d-test.el -f ert-run-tests-batch-and-exit
+	$(BATCH_3D) $(foreach t,$(TESTS_3D),-l $(t)) -f ert-run-tests-batch-and-exit
 
 templates3d:
 	python3 scripts/templates3d.py

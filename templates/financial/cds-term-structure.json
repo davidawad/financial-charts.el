@@ -1,0 +1,129 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "cds-term-structure",
+    "version": "1.0.0",
+    "doc": "A name's CDS term structure by date (credit.cds_isda_implied_hazard_pd per date): par spread (or hazard rate, or default probability) by tenor across and date down.",
+    "slots": {
+      "data": {
+        "shape": "invest/cds-term",
+        "required": true,
+        "doc": "the CDS history: credit.cds_isda_implied_hazard_pd outputs, or {input, output} pairs so the par spreads come too, oldest first (docs/3d-rates.md), or flat rows {as_of, tenor, value}"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "A name's CDS term structure by date (credit.cds_isda_implied_hazard_pd per date): par spread (or hazard rate, or default probability) by tenor across and date down.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "measure": {
+        "type": "string",
+        "default": "value",
+        "enum": [
+          "value",
+          "spread_bp",
+          "hazard_bps",
+          "pd_pct"
+        ],
+        "doc": "the field drawn: spread_bp (par spread, needs the input), hazard_bps, pd_pct (cumulative default probability), or value (the par spread when every row has one, else the hazard rate)"
+      }
+    },
+    "example": "../test/fixtures/3d/rates/cds-term-structure.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 220,
+  "data": {
+    "name": "data"
+  },
+  "encoding": {
+    "x": {
+      "field": "tenor_label",
+      "type": "nominal",
+      "sort": null,
+      "title": "tenor"
+    },
+    "y": {
+      "field": "as_of",
+      "type": "nominal",
+      "sort": null,
+      "title": "date"
+    }
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": "rect",
+      "encoding": {
+        "color": {
+          "field": {
+            "x-eas:slot": "measure"
+          },
+          "type": "quantitative",
+          "title": "value",
+          "scale": {
+            "scheme": "orangered"
+          }
+        },
+        "tooltip": [
+          {
+            "field": "as_of",
+            "type": "nominal",
+            "title": "date"
+          },
+          {
+            "field": "tenor_label",
+            "type": "nominal",
+            "title": "tenor"
+          },
+          {
+            "field": "maturity",
+            "type": "nominal"
+          },
+          {
+            "field": "spread_bp",
+            "type": "quantitative",
+            "format": ".0f",
+            "title": "par spread bp"
+          },
+          {
+            "field": "hazard_bps",
+            "type": "quantitative",
+            "format": ".0f",
+            "title": "hazard bp"
+          },
+          {
+            "field": "pd_pct",
+            "type": "quantitative",
+            "format": ".2f",
+            "title": "cum. PD %"
+          }
+        ]
+      }
+    },
+    {
+      "name": "values",
+      "mark": {
+        "type": "text",
+        "fontSize": 9
+      },
+      "encoding": {
+        "text": {
+          "field": {
+            "x-eas:slot": "measure"
+          },
+          "type": "quantitative",
+          "format": ".0f"
+        }
+      }
+    }
+  ]
+}

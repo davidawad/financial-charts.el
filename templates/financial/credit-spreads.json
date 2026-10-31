@@ -1,0 +1,103 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "credit-spreads",
+    "version": "1.0.0",
+    "doc": "Credit spreads by rating and tenor (fi.spread_suite, fi.spread_pctile): spread in bps by tenor across and rating down, best rating at the top.",
+    "slots": {
+      "data": {
+        "shape": "invest/credit-spreads",
+        "required": true,
+        "doc": "spread outputs: fi.spread_suite and/or fi.spread_pctile outputs as invest-metrics emits them, inputs carrying rating and years (docs/3d-rates.md), or flat rows {rating, tenor, spread_bps, pctile}"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Credit spreads by rating and tenor (fi.spread_suite, fi.spread_pctile): spread in bps by tenor across and rating down, best rating at the top.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "../test/fixtures/3d/rates/credit-spreads.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 220,
+  "data": {
+    "name": "data"
+  },
+  "encoding": {
+    "x": {
+      "field": "tenor_label",
+      "type": "nominal",
+      "sort": null,
+      "title": "tenor"
+    },
+    "y": {
+      "field": "rating",
+      "type": "nominal",
+      "sort": null,
+      "title": "rating"
+    }
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": "rect",
+      "encoding": {
+        "color": {
+          "field": "spread_bps",
+          "type": "quantitative",
+          "title": "spread bp",
+          "scale": {
+            "scheme": "orangered"
+          }
+        },
+        "tooltip": [
+          {
+            "field": "rating",
+            "type": "nominal"
+          },
+          {
+            "field": "tenor_label",
+            "type": "nominal",
+            "title": "tenor"
+          },
+          {
+            "field": "spread_bps",
+            "type": "quantitative",
+            "format": ".0f",
+            "title": "spread bp"
+          },
+          {
+            "field": "pctile",
+            "type": "quantitative",
+            "format": ".0f",
+            "title": "percentile"
+          }
+        ]
+      }
+    },
+    {
+      "name": "values",
+      "mark": {
+        "type": "text",
+        "fontSize": 9
+      },
+      "encoding": {
+        "text": {
+          "field": "spread_bps",
+          "type": "quantitative",
+          "format": ".0f"
+        }
+      }
+    }
+  ]
+}

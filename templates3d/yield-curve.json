@@ -1,0 +1,154 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "yield-curve",
+    "version": "1.0.0",
+    "doc": "3D variant of financial-chart's yield-curve (graphics.el, mark fc-yield-curve3d): the fitted curves as a surface of lines over tenor and date, each coloured by its regime (teal upward, amber flat, red inverted); replays one curve per frame, the earlier ones left as a trail, the forward curve beside the last.  2D: Fitted yield curves by date (fi.nss_fit per date, regime from fi.curve_regime): yield by tenor across and date down, so an inversion reads as a row whose short end is hotter than its long end.",
+    "slots": {
+      "data": {
+        "shape": "invest/yield-curve",
+        "required": true,
+        "doc": "the curve history: entries {as_of, nss_fit, curve_regime?, forward_path?, rolldown_carry?}, oldest first, each metric's output as invest-metrics emits it (docs/3d-rates.md), or flat rows {date, tenor, yield, regime, kind}"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Fitted yield curves by date (fi.nss_fit per date, regime from fi.curve_regime): yield by tenor across and date down, so an inversion reads as a row whose short end is hotter than its long end.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "test/fixtures/3d/rates/yield-curve.data.json",
+    "base": "yield-curve",
+    "graphics": {
+      "mark": "fc-yield-curve3d",
+      "encoding": {
+        "x": {
+          "field": "tenor"
+        },
+        "z": {
+          "field": "date"
+        },
+        "y": {
+          "field": "yield"
+        },
+        "color": {
+          "field": "regime"
+        },
+        "time": {
+          "field": "date",
+          "mode": "cumulative",
+          "step": 0.5
+        }
+      },
+      "colors": {
+        "normal": "#26a69a",
+        "flat": "#eeca3b",
+        "inverted": "#ef5350"
+      },
+      "extent": [
+        12,
+        14
+      ],
+      "height": 8,
+      "camera": {
+        "yaw": 10,
+        "pitch": 18,
+        "zoom": 1.35
+      },
+      "timeline": {
+        "loop": true,
+        "autoplay": true
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 220,
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "filter": "datum.kind == 'spot'"
+    }
+  ],
+  "encoding": {
+    "x": {
+      "field": "tenor_label",
+      "type": "nominal",
+      "sort": null,
+      "title": "tenor"
+    },
+    "y": {
+      "field": "date",
+      "type": "nominal",
+      "sort": null,
+      "title": "date"
+    }
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": "rect",
+      "encoding": {
+        "color": {
+          "field": "yield",
+          "type": "quantitative",
+          "title": "yield %",
+          "scale": {
+            "scheme": "viridis"
+          }
+        },
+        "tooltip": [
+          {
+            "field": "date",
+            "type": "nominal"
+          },
+          {
+            "field": "tenor_label",
+            "type": "nominal",
+            "title": "tenor"
+          },
+          {
+            "field": "yield",
+            "type": "quantitative",
+            "format": ".2f",
+            "title": "yield %"
+          },
+          {
+            "field": "regime",
+            "type": "nominal"
+          },
+          {
+            "field": "carry_bps",
+            "type": "quantitative",
+            "format": ".1f",
+            "title": "3m carry bp"
+          }
+        ]
+      }
+    },
+    {
+      "name": "values",
+      "mark": {
+        "type": "text",
+        "fontSize": 9
+      },
+      "encoding": {
+        "text": {
+          "field": "yield",
+          "type": "quantitative",
+          "format": ".1f"
+        }
+      }
+    }
+  ]
+}

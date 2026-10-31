@@ -1074,3 +1074,4 @@ example book)."
 
 (provide 'financial-chart-3d)
 ;;; financial-chart-3d.el ends here
+(require 'financial-chart-3d-rates)

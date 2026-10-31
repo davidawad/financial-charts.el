@@ -1,0 +1,129 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "key-rate-durations",
+    "version": "1.0.0",
+    "doc": "3D variant of financial-chart's key-rate-durations (graphics.el, mark fc-krd3d): a bar per holding and key rate, as tall as its duration (short exposure below the floor), each holding its own colour.  2D: Key-rate durations across holdings (fi.krd, fi.dv01): duration at each key rate by tenor across and holding down, long exposure warm and short cool.",
+    "slots": {
+      "data": {
+        "shape": "invest/krd",
+        "required": true,
+        "doc": "the holdings: entries {holding, krd, dv01?, tenors?}, krd and dv01 the metrics' outputs as invest-metrics emits them (docs/3d-rates.md), or flat rows {holding, tenor, krd}"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Key-rate durations across holdings (fi.krd, fi.dv01): duration at each key rate by tenor across and holding down, long exposure warm and short cool.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "test/fixtures/3d/rates/key-rate-durations.data.json",
+    "base": "key-rate-durations",
+    "graphics": {
+      "mark": "fc-krd3d",
+      "encoding": {
+        "x": {
+          "field": "tenor"
+        },
+        "z": {
+          "field": "holding"
+        },
+        "y": {
+          "field": "krd"
+        }
+      },
+      "camera": {
+        "yaw": 30,
+        "pitch": 22,
+        "zoom": 1.3
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 220,
+  "data": {
+    "name": "data"
+  },
+  "encoding": {
+    "x": {
+      "field": "tenor_label",
+      "type": "nominal",
+      "sort": null,
+      "title": "key rate"
+    },
+    "y": {
+      "field": "holding",
+      "type": "nominal",
+      "sort": null,
+      "title": "holding"
+    }
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": "rect",
+      "encoding": {
+        "color": {
+          "field": "krd",
+          "type": "quantitative",
+          "title": "KRD",
+          "scale": {
+            "scheme": "redyellowgreen",
+            "domainMid": 0
+          }
+        },
+        "tooltip": [
+          {
+            "field": "holding",
+            "type": "nominal"
+          },
+          {
+            "field": "tenor_label",
+            "type": "nominal",
+            "title": "key rate"
+          },
+          {
+            "field": "krd",
+            "type": "quantitative",
+            "format": ".2f",
+            "title": "KRD"
+          },
+          {
+            "field": "duration",
+            "type": "quantitative",
+            "format": ".2f"
+          },
+          {
+            "field": "dv01",
+            "type": "quantitative",
+            "format": ".4f",
+            "title": "DV01 per 100"
+          }
+        ]
+      }
+    },
+    {
+      "name": "values",
+      "mark": {
+        "type": "text",
+        "fontSize": 9
+      },
+      "encoding": {
+        "text": {
+          "field": "krd",
+          "type": "quantitative",
+          "format": ".1f"
+        }
+      }
+    }
+  ]
+}

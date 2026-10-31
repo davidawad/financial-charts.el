@@ -1,0 +1,163 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "liquidity-heatmap",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "row",
+          "children": [
+            {
+              "component": "text",
+              "props": {
+                "text": {
+                  "expr": "datum.side"
+                },
+                "priority": 95
+              }
+            },
+            {
+              "component": "quantity",
+              "props": {
+                "field": "price",
+                "priority": 90,
+                "format": "plain"
+              }
+            },
+            {
+              "component": "quantity",
+              "props": {
+                "field": "size",
+                "priority": 85
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "doc": "Liquidity heatmap: resting order-book size at each price (up) and step (across), Bookmap style, larger resting size hotter, with the mid price traced through it.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {step, side: bid|ask|mid, price, size, mid, ...}: financial-chart-book-rows per book snapshot, each with its step (financial-chart-3d-liquidity-rows)"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Liquidity heatmap: resting order-book size at each price (up) and step (across), Bookmap style, larger resting size hotter, with the mid price traced through it.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "../test/fixtures/3d/market/liquidity-heatmap.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 260,
+  "data": {
+    "name": "data"
+  },
+  "encoding": {
+    "x": {
+      "field": "step",
+      "type": "quantitative",
+      "title": "step",
+      "scale": {
+        "nice": false
+      }
+    },
+    "y": {
+      "field": "price",
+      "type": "quantitative",
+      "scale": {
+        "zero": false
+      },
+      "title": "price"
+    }
+  },
+  "layer": [
+    {
+      "name": "liquidity",
+      "transform": [
+        {
+          "filter": "datum.side != 'mid'"
+        }
+      ],
+      "mark": {
+        "type": "square",
+        "filled": true,
+        "size": 30
+      },
+      "encoding": {
+        "color": {
+          "field": "size",
+          "type": "quantitative",
+          "title": "resting size",
+          "scale": {
+            "scheme": "inferno"
+          }
+        },
+        "tooltip": [
+          {
+            "field": "step",
+            "type": "quantitative"
+          },
+          {
+            "field": "side",
+            "type": "nominal"
+          },
+          {
+            "field": "price",
+            "type": "quantitative"
+          },
+          {
+            "field": "size",
+            "type": "quantitative"
+          }
+        ]
+      }
+    },
+    {
+      "name": "mid",
+      "transform": [
+        {
+          "filter": "datum.side == 'mid'"
+        }
+      ],
+      "mark": {
+        "type": "line",
+        "color": "#ffffff",
+        "strokeWidth": 2
+      },
+      "encoding": {
+        "y": {
+          "field": "mid",
+          "type": "quantitative"
+        }
+      }
+    }
+  ]
+}

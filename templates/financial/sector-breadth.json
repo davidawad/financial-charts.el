@@ -1,0 +1,139 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "sector-breadth",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "row",
+          "children": [
+            {
+              "component": "text",
+              "props": {
+                "text": {
+                  "expr": "datum.sector"
+                },
+                "priority": 95
+              }
+            },
+            {
+              "component": "text",
+              "props": {
+                "text": {
+                  "expr": "datum.date"
+                },
+                "priority": 90
+              }
+            },
+            {
+              "component": "quantity",
+              "props": {
+                "field": "pct",
+                "priority": 85,
+                "label": "above MA",
+                "format": "plain"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "doc": "Market breadth by sector over time: the percent of each sector's members above their moving average, date across and sector down, red below half to green above.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {date, sector, pct}: pct 0-100 of the sector's members above their moving average (breadth.rs), one per sector per date"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Market breadth by sector over time: the percent of each sector's members above their moving average, date across and sector down, red below half to green above.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "../test/fixtures/3d/market/sector-breadth.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": {
+    "step": 16
+  },
+  "data": {
+    "name": "data"
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": "rect",
+      "encoding": {
+        "x": {
+          "field": "date",
+          "type": "ordinal",
+          "title": null,
+          "axis": {
+            "labelAngle": 0,
+            "labelOverlap": true
+          }
+        },
+        "y": {
+          "field": "sector",
+          "type": "nominal",
+          "sort": null,
+          "title": null
+        },
+        "color": {
+          "field": "pct",
+          "type": "quantitative",
+          "title": "% above MA",
+          "scale": {
+            "scheme": "redyellowgreen",
+            "domain": [
+              0,
+              100
+            ],
+            "domainMid": 50
+          }
+        },
+        "tooltip": [
+          {
+            "field": "date",
+            "type": "nominal"
+          },
+          {
+            "field": "sector",
+            "type": "nominal"
+          },
+          {
+            "field": "pct",
+            "type": "quantitative",
+            "format": ".1f"
+          }
+        ]
+      }
+    }
+  ]
+}

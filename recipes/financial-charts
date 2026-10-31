@@ -7,4 +7,5 @@
                           ("examples/compose" "examples/compose/*.json")
                           ("examples/indicators" "examples/indicators/*.json")
                           ("examples/order-book" "examples/order-book/*.json")
-                          ("examples/3d" "examples/3d/*.json")))
+                          ("examples/3d" "examples/3d/*.json")
+                          ("test/fixtures/3d/market" "test/fixtures/3d/market/*.json")))

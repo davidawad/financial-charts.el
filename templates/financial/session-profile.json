@@ -1,0 +1,174 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "session-profile",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "row",
+          "children": [
+            {
+              "component": "text",
+              "props": {
+                "text": {
+                  "expr": "datum.session"
+                },
+                "priority": 95
+              }
+            },
+            {
+              "component": "quantity",
+              "props": {
+                "field": "price",
+                "priority": 90,
+                "format": "plain"
+              }
+            },
+            {
+              "component": "quantity",
+              "props": {
+                "field": "volume",
+                "priority": 85
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "doc": "Volume profile by session: traded volume at each price level (up) per session (across), heavier levels darker, each session's point of control ringed and its VWAP ticked.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {session, price, volume, poc?, vwap?}: volume per price level per session, as financial-chart-3d-session-profile computes them from bars (ta.vwap gives vwap)"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Volume profile by session: traded volume at each price level (up) per session (across), heavier levels darker, each session's point of control ringed and its VWAP ticked.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "../test/fixtures/3d/market/session-profile.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 260,
+  "data": {
+    "name": "data"
+  },
+  "encoding": {
+    "x": {
+      "field": "session",
+      "type": "ordinal",
+      "title": "session",
+      "axis": {
+        "labelAngle": 0
+      }
+    },
+    "y": {
+      "field": "price",
+      "type": "quantitative",
+      "scale": {
+        "zero": false
+      },
+      "title": "price"
+    }
+  },
+  "layer": [
+    {
+      "name": "levels",
+      "transform": [
+        {
+          "filter": "datum.volume > 0"
+        }
+      ],
+      "mark": {
+        "type": "square",
+        "filled": true,
+        "size": 40
+      },
+      "encoding": {
+        "color": {
+          "field": "volume",
+          "type": "quantitative",
+          "title": "volume",
+          "scale": {
+            "scheme": "blues"
+          }
+        },
+        "tooltip": [
+          {
+            "field": "session",
+            "type": "nominal"
+          },
+          {
+            "field": "price",
+            "type": "quantitative",
+            "format": ".2f"
+          },
+          {
+            "field": "volume",
+            "type": "quantitative",
+            "format": ",.0f"
+          }
+        ]
+      }
+    },
+    {
+      "name": "poc",
+      "transform": [
+        {
+          "filter": "datum.poc == 1"
+        }
+      ],
+      "mark": {
+        "type": "point",
+        "color": "#ffb74d",
+        "size": 90
+      }
+    },
+    {
+      "name": "vwap",
+      "transform": [
+        {
+          "filter": "datum.poc == 1"
+        }
+      ],
+      "mark": {
+        "type": "tick",
+        "color": "#e45756",
+        "thickness": 2
+      },
+      "encoding": {
+        "y": {
+          "field": "vwap",
+          "type": "quantitative"
+        }
+      }
+    }
+  ]
+}

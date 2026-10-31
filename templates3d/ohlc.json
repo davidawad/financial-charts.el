@@ -31,7 +31,7 @@
         }
       ]
     },
-    "doc": "3D variant of financial-chart's ohlc (graphics.el, mark fc-candle3d): candles as boxes along time, price up, each body as deep as its volume; replays bar by bar.  2D: Candlesticks from OHLC bars: a low-high wick and an open-close body per bar, up bars green; optional volume pane, indicator overlays and oscillator panes.",
+    "doc": "3D variant of financial-chart's ohlc (graphics.el, mark fc-candle3d): candles as boxes along time, price up, each body as deep as its volume; replays from its first third bar by bar.  2D: Candlesticks from OHLC bars: a low-high wick and an open-close body per bar, up bars green; optional volume pane, indicator overlays and oscillator panes.",
     "slots": {
       "bars": {
         "shape": "bar/v1",
@@ -82,16 +82,12 @@
         },
         "depth": {
           "field": "volume"
-        },
-        "time": {
-          "field": "time",
-          "mode": "cumulative",
-          "step": 0.25
         }
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 8
       }
     }
   },

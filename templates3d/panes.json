@@ -43,7 +43,7 @@
         }
       ]
     },
-    "doc": "3D variant of financial-chart's panes (graphics.el, mark fc-panes3d): price, volume and RSI(14) as three stacked panels on one time axis; replays bar by bar.  2D: Price, volume and RSI(14) panes on one time axis: one crosshair and one zoom (wheel, drag, +/-) drive all three.",
+    "doc": "3D variant of financial-chart's panes (graphics.el, mark fc-panes3d): price, volume and RSI(14) as three stacked panels on one time axis; replays from its first third bar by bar.  2D: Price, volume and RSI(14) panes on one time axis: one crosshair and one zoom (wheel, drag, +/-) drive all three.",
     "slots": {
       "bars": {
         "shape": "bar/v1",
@@ -67,17 +67,13 @@
       "encoding": {
         "x": {
           "field": "time"
-        },
-        "time": {
-          "field": "time",
-          "mode": "cumulative",
-          "step": 0.25
         }
       },
       "rsi": 14,
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 8
       }
     }
   },

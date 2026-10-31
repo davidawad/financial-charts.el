@@ -65,7 +65,7 @@
         }
       ]
     },
-    "doc": "3D variant of financial-chart's payoff-curves (graphics.el, mark fc-payoff3d): the curves as one P/L surface over price and curve (a strategy at several dates: a surface toward expiry); builds curve by curve.  2D: Several P/L curves on one price grid (strategies, or one strategy at several dates), with a zero line.",
+    "doc": "3D variant of financial-chart's payoff-curves (graphics.el, mark fc-payoff3d): the curves as one P/L surface over price and curve (a strategy at several dates: a surface toward expiry); a bright trace sweeps it curve by curve.  2D: Several P/L curves on one price grid (strategies, or one strategy at several dates), with a zero line.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -100,16 +100,12 @@
         },
         "y": {
           "field": "pnl"
-        },
-        "time": {
-          "field": "curve",
-          "mode": "cumulative",
-          "step": 0.6
         }
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 6
       }
     }
   },

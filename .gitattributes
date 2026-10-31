@@ -2,3 +2,4 @@
 test/fixtures/* -whitespace -text
 # 3D goldens (graphics.el .frame): raw bytes.
 test/golden/3d/*.frame binary
+test/golden/3d/**/*.frame binary

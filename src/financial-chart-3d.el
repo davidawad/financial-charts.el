@@ -31,8 +31,8 @@
 ;; load, when graphics.el is already loaded):
 ;;
 ;;   fc-candle3d          candle3d's geometry (bodies as deep as their
-;;                        volume) with scales over the whole series, so a
-;;                        replay adds bars in place instead of rescaling
+;;                        volume) with scales over the whole series, a
+;;                        replay colouring the bars in place
 ;;   fc-panes3d           price, volume and RSI panels stacked on one
 ;;                        time axis
 ;;   fc-volume-profile3d  candles plus horizontal volume-at-price bars
@@ -44,9 +44,13 @@
 ;;   fc-depth3d           cumulative depth walls per side
 ;;   fc-diverging3d       bar3d coloured by sign
 ;;
-;; The series variants replay through graphics.el's time encoding
-;; (`encoding.time', mode cumulative): SPC plays or pauses in the 3D
-;; buffer.  Headless frames and the goldens show a replay's end.
+;; The series variants replay along a looping `timeline' whose position
+;; the marks read (`financial-chart-3d--phase'): every frame draws all
+;; the rows, those not reached yet as a ghost, so no moment of a replay
+;; is one bar or one row.  SPC plays or pauses in the 3D buffer.  Each
+;; view's camera is fitted to its data (`financial-chart-3d-camera-fit').
+;; Headless frames and the goldens show a replay's end (and its middle,
+;; test/golden/3d/t0.5/).
 
 ;;; Code:
 
@@ -67,6 +71,12 @@
 (declare-function graphics-eas-timeline-set "graphics-eas" (view &rest args))
 (declare-function graphics-eas-braille-text "graphics-eas" (frame cols))
 (declare-function graphics-eas-ensure-core "graphics-eas" ())
+(declare-function graphics-eas-get "graphics-eas" (view))
+(declare-function graphics-eas-view-graphics "graphics-eas" (g))
+(declare-function graphics-eas-attach "graphics-eas" (view graphics))
+(declare-function graphics-eas-mark-inputs "graphics-eas" (view))
+(declare-function graphics-eas-camera "graphics-eas-marks" (graphics params))
+(declare-function graphics-anim-bounds "graphics-anim" (primitives))
 (declare-function graphics-ensure-core "graphics" (&optional core))
 (declare-function graphics-frame-write-file "graphics-frame" (path frame cols rows))
 (declare-function eas-play-detach "eas-play" (view))
@@ -172,6 +182,40 @@ Loading it registers this package's marks (`financial-chart-3d-marks')."
   "The params the mark is lowered under, if any."
   (and (boundp 'graphics-eas-mark-params) graphics-eas-mark-params))
 
+;; A replay is a `timeline' (duration, loop, autoplay) whose position
+;; the marks read from its param.  Every frame draws all the rows: those
+;; replayed so far in colour, the rest as a dim ghost, so a frame never
+;; collapses to one bar or one row of a surface and the camera, fitted
+;; to all of them, holds still.  (A time encoding hands a mark only the
+;; rows so far.)
+
+(defconst financial-chart-3d-replay-window (/ 1.0 3)
+  "Fraction of a series a replay starts from (at least 8 bars).")
+
+(defconst financial-chart-3d-ghost-color "#4a5568"
+  "Colour of the rows a replay has not reached yet.")
+
+(defun financial-chart-3d--phase (graphics)
+  "How far GRAPHICS's timeline is, 0 (its start) to 1 (its end).
+Read from the timeline's param (`timeline.param', default \"time\",
+in seconds) over `timeline.duration'; 1 without a timeline or a
+position, so a mark lowered alone draws its whole data."
+  (let* ((timeline (financial-chart-3d--opt graphics "timeline"))
+         (timeline (and (consp timeline) timeline))
+         (duration (plist-get timeline :duration))
+         (seconds (plist-get (financial-chart-3d--mark-params)
+                             (financial-chart-3d--key (or (plist-get timeline :param) "time")))))
+    (if (and (numberp duration) (> duration 0) (numberp seconds))
+        (max 0.0 (min 1.0 (/ seconds (float duration))))
+      1.0)))
+
+(defun financial-chart-3d--replayed (graphics n)
+  "How many of N rows a replay has reached at GRAPHICS's phase.
+From `financial-chart-3d-replay-window' of them (at least 8) at the
+start to all N at the end."
+  (let ((from (min n (max 8 (ceiling (* n financial-chart-3d-replay-window))))))
+    (+ from (round (* (financial-chart-3d--phase graphics) (- n from))))))
+
 (defun financial-chart-3d--shift (primitives dy prefix)
   "PRIMITIVES (a sequence) raised by DY, their ids prefixed with PREFIX."
   (mapcar
@@ -208,8 +252,10 @@ COLOR defaults to graphics.el's axis grey."
 (defconst financial-chart-3d-up-color "#26a69a" "Rising candle colour.")
 (defconst financial-chart-3d-down-color "#ef5350" "Falling candle colour.")
 
-(defun financial-chart-3d--candle-layout (graphics rows)
+(defun financial-chart-3d--candle-layout (graphics rows &optional tall)
   "Layout of ROWS' candles under GRAPHICS, over the whole series.
+The price axis is `height' high, by default 0.5 per bar (TALL per bar
+when given), at least 4.
 A plist: :keys (the bars' x values in order, from the domain rows and
 ROWS), :index (x value -> position), :x0, :lo, :hi, :height, :half,
 :dmax, :vmax.  With a time encoding the domain rows are every bar, so
@@ -228,7 +274,7 @@ each replay frame keeps the full series' positions and price scale."
     (cl-loop for k in keys for i from 0 do (puthash k i index))
     (list :xk xk :dk dk :keys keys :index index :n n :x0 (/ (1- n) 2.0)
           :lo (float lo) :hi (float (if (> hi lo) hi (1+ lo)))
-          :height (float (financial-chart-3d--opt graphics "height" (max 4.0 (* 0.5 n))))
+          :height (float (financial-chart-3d--opt graphics "height" (max 4.0 (* (or tall 0.5) n))))
           :half half
           :dmax (float (financial-chart-3d--opt graphics "depth" (max (* 2 half) (* 0.06 n))))
           :vmax (float (apply #'max 0 (delq nil (mapcar (lambda (r) (let ((v (financial-chart-3d--value r dk)))
@@ -245,10 +291,11 @@ each replay frame keeps the full series' positions and price scale."
   (when-let* ((i (gethash (financial-chart-3d--value row (plist-get layout :xk)) (plist-get layout :index))))
     (- i (plist-get layout :x0))))
 
-(defun financial-chart-3d--candles (graphics layout rows)
+(defun financial-chart-3d--candles (graphics layout rows &optional shown)
   "Primitives of ROWS' candles in LAYOUT under GRAPHICS: axes, wicks, bodies.
 Bodies are as deep as the bar's volume (`depth' channel) when it has
-one, as graphics.el's candle3d draws them."
+one, as graphics.el's candle3d draws them.  With SHOWN, the bars after
+the first SHOWN are ghosts (`financial-chart-3d-ghost-color')."
   (let* ((half (plist-get layout :half)) (height (plist-get layout :height))
          (dmax (plist-get layout :dmax)) (vmax (plist-get layout :vmax)) (dk (plist-get layout :dk))
          (x0 (plist-get layout :x0))
@@ -272,15 +319,21 @@ one, as graphics.el's candle3d draws them."
                    (push (vector (financial-chart-3d--r3 x) (financial-chart-3d--price-y layout l) 0
                                  (financial-chart-3d--r3 x) (financial-chart-3d--price-y layout h) 0)
                          wicks)
-                   (push (if (>= c o) up down) colors)))))
+                   (push (cond ((and shown (>= i shown)) financial-chart-3d-ghost-color)
+                               ((>= c o) up)
+                               (t down))
+                         colors)))))
     (let ((colors (vconcat (nreverse colors))))
       (list (financial-chart-3d--axes "axes" (- -0.5 x0) (+ 0.5 x0) height 0 dmax)
             (list :id "wicks" :type "segments" :segments (vconcat (nreverse wicks)) :colors colors)
             (list :id "bodies" :type "boxes" :boxes (vconcat (nreverse bodies)) :colors colors)))))
 
 (defun financial-chart-3d--candle-mark (graphics rows)
-  "Primitives of the fc-candle3d mark: GRAPHICS over bar ROWS."
-  (vconcat (financial-chart-3d--candles graphics (financial-chart-3d--candle-layout graphics rows) rows)))
+  "Primitives of the fc-candle3d mark: GRAPHICS over bar ROWS.
+Laid out over every bar; a replay colours the bars so far."
+  ;; Taller than wide in price, as the bars rise along a diagonal.
+  (vconcat (financial-chart-3d--candles graphics (financial-chart-3d--candle-layout graphics rows 0.8) rows
+                                        (financial-chart-3d--replayed graphics (length rows)))))
 
 ;;; Panes: price, volume and RSI on one time axis
 
@@ -288,7 +341,8 @@ one, as graphics.el's candle3d draws them."
   "Primitives of the fc-panes3d mark: GRAPHICS over bar ROWS in three panels.
 The panels stack upward on one time axis (RSI at the bottom, then
 volume, then price), each bar at the same x in all three, as the panes
-template stacks them down the page."
+template stacks them down the page.  A replay colours the bars so far
+and their RSI."
   (let* ((layout (financial-chart-3d--candle-layout graphics rows))
          (height (plist-get layout :height))
          (half (plist-get layout :half)) (x0 (plist-get layout :x0))
@@ -296,9 +350,10 @@ template stacks them down the page."
          (vmax (plist-get layout :vmax))
          (period (financial-chart-3d--opt graphics "rsi" 14))
          (rsi (financial-chart-rsi rows period))
+         (shown (financial-chart-3d--replayed graphics (length rows)))
          (left (- -0.5 x0)) (right (+ 0.5 x0))
-         volume volume-colors line bands)
-    (dolist (r rows)
+         volume volume-colors line ghost bands)
+    (cl-loop for r in rows for i from 0 do
       (when-let* ((x (financial-chart-3d--bar-x layout r)))
         (let ((v (financial-chart-3d--value r (plist-get layout :dk))))
           (when (and (numberp v) (> vmax 0))
@@ -306,29 +361,33 @@ template stacks them down the page."
                           (financial-chart-3d--r3 (+ x half)) (financial-chart-3d--r3 (* panel (/ v vmax)))
                           (financial-chart-3d--r3 half))
                   volume)
-            (push (if (>= (financial-chart-3d--value r :close) (financial-chart-3d--value r :open))
-                      financial-chart-3d-up-color financial-chart-3d-down-color)
+            (push (cond ((>= i shown) financial-chart-3d-ghost-color)
+                        ((>= (financial-chart-3d--value r :close) (financial-chart-3d--value r :open))
+                         financial-chart-3d-up-color)
+                        (t financial-chart-3d-down-color))
                   volume-colors)))))
-    (cl-loop for (a b) on (cl-mapcar #'cons rows rsi) while b
+    (cl-loop for (a b) on (cl-mapcar #'cons rows rsi) while b for i from 1
              when (and (cdr a) (cdr b))
              do (push (vector (financial-chart-3d--r3 (financial-chart-3d--bar-x layout (car a)))
                               (financial-chart-3d--r3 (* panel (/ (cdr a) 100.0))) 0
                               (financial-chart-3d--r3 (financial-chart-3d--bar-x layout (car b)))
                               (financial-chart-3d--r3 (* panel (/ (cdr b) 100.0))) 0)
-                      line))
+                      (if (< i shown) line ghost)))
     (dolist (level '(30 70))
       (let ((y (financial-chart-3d--r3 (* panel (/ level 100.0)))))
         (push (vector left y 0 right y 0) bands)))
     (vconcat
      (list (financial-chart-3d--axes "rsi-axes" left right panel 0 half)
            (list :id "rsi-bands" :type "segments" :segments (vconcat bands) :color "#5b6b86")
-           (list :id "rsi" :type "segments" :segments (vconcat (nreverse line)) :color "#b279a2"))
+           (list :id "rsi" :type "segments" :segments (vconcat (nreverse line)) :color "#b279a2")
+           (list :id "rsi-ghost" :type "segments" :segments (vconcat (nreverse ghost))
+                 :color financial-chart-3d-ghost-color))
      (financial-chart-3d--shift
       (list (financial-chart-3d--axes "axes" left right panel 0 half)
             (list :id "bars" :type "boxes" :boxes (vconcat (nreverse volume))
                   :colors (vconcat (nreverse volume-colors))))
       (+ panel gap) "volume-")
-     (financial-chart-3d--shift (financial-chart-3d--candles graphics layout rows)
+     (financial-chart-3d--shift (financial-chart-3d--candles graphics layout rows shown)
                                 (* 2 (+ panel gap)) "price-"))))
 
 ;;; Volume profile beside the candles
@@ -359,8 +418,12 @@ the bars' own range the two agree.  A vector of BINS numbers."
 ROWS are bars; the profile's `bins' levels span the whole series' price
 range, and each level is a horizontal bar right of the last candle, as
 long as its volume, the point of control bright and the last close
-ruled across."
-  (let* ((layout (financial-chart-3d--candle-layout graphics rows))
+ruled across.  A replay colours the bars so far and builds their
+profile."
+  (let* ((layout (financial-chart-3d--candle-layout graphics rows 0.8))
+         (all rows)
+         (shown (financial-chart-3d--replayed graphics (length rows)))
+         (rows (seq-take rows shown))
          (bins (max 1 (financial-chart-3d--opt graphics "bins" 24)))
          (lo (plist-get layout :lo)) (hi (plist-get layout :hi))
          (volumes (financial-chart-3d-profile-volumes rows lo hi bins))
@@ -386,7 +449,7 @@ ruled across."
                 boxes)
           (push (if (eql i poc) "#ffb74d" "#4c78a8") colors))))
     (vconcat
-     (financial-chart-3d--candles graphics layout rows)
+     (financial-chart-3d--candles graphics layout all shown)
      (list (list :id "profile" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors)))
            (list :id "profile-close" :type "segments" :color "#d2ddeb"
                  :segments (if (numberp last-close)
@@ -413,18 +476,26 @@ high and positive below it."
   "Primitives of the fc-drawdown3d mark: GRAPHICS over value ROWS.
 The percent drawdown from the running high as an area3d slab, turned
 upside down: its flat top is the high-water line and the curve hangs
-below it, deepest at the maximum drawdown."
+below it, deepest at the maximum drawdown.  A replay colours the
+points so far; the rest of the curve is a ghost."
   (let* ((xk (financial-chart-3d--field graphics "x" "x"))
          (yk (financial-chart-3d--field graphics "y" "y"))
          (height (float (financial-chart-3d--opt graphics "height" 4)))
-         (sub (list :mark "area3d" :encoding (list :x "x" :y "depth")
-                    :height height :zero t
-                    :extent (financial-chart-3d--opt graphics "extent" [12 0])
-                    :color (financial-chart-3d--opt graphics "color" "#4c78a8")))
-         (domain (and (boundp 'graphics-eas-domain-rows) graphics-eas-domain-rows
-                      (financial-chart-3d-drawdown-rows graphics-eas-domain-rows xk yk)))
-         (prims (graphics-eas-primitives sub (financial-chart-3d-drawdown-rows rows xk yk)
-                                         (financial-chart-3d--mark-params) domain))
+         (sub (lambda (color)
+                (list :mark "area3d" :encoding (list :x "x" :y "depth")
+                      :height height :zero t
+                      :extent (financial-chart-3d--opt graphics "extent" [12 0]) :color color)))
+         (all (financial-chart-3d-drawdown-rows rows xk yk))
+         (shown (financial-chart-3d--replayed graphics (length all)))
+         (prims (append (graphics-eas-primitives (funcall sub (financial-chart-3d--opt graphics "color" "#4c78a8"))
+                                                 (seq-take all shown) (financial-chart-3d--mark-params) all)
+                        (and (< shown (length all))
+                             (financial-chart-3d--shift
+                              (seq-remove (lambda (p) (equal (plist-get p :id) "axes"))
+                                          (graphics-eas-primitives (funcall sub financial-chart-3d-ghost-color)
+                                                                   (nthcdr (max 0 (1- shown)) all)
+                                                                   (financial-chart-3d--mark-params) all))
+                              0 "ghost-"))))
          (flip (lambda (y) (financial-chart-3d--r3 (- height y)))))
     (vconcat
      (mapcar (lambda (p)
@@ -512,10 +583,10 @@ furthest first, labels as they come), height the P/L, coloured red to
 green over the whole P/L range with the zero (breakeven) level framed.
 Rows that carry no z value (the payoff template's expiry rows) are
 priced back to the `days' at volatility `vol' first
-\(`financial-chart-3d-payoff-surface').  Under a time encoding the
-surface spans every row's grid and scale, the rows present so far are
-drawn in place and the newest is traced bright, so a replay grows the
-surface toward expiry without rescaling."
+\(`financial-chart-3d-payoff-surface').  The whole surface is always
+drawn; a bright trace across it marks where the timeline is, sweeping
+from the furthest row to the last (expiry), between rows on the
+surface itself."
   (let* ((xk (financial-chart-3d--field graphics "x" "price"))
          (zk (financial-chart-3d--field graphics "z" "dte"))
          (yk (financial-chart-3d--field graphics "y" "pnl"))
@@ -528,12 +599,11 @@ surface toward expiry without rescaling."
                                  rows)
                          :vol (financial-chart-3d--opt graphics "vol")
                          :days (financial-chart-3d--opt graphics "days")))))
-         (dom (if has-z (financial-chart-3d--domain rows) rows))
-         (xs (financial-chart-3d--categories (mapcar (lambda (r) (financial-chart-3d--value r xk)) dom)))
-         (zs (let ((zs (financial-chart-3d--categories (mapcar (lambda (r) (financial-chart-3d--value r zk)) dom))))
+         (xs (financial-chart-3d--categories (mapcar (lambda (r) (financial-chart-3d--value r xk)) rows)))
+         (zs (let ((zs (financial-chart-3d--categories (mapcar (lambda (r) (financial-chart-3d--value r zk)) rows))))
                (if (and zs (seq-every-p #'numberp zs)) (reverse zs) zs)))
          (ys (delq nil (mapcar (lambda (r) (let ((v (financial-chart-3d--value r yk))) (and (numberp v) (float v))))
-                               dom)))
+                               rows)))
          (lo (if ys (apply #'min ys) 0.0))
          (hi (if ys (apply #'max ys) 1.0))
          (height (float (financial-chart-3d--opt graphics "height" 4)))
@@ -541,41 +611,42 @@ surface toward expiry without rescaling."
          (base (financial-chart-3d--r3 (- (* lo scale))))
          (extent (financial-chart-3d--opt graphics "extent" [12 9]))
          (w (/ (float (elt extent 0)) 2)) (d (/ (float (elt extent 1)) 2))
-         (cells (make-hash-table :test #'equal))
-         (present nil))
+         (cells (make-hash-table :test #'equal)))
     (dolist (r rows)
       (let ((x (financial-chart-3d--value r xk)) (z (financial-chart-3d--value r zk))
             (y (financial-chart-3d--value r yk)))
         (when (and x z (numberp y))
-          (puthash (cons x z) (float y) cells)
-          (push z present))))
-    (let* ((shown (seq-filter (lambda (z) (member z present)) zs))
-           (nx (length xs)) (nz (length zs)) (k (length shown))
+          (puthash (cons x z) (float y) cells))))
+    (let* ((nx (length xs)) (nz (length zs))
            (x-at (lambda (i) (financial-chart-3d--r3 (if (> nx 1) (- (* 2 w (/ i (float (1- nx)))) w) 0))))
-           (z-at (lambda (j) (financial-chart-3d--r3 (if (> nz 1) (- (* 2 d (/ j (float (1- nz)))) d) 0))))
-           (row-heights (lambda (z) (vconcat (mapcar (lambda (x) (financial-chart-3d--r3 (gethash (cons x z) cells lo)))
-                                                     xs))))
-           (newest (car (last shown)))
+           (heights (vconcat (mapcar (lambda (z) (vconcat (mapcar (lambda (x) (gethash (cons x z) cells lo)) xs)))
+                                     zs)))
+           ;; The trace: between rows J and J + 1, U of the way.
+           (at (* (financial-chart-3d--phase graphics) (max 0 (1- nz))))
+           (j (min (max 0 (- nz 2)) (floor at)))
+           (u (- at j))
+           (z (financial-chart-3d--r3 (if (> nz 1) (- (* 2 d (/ at (1- nz))) d) 0)))
+           (trace (lambda (i) (let ((a (aref (aref heights j) i))
+                                    (b (aref (aref heights (min (1- nz) (1+ j))) i)))
+                                ;; Lifted a little: above the surface, not in it.
+                                (financial-chart-3d--r3 (+ base (* 0.03 height) (* scale (+ a (* u (- b a)))))))))
            (zero (and (< lo 0) (> hi 0) base)))
       (vector
        (financial-chart-3d--axes "axes" (- w) w height (- d) d)
-       (if (and (>= nx 2) (>= k 2))
-           (list :id "surface" :type "heightfield" :x (vector (- w) w)
-                 :z (vector (- d) (funcall z-at (1- k)))
+       (if (and (>= nx 2) (>= nz 1))
+           (list :id "surface" :type "heightfield" :x (vector (- w) w) :z (vector (- d) d)
                  :base base :y_scale (financial-chart-3d--r3 scale)
-                 :heights (vconcat (mapcar row-heights shown))
+                 :heights (vconcat (mapcar (lambda (row) (vconcat (mapcar #'financial-chart-3d--r3 row)))
+                                           (if (= nz 1) (list (aref heights 0) (aref heights 0)) heights)))
                  :low_color (financial-chart-3d--opt graphics "low_color" financial-chart-3d-down-color)
                  :high_color (financial-chart-3d--opt graphics "high_color" financial-chart-3d-up-color)
                  :color_range (vector lo hi))
          (list :id "surface" :type "segments" :segments []))
        (list :id "front" :type "segments" :color "#ffffff"
-             :segments (if newest
-                           (let ((z (funcall z-at (1- k))) (hs (funcall row-heights newest)))
-                             (vconcat (cl-loop for i from 0 below (1- nx)
-                                               collect (vector (funcall x-at i)
-                                                               (financial-chart-3d--r3 (+ base (* scale (aref hs i)))) z
-                                                               (funcall x-at (1+ i))
-                                                               (financial-chart-3d--r3 (+ base (* scale (aref hs (1+ i))))) z))))
+             :segments (if (and (>= nx 2) (>= nz 1))
+                           (vconcat (cl-loop for i from 0 below (1- nx)
+                                             collect (vector (funcall x-at i) (funcall trace i) z
+                                                             (funcall x-at (1+ i)) (funcall trace (1+ i)) z)))
                          []))
        (list :id "zero" :type "segments" :color "#8a94a6"
              :segments (if zero
@@ -688,14 +759,138 @@ The template resolved by eas plus its x-eas.graphics with slots filled
   (let ((name (financial-chart-3d--name name)))
     (graphics-eas-variant-spec name (financial-chart-3d-bindings name bindings))))
 
+;;; Framing: the camera fitted to the data
+
+(defconst financial-chart-3d-fill 0.92
+  "Fraction of a pane's shorter side the data spans at the fitted camera.")
+
+(defconst financial-chart-3d-pane-aspect 1.2
+  "Least width / height of the panes the fitted camera frames.
+The core scales a frame to its shorter side, so a wider pane shows
+more on either side; the fit lets the data use this much width.")
+
+(defun financial-chart-3d--cross (a b)
+  "The cross product of 3-vectors A and B."
+  (vector (- (* (aref a 1) (aref b 2)) (* (aref a 2) (aref b 1)))
+          (- (* (aref a 2) (aref b 0)) (* (aref a 0) (aref b 2)))
+          (- (* (aref a 0) (aref b 1)) (* (aref a 1) (aref b 0)))))
+
+(defun financial-chart-3d--dot (a b)
+  "The dot product of 3-vectors A and B."
+  (+ (* (aref a 0) (aref b 0)) (* (aref a 1) (aref b 1)) (* (aref a 2) (aref b 2))))
+
+(defun financial-chart-3d-camera-fit (points camera)
+  "The orbit camera `target' and `distance' framing POINTS tightly, a plist.
+POINTS are [X Y Z] vectors (`financial-chart-3d--points'); CAMERA the
+plist with its :yaw, :pitch and :fov (default 40).  Seen from there,
+the points span `financial-chart-3d-fill' of a pane's shorter side and
+at most `financial-chart-3d-pane-aspect' times that across, centred.
+The core's own fit frames the bounding sphere of their box instead,
+which leaves a long, flat or diagonal chart small in its pane."
+  (let* ((yaw (degrees-to-radians (float (or (plist-get camera :yaw) 30))))
+         (pitch (degrees-to-radians (float (or (plist-get camera :pitch) 25))))
+         (tan (tan (/ (degrees-to-radians (float (or (plist-get camera :fov) 40))) 2)))
+         (forward (vector (- (* (cos pitch) (sin yaw))) (- (sin pitch)) (- (* (cos pitch) (cos yaw)))))
+         (right (let* ((r (financial-chart-3d--cross forward [0.0 1.0 0.0]))
+                       (n (sqrt (financial-chart-3d--dot r r))))
+                  (if (< n 1e-9) (vector (cos yaw) 0.0 (- (sin yaw)))
+                    (vector (/ (aref r 0) n) (/ (aref r 1) n) (/ (aref r 2) n)))))
+         (up (financial-chart-3d--cross right forward))
+         (center (let ((n (float (length points))))
+                   (vector (/ (cl-loop for p in points sum (aref p 0)) n) (/ (cl-loop for p in points sum (aref p 1)) n)
+                           (/ (cl-loop for p in points sum (aref p 2)) n))))
+         (corners (mapcar (lambda (p) (vector (- (aref p 0) (aref center 0)) (- (aref p 1) (aref center 1))
+                                              (- (aref p 2) (aref center 2))))
+                          points))
+         (us (mapcar (lambda (c) (financial-chart-3d--dot c right)) corners))
+         (vs (mapcar (lambda (c) (financial-chart-3d--dot c up)) corners))
+         (ws (mapcar (lambda (c) (financial-chart-3d--dot c forward)) corners))
+         (um (/ (+ (apply #'min us) (apply #'max us)) 2))
+         (vm (/ (+ (apply #'min vs) (apply #'max vs)) 2))
+         (across (* tan financial-chart-3d-fill financial-chart-3d-pane-aspect))
+         (down (* tan financial-chart-3d-fill))
+         ;; Each corner, W nearer or further, is within the frame at D.
+         (distance (cl-loop for u in us for v in vs for w in ws
+                            maximize (- (max (/ (abs (- u um)) across) (/ (abs (- v vm)) down)) w))))
+    (list :target (vector (financial-chart-3d--r3 (+ (aref center 0) (* um (aref right 0)) (* vm (aref up 0))))
+                          (financial-chart-3d--r3 (+ (aref center 1) (* um (aref right 1)) (* vm (aref up 1))))
+                          (financial-chart-3d--r3 (+ (aref center 2) (* um (aref right 2)) (* vm (aref up 2)))))
+          :distance (financial-chart-3d--r3 (max distance (- 0.1 (apply #'min ws)))))))
+
+(defun financial-chart-3d--points (primitives)
+  "The points of PRIMITIVES but their axes (ids ending in \"axes\"), [X Y Z].
+Boxes give their corners, segments their ends, meshes their vertices,
+heightfields their grid; any other primitive the corners of its
+bounds (`graphics-anim-bounds')."
+  (let (points)
+    (cl-flet ((pt (x y z) (push (vector (float x) (float y) (float z)) points)))
+      (dolist (p primitives)
+        (unless (string-suffix-p "axes" (or (plist-get p :id) ""))
+          (pcase (plist-get p :type)
+            ("boxes" (seq-doseq (b (plist-get p :boxes))
+                       (dolist (x (list (elt b 0) (elt b 3)))
+                         (dolist (y (list (elt b 1) (elt b 4)))
+                           (dolist (z (list (elt b 2) (elt b 5)))
+                             (pt x y z))))))
+            ("segments" (seq-doseq (s (plist-get p :segments))
+                          (if (= (length s) 4)
+                              (progn (pt (elt s 0) (elt s 1) 0) (pt (elt s 2) (elt s 3) 0))
+                            (pt (elt s 0) (elt s 1) (elt s 2)) (pt (elt s 3) (elt s 4) (elt s 5)))))
+            ("mesh" (seq-doseq (v (plist-get p :vertices)) (pt (elt v 0) (elt v 1) (elt v 2))))
+            ("heightfield"
+             (let* ((x (plist-get p :x)) (z (plist-get p :z)) (heights (plist-get p :heights))
+                    (nz (length heights)) (base (or (plist-get p :base) 0)) (scale (or (plist-get p :y_scale) 1)))
+               (seq-do-indexed
+                (lambda (row j)
+                  (let ((nx (length row)))
+                    (seq-do-indexed
+                     (lambda (h i)
+                       (pt (+ (elt x 0) (* (- (elt x 1) (elt x 0)) (if (> nx 1) (/ i (float (1- nx))) 0.5)))
+                           (+ base (* h scale))
+                           (+ (elt z 0) (* (- (elt z 1) (elt z 0)) (if (> nz 1) (/ j (float (1- nz))) 0.5)))))
+                     row)))
+                heights)))
+            (_ (when-let* ((b (graphics-anim-bounds (list p))))
+                 (dolist (x (list (aref b 0) (aref b 3)))
+                   (dolist (y (list (aref b 1) (aref b 4)))
+                     (dolist (z (list (aref b 2) (aref b 5)))
+                       (pt x y z))))))))))
+    points))
+
+(defun financial-chart-3d--fit (view)
+  "Fit eas VIEW's camera to its data, unless its x-eas.graphics sets one.
+The mark is lowered over every row at its timeline's end, so the
+camera holds still while a replay plays or a stream updates.  Before
+VIEW is first drawn."
+  (when-let* ((g (graphics-eas-get view)))
+    (let* ((graphics (graphics-eas-view-graphics g))
+           (camera (financial-chart-3d--opt graphics "camera"))
+           (timeline (financial-chart-3d--opt graphics "timeline"))
+           (params (append (and (consp timeline)
+                                (list (financial-chart-3d--key (or (plist-get timeline :param) "time"))
+                                      (or (plist-get timeline :duration) 0)))
+                           (graphics-eas-mark-inputs view)))
+           (points (and (not (plist-get camera :target)) (not (plist-get camera :distance))
+                        (financial-chart-3d--points
+                         (append (graphics-eas-primitives graphics (plist-get (eas-view-data view) :rows) params)
+                                 nil)))))
+      (when points
+        (graphics-eas-attach
+         view (plist-put (copy-sequence graphics) :camera
+                         (append (financial-chart-3d-camera-fit points (graphics-eas-camera graphics nil))
+                                 camera)))))))
+
 (cl-defun financial-chart-3d-open (name &key bindings id show)
   "Open 3D variant NAME (\"ohlc\" or \"fc3d/ohlc\") and return its eas view.
 BINDINGS default to the variant's example; ID names the view (default
-\"fc3d/NAME\").  With SHOW, draw it in a graphics.el buffer.  Signals
-`financial-chart-3d-unavailable' without graphics.el."
+\"fc3d/NAME\").  Its camera is fitted to the data
+\(`financial-chart-3d-camera-fit').  With SHOW, draw it in a
+graphics.el buffer.  Signals `financial-chart-3d-unavailable' without
+graphics.el."
   (let* ((name (financial-chart-3d--name name))
          (spec (financial-chart-3d-spec name bindings))
          (view (graphics-eas-open spec :id (or id name))))
+    (financial-chart-3d--fit view)
     (when show (graphics-eas-show view))
     view))
 
@@ -706,19 +901,24 @@ BINDINGS default to the variant's example; ID names the view (default
   (eas-play-detach view)
   (eas-view-close view))
 
+(defun financial-chart-3d-seek (view phase)
+  "Move VIEW's replay, if it has one, to PHASE (0 to 1) of it and pause it."
+  (when-let* ((timeline (graphics-eas-timeline view)))
+    (graphics-eas-timeline-set view :seconds (* phase (or (plist-get timeline :duration) 0)) :playing nil)))
+
 (defun financial-chart-3d-seek-end (view)
   "Move VIEW's replay, if it has one, to its end and pause it."
-  (when (graphics-eas-timeline view)
-    (graphics-eas-timeline-set view :seconds 1.0e6 :playing nil)))
+  (financial-chart-3d-seek view 1.0))
 
-(defun financial-chart-3d-frame (name &optional cols rows palette)
-  "The FRAME of 3D variant NAME with its example, at its replay's end.
+(defun financial-chart-3d-frame (name &optional cols rows palette phase)
+  "The FRAME of 3D variant NAME with its example, at PHASE of its replay.
 COLS x ROWS default to 60 x 24 and PALETTE to `dark' (the goldens'),
-drawn at the default camera by the loaded core.  Headless."
+PHASE (0 to 1) to 1, its end; drawn at the fitted camera by the loaded
+core.  Headless."
   (financial-chart-3d--ensure)
   (let ((view (financial-chart-3d-open name :id (format "financial-chart-3d-frame:%s" name))))
     (unwind-protect
-        (progn (financial-chart-3d-seek-end view)
+        (progn (financial-chart-3d-seek view (or phase 1.0))
                (graphics-eas-frame view (or cols 60) (or rows 24) palette))
       (financial-chart-3d--close view))))
 
@@ -726,23 +926,30 @@ drawn at the default camera by the loaded core.  Headless."
 
 (defconst financial-chart-3d-golden-directory
   (expand-file-name "test/golden/3d" financial-chart-root)
-  "Where the 3D goldens live: NAME.frame and NAME.txt, 60x24, dark.")
+  "Where the 3D goldens live: NAME.frame and NAME.txt, 60x24, dark.
+At the end of a replay; the set at its middle is in t0.5/
+\(`financial-chart-3d-golden-phases').")
+
+(defconst financial-chart-3d-golden-phases '((1.0 . "") (0.5 . "t0.5"))
+  "The goldens' replay phases: (PHASE . SUBDIRECTORY).")
 
 (defun financial-chart-3d-write-goldens (&optional directory names)
   "Write DIRECTORY/NAME.frame and NAME.txt for each 3D variant NAME.
 DIRECTORY defaults to `financial-chart-3d-golden-directory', NAMES to
-every variant; 60 x 24, dark, the default camera, the Rust core."
+every variant; 60 x 24, dark, the fitted camera, the Rust core; one
+set per `financial-chart-3d-golden-phases'."
   (financial-chart-3d--ensure)
   (require 'graphics-frame)
   (graphics-ensure-core 'rs)
-  (let ((directory (or directory financial-chart-3d-golden-directory)))
-    (make-directory directory t)
-    (dolist (name (or names (financial-chart-3d-variants)))
-      (let ((frame (financial-chart-3d-frame name)))
-        (graphics-frame-write-file (expand-file-name (concat name ".frame") directory) frame 60 24)
-        (let ((coding-system-for-write 'utf-8-unix))
-          (write-region (graphics-eas-braille-text frame 60) nil
-                        (expand-file-name (concat name ".txt") directory) nil 'silent))))))
+  (pcase-dolist (`(,phase . ,sub) financial-chart-3d-golden-phases)
+    (let ((directory (expand-file-name sub (or directory financial-chart-3d-golden-directory))))
+      (make-directory directory t)
+      (dolist (name (or names (financial-chart-3d-variants)))
+        (let ((frame (financial-chart-3d-frame name nil nil nil phase)))
+          (graphics-frame-write-file (expand-file-name (concat name ".frame") directory) frame 60 24)
+          (let ((coding-system-for-write 'utf-8-unix))
+            (write-region (graphics-eas-braille-text frame 60) nil
+                          (expand-file-name (concat name ".txt") directory) nil 'silent)))))))
 
 (defun financial-chart-3d--describe (name)
   "Variant NAME's mark, reading and timeline as a plist."
@@ -751,7 +958,7 @@ every variant; 60 x 24, dark, the default camera, the Rust core."
          (doc (plist-get meta :doc)))
     (list :name name :mark (plist-get graphics :mark)
           :reading (and (string-match ": \\(.*?\\)\\.  2D:" doc) (match-string 1 doc))
-          :replay (and (plist-get (plist-get graphics :encoding) :time) t)
+          :replay (and (plist-get graphics :timeline) t)
           :example (plist-get meta :example))))
 
 (defun financial-chart-3d-write-gallery (&optional file directory)
@@ -791,14 +998,21 @@ The renders are read from DIRECTORY (default
               "with `[` and `]`.\n\n"
               "Marks: `bar3d` and `depth3d` are graphics.el's own. The `fc-` marks are\n"
               "registered by `financial-chart-3d.el` with `graphics-eas-define-mark`:\n"
-              "candles whose scales span the whole series (so a replay adds bars in\n"
-              "place), stacked panes, a volume profile beside candles, the underwater\n"
-              "curve, a payoff heightfield, depth walls and sign-coloured bars.\n\n"
+              "candles whose scales span the whole series, stacked panes, a volume\n"
+              "profile beside candles, the underwater curve, a payoff heightfield, depth\n"
+              "walls and sign-coloured bars.\n\n"
+              "A replay draws every row at every moment: a series starts from its first\n"
+              "third in colour, the rest a dim ghost the replay colours bar by bar; a\n"
+              "payoff surface stays whole while a bright trace sweeps it to expiry. The\n"
+              "camera is fitted to the data (`financial-chart-3d-camera-fit`), so it\n"
+              "fills its pane at any size and holds still while a replay plays.\n\n"
               "Each render below is the variant's golden (`test/golden/3d/NAME.txt`): its\n"
-              "example at 60x24 cells, dark palette, the default camera, at the end of\n"
-              "its replay, drawn by the Rust core. The Braille text keeps the dots, not\n"
-              "the colours. `make test-3d` checks every variant against its template and\n"
-              "draws its golden bit for bit.\n\n"
+              "example at 60x24 cells, dark palette, the fitted camera, at the end of its\n"
+              "replay, drawn by the Rust core; a replay's middle follows it\n"
+              "(`test/golden/3d/t0.5/NAME.txt`). The Braille text keeps the dots, not the\n"
+              "colours. `make test-3d` checks every variant against its template, draws\n"
+              "its goldens bit for bit and checks it reads at five sizes and five phases\n"
+              "(`test/financial-chart-3d-framing-test.el`).\n\n"
               "| variant | mark | replay | 3D reading |\n|---|---|---|---|\n")
       (dolist (name names)
         (let ((d (financial-chart-3d--describe name)))
@@ -811,7 +1025,12 @@ The renders are read from DIRECTORY (default
                           (financial-chart-3d--capitalize (plist-get d :reading))))
           (insert-file-contents (expand-file-name (concat name ".txt") directory))
           (goto-char (point-max))
-          (insert "```\n"))))))
+          (insert "```\n")
+          (when (plist-get d :replay)
+            (insert "\nHalfway through its replay:\n\n```text\n")
+            (insert-file-contents (expand-file-name (concat name ".txt") (expand-file-name "t0.5" directory)))
+            (goto-char (point-max))
+            (insert "```\n")))))))
 
 (defun financial-chart-3d--capitalize (string)
   "STRING with its first letter upper case."
@@ -820,38 +1039,61 @@ The renders are read from DIRECTORY (default
 
 ;;; The gallery
 
-(defun financial-chart-3d--grid (n)
-  "Columns and rows of a grid of N panes, nearest square, wider first."
-  (let* ((cols (max 1 (ceiling (sqrt n)))) (rows (max 1 (ceiling n (float cols)))))
-    (list cols rows)))
+(defconst financial-chart-3d-pane-shape 2.5
+  "The width / height, in cells, of the gallery pane the grid aims for.
+A cell is about twice as high as wide, so this is about 5:4 on screen.")
+
+(defun financial-chart-3d--grid (n width height)
+  "The panes per row of a gallery of N panes in WIDTH x HEIGHT cells.
+A list, one count per row.  Every row is split evenly, so no pane spans
+two columns: N rows times columns when that gives panes near
+`financial-chart-3d-pane-shape', else rows whose counts differ by one
+\(11 as 4, 4, 3)."
+  (let (best)
+    (dotimes (i n)
+      (let* ((rows (1+ i))
+             (cols (ceiling n (float rows)))
+             (counts (cl-loop for r below rows
+                              collect (+ (/ n rows) (if (< r (% n rows)) 1 0))))
+             (score (+ (abs (log (/ (/ (float width) cols)
+                                    (* financial-chart-3d-pane-shape (/ (float height) rows)))))
+                       (if (zerop (% n rows)) 0 1.0))))
+        (when (or (null best) (< score (car best)))
+          (setq best (cons score counts)))))
+    (cdr best)))
+
+(defun financial-chart-3d--split (window n side)
+  "Split WINDOW into N windows side by side (SIDE `right' or `below').
+Each split leaves WINDOW its share and splits the rest again, so the
+N are as equal as the cells allow.  Return them in order."
+  (let ((out (list window)))
+    (cl-loop for k downfrom n above 1
+             do (setq window (split-window window (/ (if (eq side 'below) (window-total-height window)
+                                                         (window-total-width window))
+                                                       k)
+                                           side))
+             (push window out))
+    (nreverse out)))
 
 ;;;###autoload
 (defun financial-chart-3d-gallery (&optional names)
   "Open every 3D variant with its example in a grid of windows.
 NAMES default to all of `financial-chart-3d-variants'; with a prefix
-argument, read them.  Each window orbits with its own keys; replays
-play with SPC."
+argument, read them.  The panes tile the frame row by row, each row
+split evenly (`financial-chart-3d--grid').  Each window orbits with its
+own keys; replays play with SPC."
   (interactive
    (list (and current-prefix-arg
               (completing-read-multiple "Variants: " (financial-chart-3d-variants) nil t))))
   (financial-chart-3d--ensure)
   (graphics-eas-ensure-core)
   (let* ((names (or names (financial-chart-3d-variants)))
-         (grid (financial-chart-3d--grid (length names)))
-         (cols (car grid)) (rows (cadr grid))
          (window-min-height 2) (window-min-width 8)
-         panes)
-    (delete-other-windows)
-    (let ((row-windows (list (selected-window))))
-      (dotimes (_ (1- rows))
-        (push (split-window (car row-windows) nil 'below) row-windows))
-      (dolist (row (nreverse row-windows))
-        (let ((line (list row)))
-          (dotimes (_ (1- cols))
-            (push (split-window (car line) nil 'right) line))
-          (setq panes (append panes (nreverse line))))))
+         (_ (delete-other-windows))
+         (counts (financial-chart-3d--grid (length names) (window-total-width) (window-total-height)))
+         (panes (mapcan (lambda (row) (financial-chart-3d--split row (pop counts) 'right))
+                        (financial-chart-3d--split (selected-window) (length counts) 'below))))
     (balance-windows)
-    (dolist (pane (nthcdr (length names) panes)) (delete-window pane))
     (cl-loop for name in names for pane in panes
              do (let ((old (gethash (financial-chart-3d--name name) eas-views)))
                   ;; A gallery opened before: its views go first.

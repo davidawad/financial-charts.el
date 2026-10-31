@@ -32,7 +32,8 @@ clean:
 # clones both into test/deps/ (git@gitlab.com, read access to
 # davidawad/graphics-el and davidawad/eas-el) and builds graphics.el's
 # Rust module.  `make test-3d' runs test/financial-chart-3d-test.el
-# against them; `make golden-3d' rewrites test/golden/3d/ and docs/3d.md.
+# and test/financial-chart-3d-framing-test.el against them; `make
+# golden-3d' rewrites test/golden/3d/ and docs/3d.md.
 GRAPHICS_REPO ?= git@gitlab.com:davidawad/graphics-el.git
 GRAPHICS_REV ?= 6474ca449d7465c3adfdc487ee697638f7700f47
 EAS_REPO ?= git@gitlab.com:davidawad/eas-el.git
@@ -57,7 +58,7 @@ deps-3d:
 	$(MAKE) -C $(GRAPHICS_DIR) module EAS_DIR=$(CURDIR)/$(EAS3D_DIR)/src
 
 test-3d: deps-3d
-	$(BATCH_3D) -l test/financial-chart-3d-test.el -f ert-run-tests-batch-and-exit
+	$(BATCH_3D) -l test/financial-chart-3d-test.el -l test/financial-chart-3d-framing-test.el -f ert-run-tests-batch-and-exit
 
 templates3d:
 	python3 scripts/templates3d.py

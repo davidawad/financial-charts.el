@@ -1,0 +1,242 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "options-gex",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "when",
+          "props": {
+            "test": "isValid(datum.total)"
+          },
+          "children": [
+            {
+              "component": "row",
+              "children": [
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "strike",
+                    "label": "strike",
+                    "priority": 95
+                  }
+                },
+                {
+                  "component": "signed-value",
+                  "props": {
+                    "field": "total",
+                    "label": "GEX",
+                    "priority": 90
+                  }
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "component": "fields",
+              "props": {
+                "source": "auto"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "doc": "Dealer gamma exposure by strike ($ per 1% move), call gamma up and put gamma down, summed over expiries, with spot ruled.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "opt.gex rows {expiry, strike, call_gex, put_gex[, net_gex]}, $ per 1% move; put gamma negative (dealers short puts)"
+      },
+      "spot": {
+        "type": "number",
+        "required": true,
+        "doc": "the underlying's price, a plane through the strike axis"
+      },
+      "max_pain": {
+        "shape": "plist",
+        "default": null,
+        "doc": "opt.max_pain rows {expiry, max_pain}; computed from the open interest when left out"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Dealer gamma exposure by strike ($ per 1% move), call gamma up and put gamma down, summed over expiries, with spot ruled.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "../test/fixtures/3d/options/gex.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 240,
+  "data": {
+    "name": "data"
+  },
+  "layer": [
+    {
+      "name": "strikes",
+      "transform": [
+        {
+          "fold": [
+            "call_gex",
+            "put_gex"
+          ],
+          "as": [
+            "side",
+            "amount"
+          ]
+        },
+        {
+          "calculate": "datum.side == 'put_gex' ? 'puts' : 'calls'",
+          "as": "type"
+        },
+        {
+          "calculate": "datum.side == 'put_gex' ? -abs(datum.amount) : abs(datum.amount)",
+          "as": "signed"
+        },
+        {
+          "aggregate": [
+            {
+              "op": "sum",
+              "field": "signed",
+              "as": "total"
+            }
+          ],
+          "groupby": [
+            "strike",
+            "type"
+          ]
+        },
+        {
+          "calculate": "datum.strike - 1.8",
+          "as": "left"
+        },
+        {
+          "calculate": "datum.strike + 1.8",
+          "as": "right"
+        },
+        {
+          "calculate": "0",
+          "as": "zero"
+        }
+      ],
+      "mark": {
+        "type": "rect"
+      },
+      "encoding": {
+        "x": {
+          "field": "left",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "strike"
+        },
+        "x2": {
+          "field": "right"
+        },
+        "y": {
+          "field": "total",
+          "type": "quantitative",
+          "title": "gamma exposure ($M per 1%)"
+        },
+        "y2": {
+          "field": "zero"
+        },
+        "color": {
+          "field": "type",
+          "type": "nominal",
+          "title": null,
+          "scale": {
+            "domain": [
+              "calls",
+              "puts"
+            ],
+            "range": [
+              "#26a69a",
+              "#ef5350"
+            ]
+          }
+        },
+        "tooltip": [
+          {
+            "field": "strike",
+            "type": "quantitative"
+          },
+          {
+            "field": "type",
+            "type": "nominal"
+          },
+          {
+            "field": "total",
+            "type": "quantitative",
+            "title": "gamma exposure ($M per 1%)",
+            "format": ",.1f"
+          }
+        ]
+      }
+    },
+    {
+      "name": "spot",
+      "data": {
+        "values": [
+          {
+            "spot": {
+              "x-eas:slot": "spot"
+            }
+          }
+        ]
+      },
+      "mark": {
+        "type": "rule",
+        "color": "#d2ddeb",
+        "strokeDash": [
+          4,
+          2
+        ]
+      },
+      "encoding": {
+        "x": {
+          "field": "spot",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          }
+        },
+        "tooltip": [
+          {
+            "field": "spot",
+            "type": "quantitative",
+            "format": ".2f"
+          }
+        ]
+      }
+    }
+  ]
+}

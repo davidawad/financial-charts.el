@@ -1,0 +1,203 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "options-vrp",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "when",
+          "props": {
+            "test": "isValid(datum.vrp)"
+          },
+          "children": [
+            {
+              "component": "row",
+              "children": [
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "date",
+                    "label": "",
+                    "priority": 95
+                  }
+                },
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "iv",
+                    "label": "IV",
+                    "priority": 90
+                  }
+                },
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "rv",
+                    "label": "RV",
+                    "priority": 85
+                  }
+                },
+                {
+                  "component": "signed-value",
+                  "props": {
+                    "field": "vrp",
+                    "label": "VRP",
+                    "priority": 80
+                  }
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "component": "fields",
+              "props": {
+                "source": "auto"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "doc": "Implied against realized volatility over time; the gap between them is the variance risk premium, green when implied is rich.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {date, iv, rv[, vrp, iv_rank, calendar_ratio]}: opt.vrp joined with stats.realized_vol, opt.iv_rank and opt.calendar_iv_ratio by date"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Implied against realized volatility over time; the gap between them is the variance risk premium, green when implied is rich.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "../test/fixtures/3d/options/vrp.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 220,
+  "data": {
+    "name": "data"
+  },
+  "layer": [
+    {
+      "name": "premium",
+      "mark": {
+        "type": "area",
+        "opacity": 0.35
+      },
+      "encoding": {
+        "x": {
+          "field": "date",
+          "type": "temporal",
+          "title": null
+        },
+        "y": {
+          "field": "rv",
+          "type": "quantitative",
+          "title": "volatility (%)",
+          "scale": {
+            "zero": false
+          }
+        },
+        "y2": {
+          "field": "iv"
+        },
+        "color": {
+          "value": "#26a69a"
+        }
+      }
+    },
+    {
+      "name": "iv",
+      "mark": {
+        "type": "line",
+        "color": "#f58518"
+      },
+      "encoding": {
+        "x": {
+          "field": "date",
+          "type": "temporal",
+          "title": null
+        },
+        "y": {
+          "field": "iv",
+          "type": "quantitative"
+        },
+        "tooltip": [
+          {
+            "field": "date",
+            "type": "temporal"
+          },
+          {
+            "field": "iv",
+            "type": "quantitative",
+            "title": "IV"
+          },
+          {
+            "field": "rv",
+            "type": "quantitative",
+            "title": "RV"
+          },
+          {
+            "field": "vrp",
+            "type": "quantitative",
+            "title": "VRP"
+          },
+          {
+            "field": "iv_rank",
+            "type": "quantitative",
+            "title": "IV rank"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rv",
+      "mark": {
+        "type": "line",
+        "color": "#4c78a8",
+        "strokeDash": [
+          4,
+          2
+        ]
+      },
+      "encoding": {
+        "x": {
+          "field": "date",
+          "type": "temporal",
+          "title": null
+        },
+        "y": {
+          "field": "rv",
+          "type": "quantitative"
+        }
+      }
+    }
+  ]
+}

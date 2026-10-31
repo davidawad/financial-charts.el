@@ -1,0 +1,180 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "options-skew",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "when",
+          "props": {
+            "test": "isValid(datum.value)"
+          },
+          "children": [
+            {
+              "component": "row",
+              "children": [
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "date",
+                    "label": "",
+                    "priority": 95
+                  }
+                },
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "tenor",
+                    "label": "days",
+                    "priority": 90
+                  }
+                },
+                {
+                  "component": "signed-value",
+                  "props": {
+                    "field": "value",
+                    "label": "",
+                    "priority": 85
+                  }
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "component": "fields",
+              "props": {
+                "source": "auto"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "doc": "25-delta risk reversal and butterfly by tenor, one line per snapshot, the newest brightest: how put skew and wings move over time.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "opt.skew_rr25_bf25 rows {date, tenor, rr25, bf25}, vol points, tenor in days; one snapshot per date"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "25-delta risk reversal and butterfly by tenor, one line per snapshot, the newest brightest: how put skew and wings move over time.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "../test/fixtures/3d/options/skew.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "fold": [
+        "rr25",
+        "bf25"
+      ],
+      "as": [
+        "measure",
+        "value"
+      ]
+    },
+    {
+      "calculate": "datum.measure == 'rr25' ? '25d risk reversal' : '25d butterfly'",
+      "as": "panel"
+    }
+  ],
+  "facet": {
+    "row": {
+      "field": "panel",
+      "type": "nominal",
+      "title": null,
+      "sort": [
+        "25d risk reversal",
+        "25d butterfly"
+      ]
+    }
+  },
+  "resolve": {
+    "scale": {
+      "y": "independent"
+    }
+  },
+  "spec": {
+    "height": 100,
+    "mark": {
+      "type": "line",
+      "point": false
+    },
+    "encoding": {
+      "x": {
+        "field": "tenor",
+        "type": "quantitative",
+        "title": "tenor (days)"
+      },
+      "y": {
+        "field": "value",
+        "type": "quantitative",
+        "title": "vol pts",
+        "scale": {
+          "zero": false
+        }
+      },
+      "color": {
+        "field": "date",
+        "type": "ordinal",
+        "title": null,
+        "legend": null,
+        "scale": {
+          "scheme": "blues"
+        }
+      },
+      "tooltip": [
+        {
+          "field": "date",
+          "type": "nominal"
+        },
+        {
+          "field": "tenor",
+          "type": "quantitative"
+        },
+        {
+          "field": "measure",
+          "type": "nominal"
+        },
+        {
+          "field": "value",
+          "type": "quantitative",
+          "format": ".2f"
+        }
+      ]
+    }
+  }
+}

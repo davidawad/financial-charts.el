@@ -1,0 +1,275 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "drawdown",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "when",
+          "props": {
+            "test": "isValid(datum.drawdown)"
+          },
+          "children": [
+            {
+              "component": "row",
+              "children": [
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "x",
+                    "format": "plain",
+                    "priority": 90
+                  }
+                },
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "y",
+                    "label": "value",
+                    "priority": 85
+                  }
+                },
+                {
+                  "component": "signed-value",
+                  "props": {
+                    "field": "drawdown",
+                    "format": "percent",
+                    "sign": false,
+                    "priority": 95
+                  }
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "component": "fields",
+              "props": {
+                "source": "auto"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "doc": "3D variant of financial-chart's drawdown (graphics.el, mark fc-drawdown3d): the underwater curve as a slab hanging below the high-water line, seen from below; replays point by point.  2D: Running percent decline from the high-water mark of a value series; the maximum drawdown is marked.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {x, y}, oldest first: x a number (an index or epoch ms) or date, y the value; financial-chart's series adapter lowers a series to these"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Running percent decline from the high-water mark of a value series; the maximum drawdown is marked.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "x_type": {
+        "enum": [
+          "quantitative",
+          "temporal"
+        ],
+        "default": "quantitative",
+        "doc": "temporal when x holds dates or epoch milliseconds"
+      },
+      "x_title": {
+        "type": "string",
+        "default": "x"
+      }
+    },
+    "example": "examples/drawdown.data.json",
+    "base": "drawdown",
+    "graphics": {
+      "mark": "fc-drawdown3d",
+      "encoding": {
+        "x": {
+          "field": "x"
+        },
+        "y": {
+          "field": "y"
+        },
+        "time": {
+          "field": "x",
+          "mode": "cumulative",
+          "step": 0.15
+        }
+      },
+      "timeline": {
+        "loop": true,
+        "autoplay": true
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 160,
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "window": [
+        {
+          "op": "max",
+          "field": "y",
+          "as": "peak"
+        }
+      ],
+      "sort": [
+        {
+          "field": "x"
+        }
+      ],
+      "frame": [
+        null,
+        0
+      ]
+    },
+    {
+      "calculate": "datum.y / datum.peak - 1",
+      "as": "drawdown"
+    }
+  ],
+  "encoding": {
+    "x": {
+      "field": "x",
+      "type": {
+        "x-eas:slot": "x_type"
+      },
+      "title": {
+        "x-eas:slot": "x_title"
+      }
+    },
+    "y": {
+      "field": "drawdown",
+      "type": "quantitative",
+      "title": "drawdown",
+      "axis": {
+        "format": ".1%"
+      }
+    },
+    "tooltip": [
+      {
+        "field": "x",
+        "type": {
+          "x-eas:slot": "x_type"
+        },
+        "title": {
+          "x-eas:slot": "x_title"
+        }
+      },
+      {
+        "field": "y",
+        "type": "quantitative",
+        "title": "value"
+      },
+      {
+        "field": "peak",
+        "type": "quantitative"
+      },
+      {
+        "field": "drawdown",
+        "type": "quantitative",
+        "format": ".2%"
+      }
+    ]
+  },
+  "layer": [
+    {
+      "name": "band",
+      "transform": [
+        {
+          "calculate": "0",
+          "as": "top"
+        }
+      ],
+      "mark": {
+        "type": "area",
+        "color": "#ae1325",
+        "opacity": 0.3
+      },
+      "encoding": {
+        "y": {
+          "field": "top",
+          "type": "quantitative",
+          "title": "drawdown",
+          "axis": {
+            "format": ".1%"
+          }
+        },
+        "y2": {
+          "field": "drawdown"
+        }
+      }
+    },
+    {
+      "name": "drawdown",
+      "mark": {
+        "type": "line",
+        "color": "#ae1325"
+      }
+    },
+    {
+      "name": "max-drawdown",
+      "transform": [
+        {
+          "joinaggregate": [
+            {
+              "op": "min",
+              "field": "drawdown",
+              "as": "worst"
+            }
+          ]
+        },
+        {
+          "filter": "datum.drawdown == datum.worst && datum.worst < 0"
+        },
+        {
+          "window": [
+            {
+              "op": "row_number",
+              "as": "n"
+            }
+          ],
+          "sort": [
+            {
+              "field": "x"
+            }
+          ]
+        },
+        {
+          "filter": "datum.n == 1"
+        }
+      ],
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "color": "#ae1325"
+      }
+    }
+  ]
+}

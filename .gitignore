@@ -3,3 +3,4 @@
 
 # local task store (not published)
 .beads/
+test/deps/

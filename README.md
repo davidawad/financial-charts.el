@@ -619,6 +619,30 @@ produces them can be charted:
   built-in kind beyond the core ones lives in its own module this way,
   so adding one never edits a core file.
 
+## 3D charts (optional: graphics.el)
+
+Every template has a 3D variant in `templates3d/`, drawn by
+[graphics.el](https://gitlab.com/davidawad/graphics-el) as Braille in its
+own buffer: candles with volume depth that replay bar by bar, stacked
+price/volume/RSI panels, a volume profile beside the candles, the
+underwater drawdown curve, option payoff surfaces over price and days to
+expiry that decay to expiry, depth walls, a streaming order-book surface,
+the price ladder and P/L as 3D bars. [docs/3d.md](docs/3d.md) shows every
+render and what it reads.
+
+graphics.el is optional and not in Package-Requires: without it nothing
+else changes, the variants still draw in 2D, and the 3D commands signal
+`financial-chart-3d-unavailable` saying how to install it.
+
+```elisp
+(require 'financial-chart-3d)
+(financial-chart-3d-open "ohlc" :bindings '(:bars BARS) :show t)
+M-x financial-chart-3d-gallery     ; every variant, a grid of windows
+M-x financial-chart-3d-demo-book   ; the order-book surface, streaming
+(setq v (financial-chart-3d-book-open SNAPSHOT :show t))
+(financial-chart-3d-book-push v DELTAS)
+```
+
 ## Layout
 
 Source is grouped by responsibility under src/:
@@ -629,7 +653,9 @@ Source is grouped by responsibility under src/:
 - src/charts/ — the kind registry, `financial-chart-plot` and each chart kind.
 - src/integrations/ — eas adapters, transforms, templates, hover-readout components and parity checks.
 - src/examples/ — Elisp scripts that regenerate chart examples.
-- templates/ — financial-chart's eas templates; test/ — test support and template goldens;
+- src/financial-chart-3d.el — the 3D variants and their graphics.el marks (optional dependency).
+- templates/ — financial-chart's eas templates; templates3d/ — their 3D variants
+  (`scripts/templates3d.py` writes them); test/ — test support and template goldens;
   examples/ — sample TSMC bars and template bindings; docs/ — guide and captures.
 
 ## Tests
@@ -638,6 +664,8 @@ Source is grouped by responsibility under src/:
 make test      # needs eas.el (EAS=/path/to/eas.el); every src module's *-test.el files, offline, no display (< 1 min)
 make compile   # byte-compile with warnings as errors
 make melpa-check  # the recipe's files flat, as MELPA installs them: compile, render every example, package-lint
+make test-3d   # the 3D variants: clones graphics.el and its pinned eas.el into test/deps/, builds its Rust module
+make golden-3d # rewrite test/golden/3d/ and docs/3d.md after an intended 3D change
 ```
 
 ERT tests live beside the source modules they cover. The template text

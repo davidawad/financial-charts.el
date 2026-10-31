@@ -26,3 +26,44 @@ melpa-check:
 
 clean:
 	find src -name '*.elc' -delete
+
+# 3D variants (templates3d/, src/financial-chart-3d.el) need graphics.el
+# and the eas.el revision its Makefile pins (EAS_REV): `make deps-3d'
+# clones both into test/deps/ (git@gitlab.com, read access to
+# davidawad/graphics-el and davidawad/eas-el) and builds graphics.el's
+# Rust module.  `make test-3d' runs test/financial-chart-3d-test.el
+# against them; `make golden-3d' rewrites test/golden/3d/ and docs/3d.md.
+GRAPHICS_REPO ?= git@gitlab.com:davidawad/graphics-el.git
+GRAPHICS_REV ?= 6474ca449d7465c3adfdc487ee697638f7700f47
+EAS_REPO ?= git@gitlab.com:davidawad/eas-el.git
+DEPS := test/deps
+GRAPHICS_DIR := $(DEPS)/graphics-el
+EAS3D_DIR := $(DEPS)/eas-el
+LOAD_PATHS_3D := -L $(EAS3D_DIR)/src $(foreach dir,$(SRC_DIRS),-L $(dir)) -L $(GRAPHICS_DIR)/lisp -L test
+BATCH_3D = $(EMACS) -Q --batch $(LOAD_PATHS_3D)
+
+.PHONY: deps-3d test-3d golden-3d templates3d examples-3d
+
+deps-3d:
+	@mkdir -p $(DEPS)
+	@if [ ! -d $(GRAPHICS_DIR)/.git ]; then git clone $(GRAPHICS_REPO) $(GRAPHICS_DIR); fi
+	@git -C $(GRAPHICS_DIR) cat-file -e $(GRAPHICS_REV)^{commit} 2>/dev/null || git -C $(GRAPHICS_DIR) fetch origin
+	git -C $(GRAPHICS_DIR) checkout -q --detach $(GRAPHICS_REV)
+	@rev=$$(sed -n 's/^EAS_REV := *//p' $(GRAPHICS_DIR)/Makefile); \
+	  if [ ! -d $(EAS3D_DIR)/.git ]; then git clone --filter=blob:none $(EAS_REPO) $(EAS3D_DIR); fi; \
+	  git -C $(EAS3D_DIR) cat-file -e $$rev^{commit} 2>/dev/null || git -C $(EAS3D_DIR) fetch origin; \
+	  echo "eas.el at $$rev (graphics.el's EAS_REV)"; \
+	  git -C $(EAS3D_DIR) checkout -q --detach $$rev
+	$(MAKE) -C $(GRAPHICS_DIR) module EAS_DIR=$(CURDIR)/$(EAS3D_DIR)/src
+
+test-3d: deps-3d
+	$(BATCH_3D) -l test/financial-chart-3d-test.el -f ert-run-tests-batch-and-exit
+
+templates3d:
+	python3 scripts/templates3d.py
+
+examples-3d: deps-3d
+	$(BATCH_3D) -l financial-chart-3d -f financial-chart-3d-write-examples
+
+golden-3d: deps-3d
+	$(BATCH_3D) -l financial-chart-3d --eval '(progn (financial-chart-3d-write-goldens) (financial-chart-3d-write-gallery))'

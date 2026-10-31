@@ -2,7 +2,9 @@
                   :files ("src/*.el" "src/*/*.el"
                           (:exclude "src/*-test.el" "src/*/*-test.el" "src/examples/*")
                           "templates"
+                          "templates3d"
                           ("examples" "examples/*.json")
                           ("examples/compose" "examples/compose/*.json")
                           ("examples/indicators" "examples/indicators/*.json")
-                          ("examples/order-book" "examples/order-book/*.json")))
+                          ("examples/order-book" "examples/order-book/*.json")
+                          ("examples/3d" "examples/3d/*.json")))

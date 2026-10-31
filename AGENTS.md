@@ -96,6 +96,11 @@ for live views.
   template (or `financial-chart-register-kind`). The doctor and
   `describe` pick it up; add a parity check
   (`financial-chart-eas-parity-checks`) and a template golden.
+- 3D: every template has a variant in templates3d/ (graphics.el,
+  optional; src/financial-chart-3d.el, docs/3d.md). A new or changed
+  template means a `scripts/templates3d.py` entry, `make templates3d`,
+  then `make test-3d` (its goldens: `make golden-3d`). graphics.el must
+  never become a hard dependency: 2D loads and runs without it.
 - New data shape: one `financial-chart-shapes` entry with a validator
   that signals `financial-chart-invalid-data` with `:code`, `:index`
   and `:field` (`financial-chart--invalid`).

@@ -45,6 +45,12 @@
 ;;
 ;; Non-Emacs callers use eas.el's bin/eas with this package's templates
 ;; loaded (see README, "Charts from the shell").
+;;
+;; 3D: every template has a 3D variant (templates3d/,
+;; financial-chart-3d.el) drawn by graphics.el, an OPTIONAL dependency
+;; that is not in Package-Requires.  Without it nothing here changes and
+;; the 3D commands (`financial-chart-3d-open', M-x
+;; `financial-chart-3d-gallery') say how to install it; docs/3d.md.
 ;; Modules: core/ (config, errors, shapes, validation), indicators/,
 ;; charts/ (the kind registry and each kind), integrations/ (eas
 ;; adapters, transforms, templates and parity checks).
@@ -163,6 +169,18 @@ No network."
       (special-mode)
       (unless noninteractive (pop-to-buffer (current-buffer))))
     rows))
+
+;; The 3D variants load on first use; graphics.el, which draws them, is
+;; optional (financial-chart-3d.el signals `financial-chart-3d-unavailable'
+;; without it).
+(autoload 'financial-chart-3d-open "financial-chart-3d"
+  "Open 3D variant NAME of a financial-chart template; needs graphics.el.")
+(autoload 'financial-chart-3d-gallery "financial-chart-3d"
+  "Open every 3D variant in a grid of windows; needs graphics.el." t)
+(autoload 'financial-chart-3d-demo-book "financial-chart-3d"
+  "Stream the example order book into a live 3D depth surface; needs graphics.el." t)
+(autoload 'financial-chart-3d-book-open "financial-chart-3d"
+  "Open a live 3D order book; needs graphics.el.")
 
 (provide 'financial-chart)
 ;;; financial-chart.el ends here

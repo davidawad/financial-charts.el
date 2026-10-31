@@ -1,0 +1,509 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "ohlc",
+    "version": "1.1.1",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "ohlc-readout",
+          "props": {
+            "style": "candles",
+            "basis": "open"
+          }
+        },
+        {
+          "component": "indicator-values"
+        }
+      ]
+    },
+    "doc": "3D variant of financial-chart's ohlc (graphics.el, mark fc-candle3d): candles as boxes along time, price up, each body as deep as its volume; replays bar by bar.  2D: Candlesticks from OHLC bars: a low-high wick and an open-close body per bar, up bars green; optional volume pane, indicator overlays and oscillator panes.",
+    "slots": {
+      "bars": {
+        "shape": "bar/v1",
+        "required": true,
+        "doc": "OHLCV bars, oldest first"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Candlesticks from OHLC bars: a low-high wick and an open-close body per bar, up bars green.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "volume": {
+        "type": "boolean",
+        "default": false,
+        "doc": "a volume pane under the price pane, bars coloured like their candle"
+      },
+      "indicators": {
+        "type": "array",
+        "default": [],
+        "doc": "price overlays, each an indicator name (\"sma\") or {\"name\", \"params\", \"output\", \"as\"}: one line per entry, coloured by AS (default: the name; give AS when an indicator repeats) from the theme's series colours, never the candles' up/down. Multi-output indicators draw OUTPUT, else their first. Needs the indicator transform (financial-chart-eas). A precomputed series is {\"transform\": \"values\", \"values\": [...], \"as\": LABEL}, one value per bar."
+      },
+      "oscillators": {
+        "type": "array",
+        "default": [],
+        "doc": "one pane per entry under the price pane, same entry form and series colours as indicators, e.g. {\"name\": \"rsi\", \"params\": [14]}"
+      },
+      "crosshair": {
+        "type": "boolean",
+        "default": true,
+        "doc": "a rule follows the pointer anywhere in the plot, snapping to the nearest bar on x; the readout shows that bar's date, open, high, low, close and volume"
+      }
+    },
+    "actions": {
+      "candles": "echo",
+      "wicks": "echo"
+    },
+    "example": "examples/panes.data.json",
+    "base": "ohlc",
+    "graphics": {
+      "mark": "fc-candle3d",
+      "encoding": {
+        "x": {
+          "field": "time"
+        },
+        "depth": {
+          "field": "volume"
+        },
+        "time": {
+          "field": "time",
+          "mode": "cumulative",
+          "step": 0.25
+        }
+      },
+      "timeline": {
+        "loop": true,
+        "autoplay": true
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "data": {
+    "name": "bars"
+  },
+  "vconcat": [
+    {
+      "name": "price",
+      "width": "container",
+      "height": 200,
+      "encoding": {
+        "x": {
+          "field": "time",
+          "type": "temporal",
+          "title": "date"
+        },
+        "tooltip": [
+          {
+            "field": "time",
+            "type": "temporal",
+            "title": "date"
+          },
+          {
+            "field": "open",
+            "type": "quantitative"
+          },
+          {
+            "field": "high",
+            "type": "quantitative"
+          },
+          {
+            "field": "low",
+            "type": "quantitative"
+          },
+          {
+            "field": "close",
+            "type": "quantitative"
+          },
+          {
+            "field": "volume",
+            "type": "quantitative"
+          }
+        ]
+      },
+      "layer": [
+        {
+          "name": "wicks",
+          "mark": "rule",
+          "encoding": {
+            "color": {
+              "condition": {
+                "test": "datum.open <= datum.close",
+                "value": "#06982d"
+              },
+              "value": "#ae1325"
+            },
+            "y": {
+              "field": "low",
+              "type": "quantitative",
+              "scale": {
+                "zero": false
+              },
+              "title": "price"
+            },
+            "y2": {
+              "field": "high"
+            }
+          }
+        },
+        {
+          "name": "candles",
+          "mark": {
+            "type": "bar"
+          },
+          "encoding": {
+            "color": {
+              "condition": {
+                "test": "datum.open <= datum.close",
+                "value": "#06982d"
+              },
+              "value": "#ae1325"
+            },
+            "y": {
+              "field": "open",
+              "type": "quantitative",
+              "scale": {
+                "zero": false
+              },
+              "title": "price"
+            },
+            "y2": {
+              "field": "close"
+            }
+          }
+        },
+        {
+          "x-eas:each": "indicators",
+          "spec": {
+            "transform": [
+              {
+                "x-eas:transform": {
+                  "x-eas:item": "transform",
+                  "default": "indicator"
+                },
+                "name": {
+                  "x-eas:item": "name",
+                  "default": {
+                    "x-eas:item": "."
+                  }
+                },
+                "params": {
+                  "x-eas:item": "params"
+                },
+                "output": {
+                  "x-eas:item": "output"
+                },
+                "values": {
+                  "x-eas:item": "values"
+                },
+                "single": true,
+                "as": {
+                  "x-eas:item": "as",
+                  "default": {
+                    "x-eas:item": "name",
+                    "default": {
+                      "x-eas:item": "."
+                    }
+                  }
+                }
+              },
+              {
+                "fold": [
+                  {
+                    "x-eas:item": "as",
+                    "default": {
+                      "x-eas:item": "name",
+                      "default": {
+                        "x-eas:item": "."
+                      }
+                    }
+                  }
+                ],
+                "as": [
+                  "indicator",
+                  "value"
+                ]
+              },
+              {
+                "filter": "isValid(datum.value)"
+              }
+            ],
+            "mark": {
+              "type": "line",
+              "strokeWidth": 1.5
+            },
+            "encoding": {
+              "y": {
+                "field": "value",
+                "type": "quantitative",
+                "scale": {
+                  "zero": false
+                },
+                "title": "price"
+              },
+              "color": {
+                "field": "indicator",
+                "type": "nominal",
+                "title": null
+              },
+              "tooltip": [
+                {
+                  "field": "time",
+                  "type": "temporal",
+                  "title": "date"
+                },
+                {
+                  "field": "indicator",
+                  "type": "nominal"
+                },
+                {
+                  "field": "value",
+                  "type": "quantitative",
+                  "format": ".2f"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "x-eas:when": "crosshair",
+          "spec": {
+            "name": "crosshair-hit",
+            "params": [
+              {
+                "name": "crosshair",
+                "select": {
+                  "type": "point",
+                  "on": "pointermove",
+                  "nearest": true,
+                  "encodings": [
+                    "x"
+                  ],
+                  "clear": "pointerleave"
+                }
+              }
+            ],
+            "mark": {
+              "type": "rule",
+              "opacity": 0
+            },
+            "encoding": {
+              "y": {
+                "field": "low",
+                "type": "quantitative"
+              },
+              "y2": {
+                "field": "high"
+              }
+            }
+          }
+        },
+        {
+          "x-eas:when": "crosshair",
+          "spec": {
+            "name": "crosshair-rule",
+            "transform": [
+              {
+                "filter": {
+                  "param": "crosshair",
+                  "empty": false
+                }
+              }
+            ],
+            "mark": {
+              "type": "rule",
+              "strokeDash": [
+                2,
+                2
+              ]
+            },
+            "encoding": {
+              "color": {
+                "value": "gray"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "x-eas:each": "oscillators",
+      "spec": {
+        "width": "container",
+        "height": 60,
+        "transform": [
+          {
+            "x-eas:transform": {
+              "x-eas:item": "transform",
+              "default": "indicator"
+            },
+            "name": {
+              "x-eas:item": "name",
+              "default": {
+                "x-eas:item": "."
+              }
+            },
+            "params": {
+              "x-eas:item": "params"
+            },
+            "output": {
+              "x-eas:item": "output"
+            },
+            "values": {
+              "x-eas:item": "values"
+            },
+            "single": true,
+            "as": {
+              "x-eas:item": "as",
+              "default": {
+                "x-eas:item": "name",
+                "default": {
+                  "x-eas:item": "."
+                }
+              }
+            }
+          },
+          {
+            "fold": [
+              {
+                "x-eas:item": "as",
+                "default": {
+                  "x-eas:item": "name",
+                  "default": {
+                    "x-eas:item": "."
+                  }
+                }
+              }
+            ],
+            "as": [
+              "indicator",
+              "value"
+            ]
+          }
+        ],
+        "mark": "line",
+        "encoding": {
+          "x": {
+            "field": "time",
+            "type": "temporal",
+            "title": null
+          },
+          "color": {
+            "field": "indicator",
+            "type": "nominal",
+            "title": null
+          },
+          "y": {
+            "field": "value",
+            "type": "quantitative",
+            "scale": {
+              "zero": false
+            },
+            "axis": {
+              "tickCount": 3
+            },
+            "title": {
+              "x-eas:item": "as",
+              "default": {
+                "x-eas:item": "name",
+                "default": {
+                  "x-eas:item": "."
+                }
+              }
+            }
+          },
+          "tooltip": [
+            {
+              "field": "time",
+              "type": "temporal",
+              "title": "date"
+            },
+            {
+              "field": "value",
+              "type": "quantitative",
+              "format": ".2f",
+              "title": {
+                "x-eas:item": "as",
+                "default": {
+                  "x-eas:item": "name",
+                  "default": {
+                    "x-eas:item": "."
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "x-eas:when": "volume",
+      "spec": {
+        "name": "volume",
+        "width": "container",
+        "height": 60,
+        "mark": {
+          "type": "bar"
+        },
+        "encoding": {
+          "x": {
+            "field": "time",
+            "type": "temporal",
+            "title": null
+          },
+          "y": {
+            "field": "volume",
+            "type": "quantitative",
+            "title": "volume",
+            "axis": {
+              "tickCount": 2
+            }
+          },
+          "color": {
+            "condition": {
+              "test": "datum.open <= datum.close",
+              "value": "#06982d"
+            },
+            "value": "#ae1325"
+          },
+          "opacity": {
+            "value": 0.6
+          },
+          "tooltip": [
+            {
+              "field": "time",
+              "type": "temporal",
+              "title": "date"
+            },
+            {
+              "field": "volume",
+              "type": "quantitative"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

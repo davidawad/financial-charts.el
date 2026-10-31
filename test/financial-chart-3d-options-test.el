@@ -282,7 +282,7 @@
       (let ((text (eas-text-render (eas-compile (eas-resolve name (eas-template-example name))
                                                 :target 'text :size '(:cols 60 :rows 14)))))
         (should (> (length text) 0))
-        (should (string-search "DTE" text)))))
+        (should (string-search (if (equal name "density-surface") "Density" "DTE") text)))))
   (let ((financial-chart-3d-graphics-feature 'financial-chart-3d-options-test-no-graphics)
         (view nil))
     (unwind-protect
@@ -293,6 +293,35 @@
       (when view
         (when-let* ((buffer (get-buffer "*eas fc/pop-surface*"))) (kill-buffer buffer))
         (eas-view-close view)))))
+
+(ert-deftest financial-chart-3d-options-density-adapters-and-tooltips ()
+  (let* ((density (eas-json-read-file
+                   (expand-file-name "test/fixtures/3d/density-surface/nvda-density.json" financial-chart-test-root)))
+         (forward (eas-json-read-file
+                   (expand-file-name "test/fixtures/3d/density-surface/nvda-forward.json" financial-chart-test-root)))
+         (bindings (financial-chart-3d-bindings-from-metric "density-surface" "opt.risk_neutral_density" density))
+         (points (plist-get bindings :data))
+         (prims (financial-chart-3d-options--density-mark (list :spot 205.25) (append points nil)))
+         (surface (seq-find (lambda (p) (equal (plist-get p :id) "density")) prims))
+         (forward-bindings (financial-chart-3d-bindings-from-metric "density-surface" "opt.implied_forward" forward)))
+    (should (= (length points) (* 7 161)))
+    (should (= (length (plist-get bindings :price_grid)) 161))
+    (should (= (length (plist-get forward-bindings :data)) 7))
+    (should (= (length (plist-get surface :heights)) 7))
+    (should (seq-every-p (lambda (row) (and (= (length row) 161) (seq-every-p #'numberp row)))
+                         (append (plist-get surface :heights) nil)))
+    (should (= (length (plist-get surface :tooltips)) (* 7 161)))
+    (should (seq-some (lambda (tip) (string-match-p "2026-11-20  20.0 DTE" tip))
+                      (append (plist-get surface :tooltips) nil)))
+    (dolist (id '("forward" "quantile-p05" "quantile-p95" "quantile-p25" "quantile-p75"))
+      (let ((line (seq-find (lambda (p) (equal (plist-get p :id) id)) prims)))
+        (should (= (length (plist-get line :segments)) 6))))
+    (let* ((golden (eas-json-read-file
+                    (expand-file-name "test/fixtures/invest-metrics/options_forward.json" financial-chart-test-root)))
+           (density-cases (seq-filter (lambda (c) (equal (plist-get c :metric) "opt.risk_neutral_density"))
+                                      (append (plist-get golden :cases) nil))))
+      (should (= (length density-cases) 3))
+      (should (= (length (seq-remove (lambda (c) (plist-member c :expect_error)) density-cases)) 2)))))
 
 (provide 'financial-chart-3d-options-test)
 ;;; financial-chart-3d-options-test.el ends here

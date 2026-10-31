@@ -62,6 +62,18 @@ VARIANTS = {
                          "y": {"field": {"x-eas:slot": "metric"}}},
         },
     },
+    "density-surface": {
+        "source": "templates/financial/density-surface.json",
+        "example": EXAMPLES + "density-surface.data.json",
+        "reading": "risk-neutral terminal price density over price and expiry, with forward and quantile traces",
+        "graphics": {
+            "mark": "fc-density3d",
+            "camera": {"yaw": -35, "pitch": 18},
+            "spot": {"x-eas:slot": "spot"},
+            "encoding": {"x": {"field": "price"}, "z": {"field": "dte"},
+                         "y": {"field": "density"}},
+        },
+    },
 }
 
 

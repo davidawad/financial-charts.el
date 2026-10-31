@@ -9,7 +9,7 @@
 
 ;;; Commentary:
 
-;; Three options surfaces, each a 2D template in templates/financial/
+;; Options surfaces, each a 2D template in templates/financial/
 ;; (the fallback without graphics.el) and its 3D variant in templates3d/
 ;; (scripts/templates3d_options.py writes them):
 ;;
@@ -22,6 +22,8 @@
 ;;   pop-surface           probability of profit (slot `metric': pop or
 ;;                         prob_touch) over strike and expiry, on an
 ;;                         absolute 0..1 scale with the even-odds level
+;;   density-surface       risk-neutral density over price and expiry,
+;;                         with forward and quantile traces
 ;;
 ;; Each takes the rows an invest-metrics grid metric emits
 ;; (opt.greeks_grid, opt.payoff_grid, opt.pop_grid; docs/3d-options.md
@@ -66,7 +68,7 @@
 (declare-function financial-chart-3d--axes "financial-chart-3d" (id x0 x1 y1 z0 z1 &optional color))
 
 (defconst financial-chart-3d-options-templates
-  '("greeks-surface" "position-pnl-surface" "pop-surface")
+  '("greeks-surface" "position-pnl-surface" "pop-surface" "density-surface")
   "The options surface templates (2D in templates/financial/, 3D in templates3d/).")
 
 (defconst financial-chart-3d-options-greeks '("delta" "gamma" "vega" "theta" "vanna" "charm")
@@ -209,10 +211,80 @@ scale, red at 0 to green at 1, the even-odds level framed."
   (financial-chart-3d-options--surface graphics rows :x "strike" :z "dte" :y "pop" :level 0.5
                                        :low "#ef5350" :high "#26a69a" :colors [0 1]))
 
+(defun financial-chart-3d-options--density-trace (prices dtes matrix summaries key w d y-at)
+  "A trace at KEY's price quantile over the expiry grid."
+  (let ((samples nil) (nx (length prices)) (nz (length dtes)))
+    (cl-loop for dte in dtes for j from 0
+             for value = (plist-get (gethash dte summaries) key)
+             for at = (and (numberp value)
+                           (financial-chart-3d-options--at prices (aref matrix j) value))
+             when at do (push (list (car at) (cdr at) j) samples))
+    (setq samples (nreverse samples))
+    (vconcat
+     (cl-loop for (a b) on samples while b
+              collect (vector (financial-chart-3d--r3 (- (* 2 w (/ (car a) (float (max 1 (1- nx))))) w))
+                              (funcall y-at (cadr a))
+                              (financial-chart-3d--r3 (- (* 2 d (/ (nth 2 a) (float (max 1 (1- nz))))) d))
+                              (financial-chart-3d--r3 (- (* 2 w (/ (car b) (float (max 1 (1- nx))))) w))
+                              (funcall y-at (cadr b))
+                              (financial-chart-3d--r3 (- (* 2 d (/ (nth 2 b) (float (max 1 (1- nz))))) d)))))))
+
+(defun financial-chart-3d-options--density-mark (graphics points)
+  "Primitives of fc-density3d from flattened density POINTS."
+  (let* ((prices (financial-chart-3d--categories (mapcar (lambda (r) (plist-get r :price)) points)))
+         (dtes (reverse (financial-chart-3d--categories (mapcar (lambda (r) (plist-get r :dte)) points))))
+         (cells (make-hash-table :test #'equal))
+         (summaries (make-hash-table :test #'equal))
+         (spot (financial-chart-3d--opt graphics "spot"))
+         (w (/ (float (elt (financial-chart-3d--opt graphics "extent" [12 7]) 0)) 2))
+         (d (/ (float (elt (financial-chart-3d--opt graphics "extent" [12 7]) 1)) 2))
+         (height (float (financial-chart-3d--opt graphics "height" 4)))
+         (max-y (max 1e-12 (apply #'max 1e-12 (mapcar (lambda (p) (or (plist-get p :density) 0)) points)))))
+    (dolist (p points)
+      (puthash (cons (plist-get p :dte) (plist-get p :price)) p cells)
+      (unless (gethash (plist-get p :dte) summaries)
+        (puthash (plist-get p :dte) p summaries)))
+    (let* ((matrix (vconcat
+                    (mapcar (lambda (dte)
+                              (vconcat (mapcar (lambda (price)
+                                                 (or (plist-get (gethash (cons dte price) cells) :density) 0)) prices)))
+                            dtes)))
+           (y-at (lambda (v) (financial-chart-3d--r3 (+ height (* height (/ v max-y))))))
+           (tooltips (vconcat (mapcar (lambda (p)
+                                        (format "%s  %s DTE\nPrice %.4f  Density %.7g\nCumulative %.1f%%  Forward %.3f\n%s  Below spot %.1f%%"
+                                                (plist-get p :expiry) (plist-get p :dte) (plist-get p :price)
+                                                (plist-get p :density) (* 100 (plist-get p :cumulative))
+                                                (or (plist-get p :forward) 0) (plist-get p :quantile_band)
+                                                (* 100 (or (plist-get p :prob_below_spot) 0)))) points))))
+      (vconcat
+       (list (financial-chart-3d--axes "axes" (- w) w (* 2 height) (- d) d))
+       (list (list :id "density" :type "heightfield" :x (vector (- w) w) :z (vector (- d) d)
+                   :base (financial-chart-3d--r3 (- height))
+                   :y_scale (financial-chart-3d--r3 (/ height max-y)) :heights matrix
+                   :low_color "#3b528b" :high_color "#fde725" :color_range (vector 0 max-y)
+                   :tooltips tooltips :data (vconcat points)))
+       (list (list :id "forward" :type "segments" :color "#ffffff"
+                   :segments (financial-chart-3d-options--density-trace prices dtes matrix summaries :forward w d y-at))
+             (list :id "spot" :type "segments" :color "#ffb74d"
+                   :segments (if (numberp spot)
+                                 (let ((spot-summaries (make-hash-table :test #'equal)))
+                                   (dolist (dte dtes)
+                                     (puthash dte (list :spot spot) spot-summaries))
+                                   (financial-chart-3d-options--density-trace prices dtes matrix spot-summaries :spot w d y-at)) []))
+             (list :id "quantile-p05" :type "segments" :color "#42a5f5"
+                   :segments (financial-chart-3d-options--density-trace prices dtes matrix summaries :p05 w d y-at))
+             (list :id "quantile-p95" :type "segments" :color "#42a5f5"
+                   :segments (financial-chart-3d-options--density-trace prices dtes matrix summaries :p95 w d y-at))
+             (list :id "quantile-p25" :type "segments" :color "#ab47bc"
+                   :segments (financial-chart-3d-options--density-trace prices dtes matrix summaries :p25 w d y-at))
+             (list :id "quantile-p75" :type "segments" :color "#ab47bc"
+                   :segments (financial-chart-3d-options--density-trace prices dtes matrix summaries :p75 w d y-at)))))))
+
 (defconst financial-chart-3d-options-marks
   '(("fc-greeks3d" . financial-chart-3d-options--greeks-mark)
     ("fc-pnl3d" . financial-chart-3d-options--pnl-mark)
-    ("fc-pop3d" . financial-chart-3d-options--pop-mark))
+    ("fc-pop3d" . financial-chart-3d-options--pop-mark)
+    ("fc-density3d" . financial-chart-3d-options--density-mark))
   "The options surface marks this file adds to graphics.el: (MARK . FUNCTION).")
 
 (defun financial-chart-3d-options--register-marks ()
@@ -268,7 +340,9 @@ added last and win."
 (defconst financial-chart-3d-options-metric-adapters
   '(("opt.greeks_grid" "greeks-surface" financial-chart-3d-options--from-grid)
     ("opt.payoff_grid" "position-pnl-surface" financial-chart-3d-options--from-grid)
-    ("opt.pop_grid" "pop-surface" financial-chart-3d-options--from-grid))
+    ("opt.pop_grid" "pop-surface" financial-chart-3d-options--from-grid)
+    ("opt.risk_neutral_density" "density-surface" financial-chart-3d-options--from-density)
+    ("opt.implied_forward" "density-surface" financial-chart-3d-options--from-forward))
   "The options surfaces' metric adapters, (METRIC-ID TEMPLATE FUNCTION):
 `financial-chart-3d-bindings-from-metric' calls them.")
 
@@ -303,6 +377,65 @@ then `financial-chart-3d-options-bindings'; ARGS's slots (:greek,
                                      "every %s row needs a number %s" metric (substring (symbol-name f) 1)))))
      (or (plist-get output :rows) []))
     (financial-chart-3d-options-bindings template output)))
+
+(defun financial-chart-3d-options--density-points (output)
+  "Flatten opt.risk_neutral_density OUTPUT to price cells with tooltips."
+  (let* ((prices (append (plist-get output :price_grid) nil))
+         (spot (plist-get output :spot))
+         (all-rows (append (plist-get output :rows) nil))
+         (valid (seq-sort (lambda (a b) (> (plist-get a :dte) (plist-get b :dte)))
+                          (seq-filter (lambda (r) (memq (plist-get r :reason) '(nil :null))) all-rows)))
+         points)
+    (dolist (row valid)
+      (let* ((density (append (plist-get row :density) nil))
+             (q (plist-get row :quantiles)) (cum 0.0) (prev 0.0) (first t) row-points)
+        (unless (= (length prices) (length density))
+          (financial-chart--invalid nil "density" "grid_length_mismatch"
+                                    "density length must match price_grid for %s" (plist-get row :expiry)))
+        (cl-loop for price in prices for value in density for i from 0 do
+                 (if first (setq first nil)
+                   (setq cum (+ cum (* 0.5 (+ prev value) (- price (nth (1- i) prices))))))
+                 (setq prev value)
+                 (push (list :expiry (plist-get row :expiry) :dte (plist-get row :dte)
+                             :price price :density value :cumulative cum :forward (plist-get row :forward)
+                             :spot spot
+                             :prob_below_spot (plist-get row :prob_below_spot)
+                             :p05 (plist-get q :p05) :p10 (plist-get q :p10) :p25 (plist-get q :p25)
+                             :p50 (plist-get q :p50) :p75 (plist-get q :p75) :p90 (plist-get q :p90)
+                             :p95 (plist-get q :p95)
+                             :quantile_band (cond ((<= price (plist-get q :p05)) "below p05")
+                                                  ((<= price (plist-get q :p25)) "p05-p25")
+                                                  ((<= price (plist-get q :p75)) "p25-p75")
+                                                  ((<= price (plist-get q :p95)) "p75-p95")
+                                                  (t "above p95"))) row-points))
+        (setq points (nconc points (nreverse row-points)))))
+    (list :data (vconcat points) :price_grid (vconcat prices) :spot (or spot :null)
+          :subtitle (let ((empty (seq-remove (lambda (r) (memq (plist-get r :reason) '(nil :null))) all-rows)))
+                      (if empty (concat "Skipped empty expiries: "
+                                        (string-join (mapcar (lambda (r) (format "%s (%s)" (plist-get r :expiry)
+                                                                                  (plist-get r :reason))) empty) ", ")) ""))
+          )))
+
+(defun financial-chart-3d-options--from-density (_template output args)
+  "Bindings from opt.risk_neutral_density OUTPUT."
+  (let* ((entries (financial-chart-3d-metric-entries output))
+         (out (plist-get (car (last entries)) :output))
+         (bindings (financial-chart-3d-options--density-points out)))
+    (when (stringp (plist-get args :title))
+      (setq bindings (plist-put bindings :title (plist-get args :title))))
+    bindings))
+
+(defun financial-chart-3d-options--from-forward (_template output _args)
+  "Bindings for the implied forward curve from opt.implied_forward OUTPUT."
+  (let* ((entries (financial-chart-3d-metric-entries output))
+         (out (plist-get (car (last entries)) :output))
+         (rows (seq-filter (lambda (r) (memq (plist-get r :reason) '(nil :null)))
+                           (append (plist-get out :rows) nil))))
+    (list :data (vconcat (mapcar (lambda (r) (list :expiry (plist-get r :expiry) :dte (plist-get r :dte)
+                                                  :price (plist-get r :forward) :density 0.0 :cumulative 0.0
+                                                  :forward (plist-get r :forward) :quantile_band "forward")) rows))
+          :price_grid [] :spot (or (plist-get out :spot) :null)
+          :subtitle "Implied forward curve")))
 
 ;;;###autoload
 (defun financial-chart-3d-options-show (template bindings)

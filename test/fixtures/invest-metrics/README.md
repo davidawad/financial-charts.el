@@ -1,11 +1,10 @@
 # invest-metrics golden cases (copied)
 
-Verbatim copies of the dotfiles repository's
-`src/rust/crates/invest-metrics/tests/fixtures/golden/` cases at
-ead6f883ea7, so the 3D templates' adapters can be tested against
-real metric output without the dotfiles checkout:
+Copies of the dotfiles repository's golden cases, so the 3D templates'
+adapters can be tested against metric fixtures without the dotfiles checkout:
 
 - options_grids.json: opt.greeks_grid, opt.payoff_grid, opt.pop_grid
+- options_forward.json: opt.implied_forward, opt.risk_neutral_density
 - kelly_growth.json: stats.kelly.growth
 - risk_rolling.json: stats.rolling.correlation, stats.rolling.factor_regression, port.frontier
 
@@ -15,13 +14,15 @@ real metric output without the dotfiles checkout:
 - indicator_stats.json: stats.risk_contribution, stats.var, ...
 - port.json: port.stress
 
-Refresh by copying them again; the invest lane owns their shape.
+`options_forward.json` is from the `opt-forward` branch; the NVDA density
+and forward outputs are in `test/fixtures/3d/density-surface/`. Refresh by
+copying them again; the invest lane owns their shape.
 
 ## runs.json (generated)
 
 A golden pins a few JSON pointers of an output; the adapters
 (`financial-chart-3d-bindings-from-metric`) read whole outputs. runs.json
-is invest-metrics' own output at the same revision, written by
+combines the older metrics outputs and the `opt-forward` cases, written by
 `scripts/invest-metrics-runs.py` (which runs
 `scripts/invest-metrics-runall.rs` inside a dotfiles checkout; its
 docstring says how):

@@ -1,0 +1,120 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "density-surface",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "fields",
+          "props": {
+            "source": "auto"
+          }
+        }
+      ]
+    },
+    "doc": "3D variant of financial-chart's density-surface (graphics.el, mark fc-density3d): risk-neutral terminal price density over price and expiry, with forward and quantile traces.  2D: Risk-neutral terminal-price density across expiries with forward and quantile traces.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "Flattened price cells from opt.risk_neutral_density output."
+      },
+      "price_grid": {
+        "type": "array",
+        "items": "number",
+        "default": []
+      },
+      "spot": {
+        "type": "number"
+      },
+      "title": {
+        "type": "string",
+        "default": "Risk-neutral density"
+      },
+      "subtitle": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Risk-neutral price density by expiry."
+      }
+    },
+    "example": "examples/3d/density-surface.data.json",
+    "base": "density-surface",
+    "graphics": {
+      "mark": "fc-density3d",
+      "camera": {
+        "yaw": -35,
+        "pitch": 18
+      },
+      "spot": {
+        "x-eas:slot": "spot"
+      },
+      "encoding": {
+        "x": {
+          "field": "price"
+        },
+        "z": {
+          "field": "dte"
+        },
+        "y": {
+          "field": "density"
+        }
+      }
+    }
+  },
+  "title": {
+    "text": {
+      "x-eas:slot": "title"
+    },
+    "subtitle": {
+      "x-eas:slot": "subtitle"
+    }
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 260,
+  "data": {
+    "name": "data"
+  },
+  "mark": {
+    "type": "line",
+    "tooltip": true
+  },
+  "encoding": {
+    "x": {
+      "field": "price",
+      "type": "quantitative",
+      "title": "Price"
+    },
+    "y": {
+      "field": "density",
+      "type": "quantitative",
+      "title": "Density"
+    },
+    "color": {
+      "field": "expiry",
+      "type": "nominal"
+    },
+    "tooltip": [
+      {
+        "field": "expiry"
+      },
+      {
+        "field": "dte"
+      },
+      {
+        "field": "price"
+      },
+      {
+        "field": "density"
+      }
+    ]
+  }
+}

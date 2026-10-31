@@ -36,6 +36,7 @@ METRICS = {
     "port.stress", "port.beta_weighted_delta", "stats.var", "stats.var_cvar.historical",
     "stats.var_cvar.parametric", "stats.max_drawdown", "port.frontier",
     "opt.greeks_grid", "opt.payoff_grid", "opt.pop_grid",
+    "opt.risk_neutral_density", "opt.implied_forward",
     "opt.chain_stats", "opt.gex", "opt.max_pain", "opt.skew_rr25_bf25", "opt.vrp",
     "fi.nss_fit", "fi.curve_regime", "fi.spread_suite", "fi.spread_pctile", "fi.krd",
     "ta.rel_strength", "stats.kelly.growth",
@@ -278,7 +279,7 @@ def main():
             raise SystemExit("%s: %s" % (what, r["error"]))
         return r["output"]
 
-    doc = {"source": "invest-metrics at %s (scripts/invest-metrics-runs.py)" % REVISION,
+    doc = {"source": "invest-metrics goldens %s plus opt-forward fb589d65 (scripts/invest-metrics-runs.py)" % REVISION,
            "cases": [{"metric": c["metric"], "name": c["name"], "input": c["input"], "output": take(c["name"])}
                      for c in cases],
            "series": []}
@@ -287,6 +288,13 @@ def main():
         doc["series"].append({"metric": metric, "name": name, "args": args,
                               "entries": [dict(stamp, **({} if drop else {"input": inp}), output=take(name))
                                           for stamp, inp, _ in entries]})
+    for metric, name, fixture in (
+            ("opt.risk_neutral_density", "NVDA density surface", "nvda-density.json"),
+            ("opt.implied_forward", "NVDA implied forward curve", "nvda-forward.json")):
+        with open(os.path.join(DIR, "..", "3d", "density-surface", fixture)) as f:
+            output = json.load(f)
+        doc["series"].append({"metric": metric, "name": name, "args": {},
+                              "entries": [{"output": output}]})
     with open(os.path.join(DIR, "runs.json"), "w") as f:
         json.dump(doc, f, separators=(",", ":"))
         f.write("\n")

@@ -628,7 +628,8 @@ of the series, stacked price/volume/RSI panels, a volume profile beside
 the candles, the underwater drawdown curve, option payoff surfaces over
 price and days to expiry with a trace sweeping them to expiry, depth
 walls, a streaming order-book surface, the price ladder and P/L as 3D
-bars. Each view's camera is fitted to its data, so it fills its window at
+bars, and risk-neutral density heightfields with forward and quantile
+traces. Each view's camera is fitted to its data, so it fills its window at
 any size. [docs/3d.md](docs/3d.md) shows every render and what it reads.
 
 graphics.el is optional and not in Package-Requires: without it nothing
@@ -676,6 +677,7 @@ what its adapters read; this package still fetches nothing.
 | `stats.max_drawdown` | `risk-underwater` |
 | `port.frontier` | `risk-frontier` |
 | `opt.greeks_grid`, `opt.payoff_grid`, `opt.pop_grid` | `greeks-surface`, `position-pnl-surface`, `pop-surface` |
+| `opt.risk_neutral_density`, `opt.implied_forward` | `density-surface` |
 | `opt.max_pain`, `opt.chain_stats` | `options-oi` |
 | `opt.gex` | `options-gex` |
 | `opt.skew_rr25_bf25` | `options-skew` |

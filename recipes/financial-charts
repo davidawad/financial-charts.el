@@ -13,4 +13,5 @@
                           ("test/fixtures/3d/rates" "test/fixtures/3d/rates/*.json")
                           ("test/fixtures/3d/risk" "test/fixtures/3d/risk/*.json")
                           ("test/fixtures/3d/valuation" "test/fixtures/3d/valuation/*.json")
-                          ("test/fixtures/3d/vol-surface" "test/fixtures/3d/vol-surface/*.json")))
+                          ("test/fixtures/3d/vol-surface" "test/fixtures/3d/vol-surface/*.json")
+                          ("test/fixtures/3d/density-surface" "test/fixtures/3d/density-surface/*.json")))

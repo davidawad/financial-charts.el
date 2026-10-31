@@ -185,6 +185,29 @@ def main():
     write("greeks-surface", greeks_surface())
     write("position-pnl-surface", pnl_surface())
     write("pop-surface", pop_surface())
+    density = json.load(open(os.path.join(ROOT, "test", "fixtures", "3d", "density-surface", "nvda-density.json")))
+    prices = density["price_grid"]
+    points = []
+    for row in density["rows"]:
+        if row.get("reason"):
+            continue
+        cumulative = 0.0
+        prev = 0.0
+        quantiles = row["quantiles"]
+        for i, (price, value) in enumerate(zip(prices, row["density"])):
+            if i:
+                cumulative += 0.5 * (prev + value) * (price - prices[i - 1])
+            band = ("below p05" if price <= quantiles["p05"] else
+                    "p05-p25" if price <= quantiles["p25"] else
+                    "p25-p75" if price <= quantiles["p75"] else
+                    "p75-p95" if price <= quantiles["p95"] else "above p95")
+            points.append({"expiry": row["expiry"], "dte": row["dte"], "price": price,
+                           "density": value, "cumulative": cumulative, "forward": row["forward"],
+                           "prob_below_spot": row["prob_below_spot"], "quantile_band": band,
+                           **quantiles})
+            prev = value
+    write("density-surface", {"title": "NVDA risk-neutral density", "subtitle": "",
+                              "spot": density["spot"], "price_grid": prices, "data": points})
 
 
 if __name__ == "__main__":

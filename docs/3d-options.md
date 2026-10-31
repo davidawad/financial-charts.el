@@ -1,6 +1,6 @@
 # Options surfaces in 3D: data contracts
 
-Three options charts, each a 2D template in `templates/financial/` (drawn
+Four options charts, each a 2D template in `templates/financial/` (drawn
 by eas, needs nothing else) and its 3D variant in `templates3d/` (drawn by
 [graphics.el](https://gitlab.com/davidawad/graphics-el) when it is
 installed):
@@ -10,6 +10,7 @@ installed):
 | `greeks-surface` | `fc-greeks3d` | toward expiry | one greek over spot x days to expiry |
 | `position-pnl-surface` | `fc-pnl3d` | toward expiry | a multi-leg position's P/L over spot x days to expiry, the expiry payoff its front edge |
 | `pop-surface` | `fc-pop3d` | none | probability of profit (or of touch) over strike x expiry |
+| `density-surface` | `fc-density3d` | none | risk-neutral terminal-price density over price x expiry, forward and quantile traces |
 
 `src/financial-chart-3d-options.el` registers the marks;
 `scripts/templates3d_options.py` writes the 3D variants from the 2D
@@ -48,6 +49,22 @@ needs its grid coordinates as numbers (`spot` or `strike`, and `dte`;
 `missing_field`). Of a list of entries `{as_of, output}` it draws the
 newest, because a grid is a snapshot whose replay runs toward expiry.
 ARGS set slots (`:greek`, `:metric`, `:spot`, `:title`).
+
+## Risk-neutral density and implied forward
+
+`opt.risk_neutral_density` supplies one shared `price_grid` and one
+161-cell density per expiry. The density adapter flattens valid expiries
+into price cells, computes cumulative mass by trapezoidal integration,
+and labels each sample with its quantile band. Rows with a non-null
+`reason` are skipped and listed in the subtitle. `opt.implied_forward`
+also feeds `density-surface`; it binds the expiry forward curve by itself.
+
+The heightfield uses price on x, DTE on z and density as height. Its
+sample tooltip includes expiry, DTE, price, density, cumulative mass,
+forward, quantile band and probability below spot. The surface traces
+the implied forward, spot and the p05/p95 and p25/p75 quantiles.
+Fixtures are copied from the `opt-forward` invest-metrics branch under
+`test/fixtures/invest-metrics/` and `test/fixtures/3d/density-surface/`.
 
 ## The grid metrics (invest-metrics)
 

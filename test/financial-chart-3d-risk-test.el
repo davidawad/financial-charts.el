@@ -59,7 +59,7 @@
       (financial-chart-3d-test--with-view (list name :id (concat "fc3d-risk-test-replay:" name))
         (let ((timeline (graphics-eas-timeline view)))
           (should timeline)
-          (should (> (plist-get timeline :keyframes) 2))
+          (should (> (plist-get timeline :duration) 0))
           (should (plist-get timeline :loop))
           (graphics-eas-timeline-set view :seconds 0.0 :playing nil)
           (let ((start (graphics-eas-frame view 60 24)))

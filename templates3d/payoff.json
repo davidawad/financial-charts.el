@@ -57,7 +57,7 @@
         }
       ]
     },
-    "doc": "3D variant of financial-chart's payoff (graphics.el, mark fc-payoff3d): P/L surface over price and days to expiry, the earlier days priced from the expiry payoff; it decays row by row to expiry.  2D: Profit and loss against the underlying price at expiry: gains green, losses red, breakevens marked on the zero line.",
+    "doc": "3D variant of financial-chart's payoff (graphics.el, mark fc-payoff3d): P/L surface over price and days to expiry, the earlier days priced from the expiry payoff; a bright trace sweeps it to expiry.  2D: Profit and loss against the underlying price at expiry: gains green, losses red, breakevens marked on the zero line.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -130,16 +130,12 @@
         },
         "y": {
           "field": "pnl"
-        },
-        "time": {
-          "field": "day",
-          "mode": "cumulative",
-          "step": 0.6
         }
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 6
       }
     }
   },

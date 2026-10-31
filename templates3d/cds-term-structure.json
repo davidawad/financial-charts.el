@@ -3,7 +3,7 @@
   "x-eas": {
     "template": "cds-term-structure",
     "version": "1.0.0",
-    "doc": "3D variant of financial-chart's cds-term-structure (graphics.el, mark fc-cds-term3d): the term structures as a surface of lines over tenor and date, coloured by level; replays date by date, the earlier ones left as a trail, so a stress that flattens the front end stands out.  2D: A name's CDS term structure by date (credit.cds_isda_implied_hazard_pd per date): par spread (or hazard rate, or default probability) by tenor across and date down.",
+    "doc": "3D variant of financial-chart's cds-term-structure (graphics.el, mark fc-cds-term3d): the term structures as a surface of lines over tenor and date, coloured by level; replays date by date from its first eight, the dates to come a dim ghost, so a stress that flattens the front end stands out.  2D: A name's CDS term structure by date (credit.cds_isda_implied_hazard_pd per date): par spread (or hazard rate, or default probability) by tenor across and date down.",
     "slots": {
       "data": {
         "shape": "invest/cds-term",
@@ -46,13 +46,9 @@
           "field": {
             "x-eas:slot": "measure"
           }
-        },
-        "time": {
-          "field": "as_of",
-          "mode": "cumulative",
-          "step": 0.5
         }
       },
+      "replay": "as_of",
       "extent": [
         12,
         12
@@ -65,7 +61,8 @@
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 5
       }
     }
   },

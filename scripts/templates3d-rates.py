@@ -16,7 +16,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from templates3d import ROOT, TIMELINE, replay, variant  # noqa: E402
+from templates3d import ROOT, replay_timeline, variant  # noqa: E402
 
 FIXTURES = "test/fixtures/3d/rates"
 
@@ -115,18 +115,18 @@ TEMPLATES = {
             "viridis", ".1f", filter_="datum.kind == 'spot'"),
         "reading": "the fitted curves as a surface of lines over tenor and date, each "
                    "coloured by its regime (teal upward, amber flat, red inverted); replays "
-                   "one curve per frame, the earlier ones left as a trail, the forward curve "
-                   "beside the last",
+                   "curve by curve from its first eight, the curves to come a dim ghost, the "
+                   "forward curve beside the last",
         "graphics": {
             "mark": "fc-yield-curve3d",
             "encoding": {"x": {"field": "tenor"}, "z": {"field": "date"},
-                         "y": {"field": "yield"}, "color": {"field": "regime"},
-                         "time": replay("date", 0.5)},
+                         "y": {"field": "yield"}, "color": {"field": "regime"}},
+            "replay": "date",
             "colors": REGIMES,
             "extent": [12, 14],
             "height": 8,
             "camera": {"yaw": 10, "pitch": 18, "zoom": 1.35},
-            "timeline": TIMELINE,
+            "timeline": replay_timeline(8),
         },
     },
     "credit-spreads": {
@@ -174,17 +174,17 @@ TEMPLATES = {
                        "pd_pct (cumulative default probability), or value (the par spread "
                        "when every row has one, else the hazard rate)"}}),
         "reading": "the term structures as a surface of lines over tenor and date, coloured "
-                   "by level; replays date by date, the earlier ones left as a trail, so a "
-                   "stress that flattens the front end stands out",
+                   "by level; replays date by date from its first eight, the dates to come a "
+                   "dim ghost, so a stress that flattens the front end stands out",
         "graphics": {
             "mark": "fc-cds-term3d",
             "encoding": {"x": {"field": "tenor"}, "z": {"field": "as_of"},
-                         "y": {"field": {"x-eas:slot": "measure"}},
-                         "time": replay("as_of", 0.5)},
+                         "y": {"field": {"x-eas:slot": "measure"}}},
+            "replay": "as_of",
             "extent": [12, 12],
             "height": 8,
             "camera": {"yaw": 10, "pitch": 18, "zoom": 1.35},
-            "timeline": TIMELINE,
+            "timeline": replay_timeline(5),
         },
     },
     "key-rate-durations": {

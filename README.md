@@ -623,12 +623,13 @@ produces them can be charted:
 
 Every template has a 3D variant in `templates3d/`, drawn by
 [graphics.el](https://gitlab.com/davidawad/graphics-el) as Braille in its
-own buffer: candles with volume depth that replay bar by bar, stacked
-price/volume/RSI panels, a volume profile beside the candles, the
-underwater drawdown curve, option payoff surfaces over price and days to
-expiry that decay to expiry, depth walls, a streaming order-book surface,
-the price ladder and P/L as 3D bars. [docs/3d.md](docs/3d.md) shows every
-render and what it reads.
+own buffer: candles with volume depth that replay bar by bar from a third
+of the series, stacked price/volume/RSI panels, a volume profile beside
+the candles, the underwater drawdown curve, option payoff surfaces over
+price and days to expiry with a trace sweeping them to expiry, depth
+walls, a streaming order-book surface, the price ladder and P/L as 3D
+bars. Each view's camera is fitted to its data, so it fills its window at
+any size. [docs/3d.md](docs/3d.md) shows every render and what it reads.
 
 graphics.el is optional and not in Package-Requires: without it nothing
 else changes, the variants still draw in 2D, and the 3D commands signal

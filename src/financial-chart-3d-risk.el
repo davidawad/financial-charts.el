@@ -57,6 +57,7 @@
 (require 'financial-chart)
 
 (declare-function graphics-eas-define-mark "graphics-eas-marks" (mark function))
+(declare-function financial-chart-3d--replay "financial-chart-3d" (graphics rows field mark))
 (declare-function graphics-eas-show "graphics-eas" (view &optional cols rows window))
 (declare-function financial-chart-3d-available-p "financial-chart-3d" ())
 (declare-function financial-chart-3d-open "financial-chart-3d" (name &rest args))
@@ -633,11 +634,24 @@ replay's too."
 
 ;;; Registration
 
+(defun financial-chart-3d-risk--ribbons-replay (graphics rows)
+  "The ribbons mark, replayed by its `replay' field if it has one.
+See `financial-chart-3d--replay'."
+  (financial-chart-3d--replay graphics rows nil #'financial-chart-3d-risk--ribbons-mark))
+
+(defun financial-chart-3d-risk--histogram-replay (graphics rows)
+  "The histogram mark replayed horizon by horizon (`financial-chart-3d--replay')."
+  (financial-chart-3d--replay graphics rows "horizon" #'financial-chart-3d-risk--histogram-mark))
+
+(defun financial-chart-3d-risk--frontier-replay (graphics rows)
+  "The frontier mark replayed date by date (`financial-chart-3d--replay')."
+  (financial-chart-3d--replay graphics rows "date" #'financial-chart-3d-risk--frontier-mark))
+
 (defconst financial-chart-3d-risk-marks
   '(("fc-risk-grid3d" . financial-chart-3d-risk--grid-mark)
-    ("fc-risk-ribbons3d" . financial-chart-3d-risk--ribbons-mark)
-    ("fc-risk-histogram3d" . financial-chart-3d-risk--histogram-mark)
-    ("fc-risk-frontier3d" . financial-chart-3d-risk--frontier-mark))
+    ("fc-risk-ribbons3d" . financial-chart-3d-risk--ribbons-replay)
+    ("fc-risk-histogram3d" . financial-chart-3d-risk--histogram-replay)
+    ("fc-risk-frontier3d" . financial-chart-3d-risk--frontier-replay))
   "The portfolio-risk 3D marks this file adds to graphics.el: (MARK . FUNCTION).")
 
 (defun financial-chart-3d-risk--register-marks ()

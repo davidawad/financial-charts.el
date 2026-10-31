@@ -217,11 +217,12 @@ CHARTS = {
         "example": "vrp.data.json",
         "reading": "implied and realized volatility as the two edges of one ribbon over time, filled "
                    "green where implied is rich and red where realized overtakes it, IV rank as "
-                   "bars behind and the front/back IV ratio in front; replays day by day",
+                   "bars behind and the front/back IV ratio in front; replays from its first third day by day",
         "graphics": {
             "mark": "fc-vrp3d",
-            "encoding": {"x": {"field": "date"}, "time": replay("date", 0.12)},
-            "timeline": TIMELINE,
+            "encoding": {"x": {"field": "date"}},
+            "replay": "date",
+            "timeline": {"loop": True, "autoplay": True, "duration": 6},
             "camera": {"yaw": -25, "pitch": 15, "zoom": 1.35},
         },
     },

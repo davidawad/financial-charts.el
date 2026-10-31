@@ -249,9 +249,14 @@ the cells present, the rest of the grid empty.  Options:
                                                                (aref wz (1+ j))))))
                          []))))))
 
+(defun financial-chart-3d-valuation--revenue-mark (graphics rows)
+  "The fc-revenue3d mark: the surface replayed year by year.
+See `financial-chart-3d--replay'."
+  (financial-chart-3d--replay graphics rows "year" #'financial-chart-3d-valuation--surface-mark))
+
 (defconst financial-chart-3d-valuation-marks
   '(("fc-dcf3d" . financial-chart-3d-valuation--surface-mark)
-    ("fc-revenue3d" . financial-chart-3d-valuation--surface-mark)
+    ("fc-revenue3d" . financial-chart-3d-valuation--revenue-mark)
     ("fc-kelly3d" . financial-chart-3d-valuation--surface-mark))
   "The valuation marks this file adds to graphics.el: (MARK . FUNCTION).
 One lowering; each template sets its own options and camera.")

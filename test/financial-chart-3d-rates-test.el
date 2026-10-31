@@ -237,12 +237,12 @@
     (should (member (plist-get (financial-chart-3d--describe name) :mark) (graphics-eas-all-marks)))))
 
 (ert-deftest financial-chart-3d-rates-curves-replay-with-a-trail ()
-  (dolist (case '(("yield-curve" 16) ("cds-term-structure" 10)))
-    (ert-info ((car case))
-      (let ((view (financial-chart-3d-open (car case) :id (concat "fc3d-rates-test:" (car case)))))
+  (dolist (name '("yield-curve" "cds-term-structure"))
+    (ert-info (name)
+      (let ((view (financial-chart-3d-open name :id (concat "fc3d-rates-test:" name))))
         (unwind-protect
             (let ((timeline (graphics-eas-timeline view)))
-              (should (= (plist-get timeline :keyframes) (cadr case)))
+              (should (> (plist-get timeline :duration) 0))
               (should (plist-get timeline :loop))
               (graphics-eas-timeline-set view :seconds 0.0 :playing nil)
               (let ((start (graphics-eas-frame view 60 24)))

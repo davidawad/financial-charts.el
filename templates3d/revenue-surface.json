@@ -3,7 +3,7 @@
   "x-eas": {
     "template": "revenue-surface",
     "version": "1.0.0",
-    "doc": "3D variant of financial-chart's revenue-surface (graphics.el, mark fc-revenue3d): revenue as a surface over fiscal year and outcome quantile, the cone widening with the horizon and the median traced; it grows year by year.  2D: Revenue possibility fan: forecast revenue by fiscal year at each quantile of the outcome distribution, the median emphasised.",
+    "doc": "3D variant of financial-chart's revenue-surface (graphics.el, mark fc-revenue3d): revenue as a surface over fiscal year and outcome quantile, the cone widening with the horizon and the median traced; it grows year by year from its first third (at least 8 years).  2D: Revenue possibility fan: forecast revenue by fiscal year at each quantile of the outcome distribution, the median emphasised.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -38,13 +38,9 @@
         },
         "y": {
           "field": "revenue"
-        },
-        "time": {
-          "field": "year",
-          "mode": "cumulative",
-          "step": 0.4
         }
       },
+      "replay": "year",
       "trace": 0.5,
       "front": true,
       "low_color": "#2c3e7a",
@@ -57,7 +53,8 @@
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 4
       }
     }
   },

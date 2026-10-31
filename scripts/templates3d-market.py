@@ -16,7 +16,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from templates3d import ROOT, TIMELINE, replay, variant  # noqa: E402
+from templates3d import ROOT, TIMELINE, replay, replay_timeline, variant  # noqa: E402
 
 FIXTURES = "test/fixtures/3d/market"
 
@@ -48,8 +48,9 @@ VARIANTS = {
         "graphics": {
             "mark": "fc-breadth3d",
             "encoding": {"x": {"field": "sector"}, "z": {"field": "date"},
-                         "y": {"field": "pct"}, "time": replay("date", 0.15)},
-            "timeline": TIMELINE,
+                         "y": {"field": "pct"}},
+            "replay": "date",
+            "timeline": replay_timeline(9),
             "camera": {"yaw": -65, "pitch": 40, "zoom": 1.2},
         },
     },
@@ -63,9 +64,9 @@ VARIANTS = {
         "graphics": {
             "mark": "fc-liquidity3d",
             "encoding": {"x": {"field": "step"}, "z": {"field": "price"},
-                         "y": {"field": "size"}, "color": {"field": "side"},
-                         "time": replay("step", 0.2)},
-            "timeline": TIMELINE,
+                         "y": {"field": "size"}, "color": {"field": "side"}},
+            "replay": "step",
+            "timeline": replay_timeline(9),
             "max_rows": 60,
             "camera": {"yaw": -20, "pitch": 45, "zoom": 1.2},
         },
@@ -80,8 +81,9 @@ VARIANTS = {
         "graphics": {
             "mark": "fc-session-profile3d",
             "encoding": {"x": {"field": "price"}, "z": {"field": "session"},
-                         "y": {"field": "volume"}, "time": replay("session", 0.8)},
-            "timeline": TIMELINE,
+                         "y": {"field": "volume"}},
+            "replay": "session",
+            "timeline": replay_timeline(6),
             "camera": {"yaw": 5, "pitch": 45, "zoom": 1.2},
         },
     },

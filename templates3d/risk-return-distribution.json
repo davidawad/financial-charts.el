@@ -3,7 +3,7 @@
   "x-eas": {
     "template": "risk-return-distribution",
     "version": "1.0.0",
-    "doc": "3D variant of financial-chart's risk-return-distribution (graphics.el, mark fc-risk-histogram3d): one histogram per horizon in lanes from front to back on shared return bins, loss bins red and gain bins green, each lane's 95% VaR ruled across it; builds horizon by horizon.  2D: Return distributions across horizons: the share of returns in each bin, one curve per horizon.",
+    "doc": "3D variant of financial-chart's risk-return-distribution (graphics.el, mark fc-risk-histogram3d): one histogram per horizon in lanes from front to back on shared return bins, loss bins red and gain bins green, each lane's 95% VaR ruled across it.  2D: Return distributions across horizons: the share of returns in each bin, one curve per horizon.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -39,13 +39,9 @@
         },
         "z": {
           "field": "horizon"
-        },
-        "time": {
-          "field": "horizon",
-          "mode": "cumulative",
-          "step": 0.7
         }
       },
+      "replay": "horizon",
       "spacing": 3,
       "height": 2.4,
       "camera": {
@@ -55,7 +51,8 @@
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 3
       }
     }
   },

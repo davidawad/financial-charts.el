@@ -3,7 +3,7 @@
   "x-eas": {
     "template": "risk-underwater",
     "version": "1.0.0",
-    "doc": "3D variant of financial-chart's risk-underwater (graphics.el, mark fc-risk-ribbons3d): one slab per strategy hanging below its own high-water line, a ridgeline as deep as each drawdown, the worst point of each marked; replays week by week.  2D: Underwater curves: each strategy's percent decline from its running high.",
+    "doc": "3D variant of financial-chart's risk-underwater (graphics.el, mark fc-risk-ribbons3d): one slab per strategy hanging below its own high-water line, a ridgeline as deep as each drawdown, the worst point of each marked; replays week by week from its first third, the weeks to come a dim ghost.  2D: Underwater curves: each strategy's percent decline from its running high.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -41,13 +41,9 @@
         },
         "y": {
           "field": "equity"
-        },
-        "time": {
-          "field": "date",
-          "mode": "cumulative",
-          "step": 0.08
         }
       },
+      "replay": "date",
       "transform": "underwater",
       "stack": 0.9,
       "camera": {
@@ -57,7 +53,8 @@
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 8
       }
     }
   },

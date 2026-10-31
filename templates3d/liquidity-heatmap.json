@@ -83,16 +83,13 @@
         },
         "color": {
           "field": "side"
-        },
-        "time": {
-          "field": "step",
-          "mode": "cumulative",
-          "step": 0.2
         }
       },
+      "replay": "step",
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 9
       },
       "max_rows": 60,
       "camera": {

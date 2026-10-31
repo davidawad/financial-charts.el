@@ -80,16 +80,13 @@
         },
         "y": {
           "field": "volume"
-        },
-        "time": {
-          "field": "session",
-          "mode": "cumulative",
-          "step": 0.8
         }
       },
+      "replay": "session",
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 6
       },
       "camera": {
         "yaw": 5,

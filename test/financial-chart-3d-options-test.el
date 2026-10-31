@@ -231,7 +231,7 @@
         (unwind-protect
             (let ((timeline (graphics-eas-timeline view)))
               (should timeline)
-              (should (> (plist-get timeline :keyframes) 2))
+              (should (> (plist-get timeline :duration) 0))
               (graphics-eas-timeline-set view :seconds 0.0 :playing nil)
               (let ((start (graphics-eas-frame view 60 24)))
                 (financial-chart-3d-seek-end view)
@@ -269,7 +269,7 @@
     (should (equal (delete-dups (mapcar (lambda (r) (plist-get r :day)) (plist-get bindings :data)))
                    '(0 15 30 39 46 53 57)))
     (let ((view (financial-chart-3d-open "greeks-surface" :bindings bindings :id "fc3d-options-test-metric")))
-      (unwind-protect (should (> (plist-get (graphics-eas-timeline view) :keyframes) 2))
+      (unwind-protect (should (> (plist-get (graphics-eas-timeline view) :duration) 0))
         (financial-chart-3d--close view))))
   (should-error (financial-chart-3d-options-bindings "nope" '(:rows [(:dte 1)])) :type 'financial-chart-invalid-data)
   (should-error (financial-chart-3d-options-bindings "pop-surface" '(:rows [])) :type 'financial-chart-invalid-data))

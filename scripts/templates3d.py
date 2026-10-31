@@ -21,8 +21,20 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Replay: a series grows bar by bar along its time axis, scales spanning
-# the whole series, looping (graphics.el's encoding.time, mode cumulative).
+# Replay: a looping timeline of DURATION seconds whose position the mark
+# reads (its "time" param), drawing every row's scales at every phase:
+# a series grows from a third of its bars to all of them, a payoff
+# surface stays whole while a trace sweeps it to expiry.  Not
+# graphics.el's encoding.time, which hands the mark only the rows so far
+# (one bar, one row of the surface, at the start).  A mark written for a
+# cumulative encoding.time gets the same replay from its "replay" field
+# (financial-chart-3d--replay).
+def replay_timeline(duration):
+    return {"loop": True, "autoplay": True, "duration": duration}
+
+
+# graphics.el's encoding.time and its timeline: for keyframes (mode
+# "frame") that each draw a whole chart.
 TIMELINE = {"loop": True, "autoplay": True}
 
 
@@ -59,49 +71,49 @@ VARIANTS = {
         "source": "templates/ohlc.json",
         "example": "examples/panes.data.json",
         "reading": "candles as boxes along time, price up, each body as deep as "
-                   "its volume; replays bar by bar",
+                   "its volume; replays from its first third bar by bar",
         "graphics": {
             "mark": "fc-candle3d",
-            "encoding": {"x": {"field": "time"}, "depth": {"field": "volume"},
-                         "time": replay("time", 0.25)},
-            "timeline": TIMELINE,
+            "encoding": {"x": {"field": "time"}, "depth": {"field": "volume"}},
+            "timeline": replay_timeline(8),
         },
     },
     "panes": {
         "source": "templates/panes.json",
         "example": "examples/panes.data.json",
         "reading": "price, volume and RSI(14) as three stacked panels on one "
-                   "time axis; replays bar by bar",
+                   "time axis; replays from its first third bar by bar",
         "graphics": {
             "mark": "fc-panes3d",
-            "encoding": {"x": {"field": "time"}, "time": replay("time", 0.25)},
+            "encoding": {"x": {"field": "time"}},
             "rsi": 14,
-            "timeline": TIMELINE,
+            "timeline": replay_timeline(8),
         },
     },
     "volume-profile": {
         "source": "templates/financial/volume-profile.json",
         "example": "examples/volume-profile.data.json",
         "reading": "horizontal volume-at-price bars beside the candles, point "
-                   "of control bright; the profile builds as the bars replay",
+                   "of control bright; the profile builds as the bars replay from "
+                   "their first third",
         "graphics": {
             "mark": "fc-volume-profile3d",
             "data": {"x-eas:slot": "bars"},
             "bins": {"x-eas:slot": "bins"},
-            "encoding": {"x": {"field": "time"}, "time": replay("time", 0.15)},
-            "timeline": TIMELINE,
+            "encoding": {"x": {"field": "time"}},
+            "timeline": replay_timeline(8),
         },
     },
     "drawdown": {
         "source": "templates/drawdown.json",
         "example": "examples/drawdown.data.json",
         "reading": "the underwater curve as a slab hanging below the "
-                   "high-water line, seen from below; replays point by point",
+                   "high-water line, seen from below; replays from its first third "
+                   "point by point",
         "graphics": {
             "mark": "fc-drawdown3d",
-            "encoding": {"x": {"field": "x"}, "y": {"field": "y"},
-                         "time": replay("x", 0.15)},
-            "timeline": TIMELINE,
+            "encoding": {"x": {"field": "x"}, "y": {"field": "y"}},
+            "timeline": replay_timeline(8),
         },
     },
     "payoff": {
@@ -109,15 +121,15 @@ VARIANTS = {
         "example": "examples/3d/payoff.data.json",
         "slots": PAYOFF_SLOTS,
         "reading": "P/L surface over price and days to expiry, the earlier days "
-                   "priced from the expiry payoff; it decays row by row to expiry",
+                   "priced from the expiry payoff; a bright trace sweeps it to expiry",
         "graphics": {
             "mark": "fc-payoff3d",
             "data": {"x-eas:slot": "surface"},
             "vol": {"x-eas:slot": "vol"},
             "days": {"x-eas:slot": "days"},
             "encoding": {"x": {"field": "price"}, "z": {"field": "dte"},
-                         "y": {"field": "pnl"}, "time": replay("day", 0.6)},
-            "timeline": TIMELINE,
+                         "y": {"field": "pnl"}},
+            "timeline": replay_timeline(6),
         },
     },
     "payoff-curves": {
@@ -125,12 +137,12 @@ VARIANTS = {
         "example": "examples/3d/payoff-curves.data.json",
         "reading": "the curves as one P/L surface over price and curve (a "
                    "strategy at several dates: a surface toward expiry); "
-                   "builds curve by curve",
+                   "a bright trace sweeps it curve by curve",
         "graphics": {
             "mark": "fc-payoff3d",
             "encoding": {"x": {"field": "price"}, "z": {"field": "curve"},
-                         "y": {"field": "pnl"}, "time": replay("curve", 0.6)},
-            "timeline": TIMELINE,
+                         "y": {"field": "pnl"}},
+            "timeline": replay_timeline(6),
         },
     },
     "depth": {

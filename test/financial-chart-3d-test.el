@@ -6,9 +6,11 @@
 ;; checkouts `make deps-3d' prepares in test/deps/ (graphics.el's Rust
 ;; module built).  Every template has a 3D variant whose body is the
 ;; template's, which eas still draws in 2D and graphics.el draws in 3D
-;; to its golden (test/golden/3d/NAME.{frame,txt}, 60x24, dark, the
-;; Rust core; EAS_UPDATE_GOLDEN=1 rewrites them, `make golden-3d' also
-;; rewrites docs/3d.md).  Without graphics.el the 3D commands signal
+;; to its goldens (test/golden/3d/NAME.{frame,txt} at the end of its
+;; replay and t0.5/NAME.{frame,txt} halfway, 60x24, dark, the Rust core;
+;; EAS_UPDATE_GOLDEN=1 rewrites them, `make golden-3d' also rewrites
+;; docs/3d.md).  financial-chart-3d-framing-test.el checks every frame
+;; reads, at five sizes and five phases.  Without graphics.el the 3D commands signal
 ;; `financial-chart-3d-unavailable' and 2D is untouched (a subprocess
 ;; without graphics.el on its load path).
 
@@ -85,13 +87,52 @@
       (financial-chart-3d-test--with-view (list name :id (concat "fc3d-test-replay:" name))
         (let ((timeline (graphics-eas-timeline view)))
           (should timeline)
-          (should (> (plist-get timeline :keyframes) 2))
+          (should (> (plist-get timeline :duration) 0))
           (should (plist-get timeline :loop))
-          ;; Its start and its end differ: the replay draws.
-          (graphics-eas-timeline-set view :seconds 0.0 :playing nil)
-          (let ((start (graphics-eas-frame view 60 24)))
-            (financial-chart-3d-seek-end view)
-            (should-not (equal start (graphics-eas-frame view 60 24)))))))))
+          ;; Its start, middle and end differ: the replay draws.
+          (let ((frames (mapcar (lambda (phase)
+                                  (financial-chart-3d-seek view phase)
+                                  (graphics-eas-frame view 60 24))
+                                '(0.0 0.5 1.0))))
+            (should (= (length (delete-dups frames)) 3))))))))
+
+(ert-deftest financial-chart-3d-replays-draw-every-row ()
+  ;; A replay colours the rows so far and ghosts the rest: every frame
+  ;; has every bar, from a third of them in colour at the start.
+  (let* ((bars (financial-chart-3d--rows (plist-get (financial-chart-3d-test--json "examples/panes.data.json") :bars)))
+         (graphics '(:mark "fc-candle3d" :timeline (:duration 8)))
+         (colors (lambda (seconds)
+                   (let ((graphics-eas-mark-params (list :time seconds)))
+                     (append (plist-get (seq-find (lambda (p) (equal (plist-get p :id) "bodies"))
+                                                  (financial-chart-3d--candle-mark graphics bars))
+                                        :colors)
+                             nil))))
+         (ghosts (lambda (seconds) (seq-count (lambda (c) (equal c financial-chart-3d-ghost-color))
+                                              (funcall colors seconds)))))
+    (dolist (seconds '(0 4 8))
+      (should (= (length (funcall colors seconds)) (length bars))))
+    (should (= (funcall ghosts 0) (- (length bars) (max 8 (ceiling (length bars) 3)))))
+    (should (< 0 (funcall ghosts 4) (funcall ghosts 0)))
+    (should (= (funcall ghosts 8) 0))
+    ;; Without a position (a mark lowered alone), all of it.
+    (should (= (seq-count (lambda (c) (equal c financial-chart-3d-ghost-color))
+                          (plist-get (aref (financial-chart-3d--candle-mark graphics bars) 2) :colors))
+               0))))
+
+(ert-deftest financial-chart-3d-payoff-surface-stays-whole ()
+  ;; The surface has every row at every phase; the trace moves across it.
+  (let* ((rows (append (plist-get (financial-chart-3d-test--json "examples/3d/payoff.data.json") :surface) nil))
+         (graphics '(:mark "fc-payoff3d" :timeline (:duration 6)))
+         (at (lambda (seconds)
+               (let ((graphics-eas-mark-params (list :time seconds)))
+                 (financial-chart-3d--payoff-mark graphics rows))))
+         (find (lambda (prims id) (seq-find (lambda (p) (equal (plist-get p :id) id)) prims))))
+    (dolist (seconds '(0 3 6))
+      (let ((surface (funcall find (funcall at seconds) "surface")))
+        (should (equal (plist-get surface :type) "heightfield"))
+        (should (= (length (plist-get surface :heights)) 8))))
+    (let ((z (lambda (seconds) (aref (aref (plist-get (funcall find (funcall at seconds) "front") :segments) 0) 2))))
+      (should (< (funcall z 0) (funcall z 3) (funcall z 6))))))
 
 ;;; Goldens
 
@@ -123,8 +164,10 @@
 
 (ert-deftest financial-chart-3d-goldens ()
   (graphics-ensure-core 'rs)
-  (dolist (name (financial-chart-3d-variants))
-    (financial-chart-3d-test--golden name (financial-chart-3d-frame name))))
+  (pcase-dolist (`(,phase . ,sub) financial-chart-3d-golden-phases)
+    (dolist (name (financial-chart-3d-variants))
+      (financial-chart-3d-test--golden (if (string-empty-p sub) name (concat sub "/" name))
+                                       (financial-chart-3d-frame name nil nil nil phase)))))
 
 (ert-deftest financial-chart-3d-gallery-page-shows-every-golden ()
   (let ((page (with-temp-buffer
@@ -138,11 +181,80 @@
       (delete-file generated))
     (dolist (name (financial-chart-3d-variants))
       (should (string-search (format "\n## %s\n" name) page))
-      (should (string-search (with-temp-buffer
-                               (insert-file-contents
-                                (expand-file-name (format "test/golden/3d/%s.txt" name) financial-chart-test-root))
-                               (buffer-string))
-                             page)))))
+      (dolist (file (cons (format "test/golden/3d/%s.txt" name)
+                          (and (plist-get (financial-chart-3d--describe name) :replay)
+                               (list (format "test/golden/3d/t0.5/%s.txt" name)))))
+        (should (string-search (with-temp-buffer
+                                 (insert-file-contents (expand-file-name file financial-chart-test-root))
+                                 (buffer-string))
+                               page))))))
+
+;;; Framing and the gallery
+
+(ert-deftest financial-chart-3d-camera-fits-the-data ()
+  ;; A flat box seen from the default camera: the fit centres it and
+  ;; comes closer than the core's bounding-sphere fit; twice the box,
+  ;; twice as far.
+  (let* ((box (lambda (k) (cl-loop for x in '(-6.0 6.0)
+                                   append (cl-loop for y in '(0.0 1.0)
+                                                   append (cl-loop for z in '(-4.5 4.5)
+                                                                   collect (vector (* k x) (* k y) (* k z)))))))
+         (fit (financial-chart-3d-camera-fit (funcall box 1) '(:yaw 30 :pitch 24)))
+         (sphere (* 1.05 (/ (sqrt (+ 36 0.25 20.25)) (sin (degrees-to-radians 20))))))
+    (should (< (abs (aref (plist-get fit :target) 0)) 0.5))
+    (should (< (plist-get fit :distance) sphere))
+    ;; Projected as the core projects (raster.rs), the corners fill
+    ;; `financial-chart-3d-fill' of the shorter side, or of the width
+    ;; allowed across, and no more.
+    (let* ((yaw (degrees-to-radians 30)) (pitch (degrees-to-radians 24)) (tan (tan (degrees-to-radians 20)))
+           (offset (vector (* (cos pitch) (sin yaw)) (sin pitch) (* (cos pitch) (cos yaw))))
+           (eye (cl-map 'vector (lambda (t0 o) (+ t0 (* (plist-get fit :distance) o))) (plist-get fit :target) offset))
+           (forward (cl-map 'vector #'- offset))
+           (right (let ((r (financial-chart-3d--cross forward [0.0 1.0 0.0])))
+                    (cl-map 'vector (lambda (v) (/ v (sqrt (financial-chart-3d--dot r r)))) r)))
+           (up (financial-chart-3d--cross right forward))
+           (extent (cl-loop for p in (funcall box 1)
+                            maximize (let* ((v (cl-map 'vector #'- p eye))
+                                            (depth (financial-chart-3d--dot v forward)))
+                                       (max (/ (abs (financial-chart-3d--dot v right))
+                                               (* depth tan financial-chart-3d-pane-aspect))
+                                            (/ (abs (financial-chart-3d--dot v up)) (* depth tan)))))))
+      (should (< (abs (- extent financial-chart-3d-fill)) 0.01)))
+    (should (< (abs (- (plist-get (financial-chart-3d-camera-fit (funcall box 2) '(:yaw 30 :pitch 24)) :distance)
+                       (* 2 (plist-get fit :distance))))
+               0.01)))
+  ;; Every variant's view gets one, its own camera's keys kept.
+  (financial-chart-3d-test--with-view '("ohlc" :id "fc3d-test-fit")
+    (let ((camera (plist-get (graphics-eas-view-graphics (graphics-eas-get view)) :camera)))
+      (should (plist-get camera :distance))
+      (should (plist-get camera :target)))))
+
+(ert-deftest financial-chart-3d-gallery-grid-tiles-evenly ()
+  ;; Ten panes: two rows of five, not three of four with the last row
+  ;; two panes wide.
+  (should (equal (financial-chart-3d--grid 10 216 60) '(5 5)))
+  (dolist (n '(1 2 7 10 11 13 17))
+    (dolist (size '((216 . 60) (80 . 24) (300 . 80)))
+      (let ((counts (financial-chart-3d--grid n (car size) (cdr size))))
+        (should (= (apply #'+ counts) n))
+        (should (<= (- (apply #'max counts) (apply #'min counts)) 1))))))
+
+(ert-deftest financial-chart-3d-gallery-tiles-its-frame ()
+  (let ((names (financial-chart-3d-variants)))
+    (save-window-excursion
+      (unwind-protect
+          (progn
+            (financial-chart-3d-gallery names)
+            (let* ((panes (window-list nil 'nomini))
+                   (rows (seq-group-by (lambda (w) (cadr (window-edges w))) panes)))
+              (should (= (length panes) (length names)))
+              ;; Each row's panes are as wide as each other, to a cell.
+              (dolist (row rows)
+                (let ((widths (mapcar #'window-total-width (cdr row))))
+                  (should (<= (- (apply #'max widths) (apply #'min widths)) 1))))))
+        (dolist (name names)
+          (when-let* ((view (gethash (financial-chart-3d--name name) eas-views)))
+            (financial-chart-3d--close view)))))))
 
 ;;; The readings compute what the 2D charts compute
 

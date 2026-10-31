@@ -56,6 +56,7 @@
 (declare-function financial-chart-3d--categories "financial-chart-3d" (values))
 (declare-function financial-chart-3d--r3 "financial-chart-3d" (v))
 (declare-function financial-chart-3d--domain "financial-chart-3d" (rows))
+(declare-function financial-chart-3d--replay "financial-chart-3d" (graphics rows field mark))
 (declare-function financial-chart-3d--axes "financial-chart-3d" (id x0 x1 y1 z0 z1 &optional color))
 (declare-function financial-chart-3d--lcg "financial-chart-3d" (seed))
 (declare-function financial-chart-3d--close "financial-chart-3d" (view))
@@ -404,6 +405,10 @@ traced over it, \"ridges\" one line per price."
          (scale (/ height vmax))
          (nx (length all-steps)) (k (length steps))
          (x-at (lambda (i) (financial-chart-3d--r3 (if (> nx 1) (- (* 2 w (/ i (float (1- nx)))) w) 0))))
+         ;; A step's column among every step's: a replay grows from the
+         ;; left, a stream (whose rows are every step) scrolls.
+         (column (let ((index (financial-chart-3d-market--index all-steps)))
+                   (lambda (step) (gethash step index (- nx k)))))
          (z-of (lambda (p) (if (and p-hi (> p-hi p-lo)) (- (* 2 d (/ (- p-hi p) (- p-hi p-lo))) d) 0.0)))
          (cells (make-hash-table :test #'equal))
          (mids (make-hash-table :test #'equal)))
@@ -432,7 +437,7 @@ traced over it, \"ridges\" one line per price."
            (trace (cl-loop for s in steps for j from 0
                            for m = (gethash s mids)
                            when (and m grid (<= p-lo m p-hi))
-                           collect (list (funcall x-at (+ j (- nx k)))
+                           collect (list (funcall x-at (funcall column s))
                                          (if (equal style "walls") 0.04 (+ 0.06 (funcall surface-y j m)))
                                          (funcall z-of m)))))
       (vector
@@ -449,10 +454,10 @@ traced over it, \"ridges\" one line per price."
                                (if sizes (nth (/ (length sizes) 2) sizes) 0)))
                      boxes colors)
                 (cl-loop for p in grid for i from 0
-                         do (cl-loop for j from 0 below k
+                         do (cl-loop for j from 0 below k for s in steps
                                      for v = (aref (aref heights i) j)
                                      when (>= v least)
-                                     do (let ((x (funcall x-at (+ j (- nx k)))) (z (funcall z-of p)))
+                                     do (let ((x (funcall x-at (funcall column s))) (z (funcall z-of p)))
                                           (push (vector (financial-chart-3d--r3 (- x hx)) 0 (financial-chart-3d--r3 (- z hz))
                                                         (financial-chart-3d--r3 (+ x hx)) (financial-chart-3d--r3 (* scale v))
                                                         (financial-chart-3d--r3 (+ z hz)))
@@ -462,7 +467,8 @@ traced over it, \"ridges\" one line per price."
              (t (financial-chart-3d-market--surface
                  graphics
                  (list :id "surface" :type "heightfield"
-                       :x (vector (funcall x-at (- nx k)) w) :z (vector (- d) d)
+                       :x (vector (funcall x-at (funcall column (car steps))) (funcall x-at (funcall column (car (last steps)))))
+                       :z (vector (- d) d)
                        :y_scale (financial-chart-3d--r3 scale) :heights heights
                        :low_color low :high_color high :color_range (vector 0 vmax))
                  t)))
@@ -621,11 +627,24 @@ migrating session by session."
 
 ;;; Registration
 
+(defun financial-chart-3d-market--breadth-replay (graphics rows)
+  "The fc-breadth3d mark replayed date by date (`financial-chart-3d--replay')."
+  (financial-chart-3d--replay graphics rows "date" #'financial-chart-3d-market--breadth-mark))
+
+(defun financial-chart-3d-market--liquidity-replay (graphics rows)
+  "The fc-liquidity3d mark replayed step by step (`financial-chart-3d--replay')."
+  (financial-chart-3d--replay graphics rows "step" #'financial-chart-3d-market--liquidity-mark))
+
+(defun financial-chart-3d-market--session-profile-replay (graphics rows)
+  "The fc-session-profile3d mark replayed session by session.
+See `financial-chart-3d--replay'."
+  (financial-chart-3d--replay graphics rows "session" #'financial-chart-3d-market--session-profile-mark))
+
 (defconst financial-chart-3d-market-marks
   '(("fc-rrg3d" . financial-chart-3d-market--rrg-mark)
-    ("fc-breadth3d" . financial-chart-3d-market--breadth-mark)
-    ("fc-liquidity3d" . financial-chart-3d-market--liquidity-mark)
-    ("fc-session-profile3d" . financial-chart-3d-market--session-profile-mark))
+    ("fc-breadth3d" . financial-chart-3d-market--breadth-replay)
+    ("fc-liquidity3d" . financial-chart-3d-market--liquidity-replay)
+    ("fc-session-profile3d" . financial-chart-3d-market--session-profile-replay))
   "The market-structure 3D marks: (MARK . FUNCTION).")
 
 (defun financial-chart-3d-market--register-marks (&rest _)

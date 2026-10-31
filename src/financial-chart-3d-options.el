@@ -15,10 +15,10 @@
 ;;
 ;;   greeks-surface        one greek (slot `greek': delta, gamma, vega,
 ;;                         theta, vanna or charm) over spot and days to
-;;                         expiry; replays toward expiry
+;;                         expiry; a trace sweeps it toward expiry
 ;;   position-pnl-surface  a multi-leg position's P/L over spot and days
 ;;                         to expiry, the expiry payoff its front edge;
-;;                         replays day by day, theta decay visible
+;;                         a trace sweeps it day by day, theta decay visible
 ;;   pop-surface           probability of profit (slot `metric': pop or
 ;;                         prob_touch) over strike and expiry, on an
 ;;                         absolute 0..1 scale with the even-odds level
@@ -62,6 +62,7 @@
 (declare-function financial-chart-3d--categories "financial-chart-3d" (values))
 (declare-function financial-chart-3d--r3 "financial-chart-3d" (v))
 (declare-function financial-chart-3d--domain "financial-chart-3d" (rows))
+(declare-function financial-chart-3d--phase "financial-chart-3d" (graphics))
 (declare-function financial-chart-3d--axes "financial-chart-3d" (id x0 x1 y1 z0 z1 &optional color))
 
 (defconst financial-chart-3d-options-templates
@@ -96,8 +97,11 @@ of the heightfield, the `seam' fraction (0.4) of the gap behind it left
 open, so the rows read apart even without colour.  Under a time
 encoding the grid and scale span every row
 \(`graphics-eas-domain-rows'), the rows present so far are drawn in
-place and the newest traced bright.  Option `spot' traces the slice at
-that x across the shown rows, dropped to the floor at the front."
+place.  A bright trace sweeps the rows from the furthest to the
+nearest over GRAPHICS's replay (`financial-chart-3d--phase'): all
+of them, so the surface stays whole; the nearest without a replay.
+Option `spot' traces the slice at that x across the shown rows,
+dropped to the floor at the front."
   (let* ((xk (financial-chart-3d--field graphics "x" x))
          (zk (financial-chart-3d--field graphics "z" z))
          (yk (financial-chart-3d--field graphics "y" y))
@@ -166,7 +170,10 @@ that x across the shown rows, dropped to the floor at the front."
        (list :id "ghost" :type "segments" :color "#8a94a6"
              :segments (if (and ghost-z (not (eql ghost-z (car (last shown))))) (funcall trace ghost-z (1- nz)) []))
        (list :id "front" :type "segments" :color "#ffffff"
-             :segments (if shown (funcall trace (car (last shown)) (1- k)) []))
+             :segments (if shown
+                           (let ((j (round (* (financial-chart-3d--phase graphics) (1- k)))))
+                             (funcall trace (nth j shown) j))
+                         []))
        (list :id "spot" :type "segments" :color "#ffb74d"
              :segments (if slice
                            (vconcat (cl-loop for (a b) on slice while b

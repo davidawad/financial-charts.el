@@ -83,16 +83,13 @@
         },
         "y": {
           "field": "pct"
-        },
-        "time": {
-          "field": "date",
-          "mode": "cumulative",
-          "step": 0.15
         }
       },
+      "replay": "date",
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 9
       },
       "camera": {
         "yaw": -65,

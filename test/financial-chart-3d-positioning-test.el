@@ -223,7 +223,7 @@ BINDINGS default to its example."
         (unwind-protect
             (let ((timeline (graphics-eas-timeline view)))
               (should timeline)
-              (should (> (plist-get timeline :keyframes) 10))
+              (should (> (plist-get timeline :duration) 0))
               (graphics-eas-timeline-set view :seconds 0.0 :playing nil)
               (let ((start (graphics-eas-frame view 60 24)))
                 (financial-chart-3d-seek-end view)

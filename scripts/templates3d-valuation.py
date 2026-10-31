@@ -15,7 +15,7 @@ import sys
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from templates3d import ROOT, TIMELINE, variant  # noqa: E402
+from templates3d import ROOT, TIMELINE, replay_timeline, variant  # noqa: E402
 import json  # noqa: E402
 
 FIXTURES = "test/fixtures/3d/valuation/"
@@ -45,19 +45,19 @@ VARIANTS = {
         "example": FIXTURES + "revenue-surface.data.json",
         "reading": "revenue as a surface over fiscal year and outcome quantile, "
                    "the cone widening with the horizon and the median traced; "
-                   "it grows year by year",
+                   "it grows year by year from its first third (at least 8 years)",
         "graphics": {
             "mark": "fc-revenue3d",
             "encoding": {"x": {"field": "year"}, "z": {"field": "quantile"},
-                         "y": {"field": "revenue"},
-                         "time": {"field": "year", "mode": "cumulative", "step": 0.4}},
+                         "y": {"field": "revenue"}},
+            "replay": "year",
             "trace": 0.5,
             "front": True,
             "low_color": "#2c3e7a",
             "high_color": "#ffb74d",
             "height": 6,
             "camera": {"yaw": -55, "pitch": 24, "zoom": 1.15},
-            "timeline": TIMELINE,
+            "timeline": replay_timeline(4),
         },
     },
     "kelly-surface": {

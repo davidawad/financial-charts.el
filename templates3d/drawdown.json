@@ -67,7 +67,7 @@
         }
       ]
     },
-    "doc": "3D variant of financial-chart's drawdown (graphics.el, mark fc-drawdown3d): the underwater curve as a slab hanging below the high-water line, seen from below; replays point by point.  2D: Running percent decline from the high-water mark of a value series; the maximum drawdown is marked.",
+    "doc": "3D variant of financial-chart's drawdown (graphics.el, mark fc-drawdown3d): the underwater curve as a slab hanging below the high-water line, seen from below; replays from its first third point by point.  2D: Running percent decline from the high-water mark of a value series; the maximum drawdown is marked.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -106,16 +106,12 @@
         },
         "y": {
           "field": "y"
-        },
-        "time": {
-          "field": "x",
-          "mode": "cumulative",
-          "step": 0.15
         }
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 8
       }
     }
   },

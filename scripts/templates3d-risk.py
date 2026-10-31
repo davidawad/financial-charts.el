@@ -24,6 +24,12 @@ def time(field, step, mode="cumulative"):
     return {"field": field, "mode": mode, "step": step}
 
 
+# A replay the mark draws from its "replay" field (financial-chart-3d--replay):
+# every frame spans all the rows, those to come a dim ghost.
+def replay_timeline(duration):
+    return {"loop": True, "autoplay": True, "duration": duration}
+
+
 def tooltip(*fields):
     return [dict(f) for f in fields]
 
@@ -114,13 +120,14 @@ TEMPLATES = {
             },
         }),
         "reading": "one ribbon per asset, its height that asset's share of portfolio "
-                   "volatility; replays date by date",
+                   "volatility; replays date by date from its first third, the dates to come a "
+                   "dim ghost",
         "graphics": {
             "mark": "fc-risk-ribbons3d",
-            "encoding": {"x": {"field": "date"}, "z": {"field": "asset"}, "y": {"field": "contribution"},
-                         "time": time("date", 0.25)},
+            "encoding": {"x": {"field": "date"}, "z": {"field": "asset"}, "y": {"field": "contribution"}},
+            "replay": "date",
             "camera": {"yaw": 40, "pitch": 30, "zoom": 1.2},
-            "timeline": TIMELINE,
+            "timeline": replay_timeline(6),
         },
     },
     "risk-factor-exposure": {
@@ -148,13 +155,14 @@ TEMPLATES = {
             ],
         }),
         "reading": "one ribbon per factor around a zero plane, long exposures standing "
-                   "above it and short ones hanging below; replays date by date",
+                   "above it and short ones hanging below; replays date by date from its "
+                   "first third, the dates to come a dim ghost",
         "graphics": {
             "mark": "fc-risk-ribbons3d",
-            "encoding": {"x": {"field": "date"}, "z": {"field": "factor"}, "y": {"field": "beta"},
-                         "time": time("date", 0.25)},
+            "encoding": {"x": {"field": "date"}, "z": {"field": "factor"}, "y": {"field": "beta"}},
+            "replay": "date",
             "camera": {"yaw": 40, "pitch": 30, "zoom": 1.2},
-            "timeline": TIMELINE,
+            "timeline": replay_timeline(6),
         },
     },
     "risk-stress": {
@@ -214,15 +222,15 @@ TEMPLATES = {
         }),
         "reading": "one slab per strategy hanging below its own high-water line, a "
                    "ridgeline as deep as each drawdown, the worst point of each marked; "
-                   "replays week by week",
+                   "replays week by week from its first third, the weeks to come a dim ghost",
         "graphics": {
             "mark": "fc-risk-ribbons3d",
-            "encoding": {"x": {"field": "date"}, "z": {"field": "strategy"}, "y": {"field": "equity"},
-                         "time": time("date", 0.08)},
+            "encoding": {"x": {"field": "date"}, "z": {"field": "strategy"}, "y": {"field": "equity"}},
+            "replay": "date",
             "transform": "underwater",
             "stack": 0.9,
             "camera": {"yaw": 30, "pitch": 22, "zoom": 1.2},
-            "timeline": TIMELINE,
+            "timeline": replay_timeline(8),
         },
     },
     "risk-return-distribution": {
@@ -252,17 +260,17 @@ TEMPLATES = {
         }),
         "reading": "one histogram per horizon in lanes from front to back on shared "
                    "return bins, loss bins red and gain bins green, each lane's 95% VaR "
-                   "ruled across it; builds horizon by horizon",
+                   "ruled across it",
         "graphics": {
             "mark": "fc-risk-histogram3d",
             "bins": {"x-eas:slot": "bins"},
             "level": 0.95,
-            "encoding": {"x": {"field": "return"}, "z": {"field": "horizon"},
-                         "time": time("horizon", 0.7)},
+            "encoding": {"x": {"field": "return"}, "z": {"field": "horizon"}},
+            "replay": "horizon",
             "spacing": 3,
             "height": 2.4,
             "camera": {"yaw": 8, "pitch": 45, "zoom": 1.3},
-            "timeline": TIMELINE,
+            "timeline": replay_timeline(3),
         },
     },
     "risk-frontier": {
@@ -288,13 +296,14 @@ TEMPLATES = {
         }),
         "reading": "the frontiers as one surface of return over volatility (across) "
                    "and date (back), coloured by Sharpe, each date's maximum-Sharpe "
-                   "portfolio marked; grows date by date",
+                   "portfolio marked",
         "graphics": {
             "mark": "fc-risk-frontier3d",
             "encoding": {"x": {"field": "vol"}, "y": {"field": "ret"}, "z": {"field": "date"},
-                         "color": {"field": "sharpe"}, "time": time("date", 0.6)},
+                         "color": {"field": "sharpe"}},
+            "replay": "date",
             "camera": {"yaw": -35, "pitch": 28, "zoom": 1.12},
-            "timeline": TIMELINE,
+            "timeline": replay_timeline(5),
         },
     },
 }

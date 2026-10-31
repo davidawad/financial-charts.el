@@ -3,7 +3,7 @@
   "x-eas": {
     "template": "risk-contribution",
     "version": "1.0.0",
-    "doc": "3D variant of financial-chart's risk-contribution (graphics.el, mark fc-risk-ribbons3d): one ribbon per asset, its height that asset's share of portfolio volatility; replays date by date.  2D: Risk contribution over time: each asset's share of portfolio volatility, stacked to 100%.",
+    "doc": "3D variant of financial-chart's risk-contribution (graphics.el, mark fc-risk-ribbons3d): one ribbon per asset, its height that asset's share of portfolio volatility; replays date by date from its first third, the dates to come a dim ghost.  2D: Risk contribution over time: each asset's share of portfolio volatility, stacked to 100%.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -41,13 +41,9 @@
         },
         "y": {
           "field": "contribution"
-        },
-        "time": {
-          "field": "date",
-          "mode": "cumulative",
-          "step": 0.25
         }
       },
+      "replay": "date",
       "camera": {
         "yaw": 40,
         "pitch": 30,
@@ -55,7 +51,8 @@
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 6
       }
     }
   },

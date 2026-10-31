@@ -494,10 +494,14 @@ default [12 4.5]) and `height' (default 4)."
 
 ;;; Registration
 
+(defun financial-chart-3d-positioning--vrp-replay (graphics rows)
+  "The fc-vrp3d mark replayed day by day (`financial-chart-3d--replay')."
+  (financial-chart-3d--replay graphics rows "date" #'financial-chart-3d-positioning--vrp-mark))
+
 (defconst financial-chart-3d-positioning-marks
   '(("fc-strikes3d" . financial-chart-3d-positioning--strikes-mark)
     ("fc-skew3d" . financial-chart-3d-positioning--skew-mark)
-    ("fc-vrp3d" . financial-chart-3d-positioning--vrp-mark))
+    ("fc-vrp3d" . financial-chart-3d-positioning--vrp-replay))
   "The options-positioning 3D marks: (MARK . FUNCTION).")
 
 (defun financial-chart-3d-positioning--register-marks ()

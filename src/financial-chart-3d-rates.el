@@ -727,9 +727,13 @@ last column, set apart, is each holding's whole duration."
 
 ;;; Registration
 
+(defun financial-chart-3d-rates--term-replay (graphics rows)
+  "The term surface replayed date by date (`financial-chart-3d--replay')."
+  (financial-chart-3d--replay graphics rows nil #'financial-chart-3d-rates--term-surface))
+
 (defconst financial-chart-3d-rates-marks
-  '(("fc-yield-curve3d" . financial-chart-3d-rates--term-surface)
-    ("fc-cds-term3d" . financial-chart-3d-rates--term-surface)
+  '(("fc-yield-curve3d" . financial-chart-3d-rates--term-replay)
+    ("fc-cds-term3d" . financial-chart-3d-rates--term-replay)
     ("fc-credit3d" . financial-chart-3d-rates--credit-mark)
     ("fc-krd3d" . financial-chart-3d-rates--krd-mark))
   "The rates and credit 3D marks: (MARK . FUNCTION).")

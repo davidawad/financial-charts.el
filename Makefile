@@ -31,7 +31,7 @@ clean:
 # and the eas.el revision its Makefile pins (EAS_REV): `make deps-3d'
 # clones both into test/deps/ (git@gitlab.com, read access to
 # davidawad/graphics-el and davidawad/eas-el) and builds graphics.el's
-# Rust module.  `make test-3d' runs test/financial-chart-3d-test.el
+# Rust module.  `make test-3d' runs every test/financial-chart-3d*-test.el
 # against them; `make golden-3d' rewrites test/golden/3d/ and docs/3d.md.
 GRAPHICS_REPO ?= git@gitlab.com:davidawad/graphics-el.git
 GRAPHICS_REV ?= 6474ca449d7465c3adfdc487ee697638f7700f47

@@ -27,7 +27,7 @@
         }
       ]
     },
-    "doc": "3D variant of financial-chart's greeks-surface (graphics.el, mark fc-greeks3d): the greek as a surface over spot and days to expiry, the slice at the current spot traced; replays toward expiry.  2D: One option greek across spot, a curve per days to expiry: how delta, gamma, vega, theta, vanna or charm reshape as expiry nears.",
+    "doc": "3D variant of financial-chart's greeks-surface (graphics.el, mark fc-greeks3d): the greek as a surface over spot and days to expiry, the slice at the current spot traced; a bright trace sweeps it toward expiry.  2D: One option greek across spot, a curve per days to expiry: how delta, gamma, vega, theta, vanna or charm reshape as expiry nears.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -66,13 +66,7 @@
       "mark": "fc-greeks3d",
       "camera": {
         "yaw": -35,
-        "pitch": 16,
-        "zoom": 1.35,
-        "target": [
-          -0.4,
-          0.8,
-          0
-        ]
+        "pitch": 16
       },
       "spot": {
         "x-eas:slot": "spot"
@@ -88,16 +82,12 @@
           "field": {
             "x-eas:slot": "greek"
           }
-        },
-        "time": {
-          "field": "day",
-          "mode": "cumulative",
-          "step": 0.6
         }
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 5
       }
     }
   },

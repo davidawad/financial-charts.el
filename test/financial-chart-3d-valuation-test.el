@@ -50,9 +50,11 @@
     (should (member name (financial-chart-3d-variants)))
     (should (eas-template-get name))
     (should (member (plist-get (financial-chart-3d-valuation-test--graphics name) :mark) (graphics-eas-all-marks))))
-  (dolist (mark '("fc-dcf3d" "fc-revenue3d" "fc-kelly3d"))
+  (dolist (mark '("fc-dcf3d" "fc-kelly3d"))
     (should (eq (alist-get mark graphics-eas-mark-functions nil nil #'equal)
-                'financial-chart-3d-valuation--surface-mark))))
+                'financial-chart-3d-valuation--surface-mark)))
+  (should (eq (alist-get "fc-revenue3d" graphics-eas-mark-functions nil nil #'equal)
+              'financial-chart-3d-valuation--revenue-mark)))
 
 (ert-deftest financial-chart-3d-valuation-2d-fallbacks ()
   ;; The 2D templates draw their fixtures; the DCF draws the latest
@@ -211,12 +213,14 @@
 ;;; Replays
 
 (ert-deftest financial-chart-3d-valuation-replays ()
-  (dolist (case '(("dcf-sensitivity" 4) ("revenue-surface" 8)))
+  ;; The DCF's snapshots are keyframes; revenue replays year by year.
+  (dolist (case '(("dcf-sensitivity" 4) ("revenue-surface" nil)))
     (let ((view (financial-chart-3d-open (car case) :id (concat "fc3d-valuation-test:" (car case)))))
       (unwind-protect
           (let ((timeline (graphics-eas-timeline view)))
             (should timeline)
-            (should (= (plist-get timeline :keyframes) (cadr case)))
+            (if (cadr case) (should (= (plist-get timeline :keyframes) (cadr case)))
+              (should (> (plist-get timeline :duration) 0)))
             (graphics-eas-timeline-set view :seconds 0.0 :playing nil)
             (let ((start (graphics-eas-frame view 60 24)))
               (financial-chart-3d-seek-end view)

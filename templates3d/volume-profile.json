@@ -82,7 +82,7 @@
         }
       ]
     },
-    "doc": "3D variant of financial-chart's volume-profile (graphics.el, mark fc-volume-profile3d): horizontal volume-at-price bars beside the candles, point of control bright; the profile builds as the bars replay.  2D: Estimated traded volume by price level from OHLCV bars (each bar's volume spread over its low-high range), point of control and last close marked.",
+    "doc": "3D variant of financial-chart's volume-profile (graphics.el, mark fc-volume-profile3d): horizontal volume-at-price bars beside the candles, point of control bright; the profile builds as the bars replay from their first third.  2D: Estimated traded volume by price level from OHLCV bars (each bar's volume spread over its low-high range), point of control and last close marked.",
     "slots": {
       "title": {
         "type": "string",
@@ -117,16 +117,12 @@
       "encoding": {
         "x": {
           "field": "time"
-        },
-        "time": {
-          "field": "time",
-          "mode": "cumulative",
-          "step": 0.15
         }
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 8
       }
     }
   },

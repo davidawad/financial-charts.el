@@ -27,7 +27,7 @@
         }
       ]
     },
-    "doc": "3D variant of financial-chart's position-pnl-surface (graphics.el, mark fc-pnl3d): P/L surface over spot and days to expiry with the expiry payoff as its front edge; decays day by day toward it.  2D: A multi-leg option position's P/L across spot, a curve per days to expiry down to the expiry payoff: theta decay as the curves converge on it.",
+    "doc": "3D variant of financial-chart's position-pnl-surface (graphics.el, mark fc-pnl3d): P/L surface over spot and days to expiry with the expiry payoff as its front edge; a bright trace sweeps it day by day toward it.  2D: A multi-leg option position's P/L across spot, a curve per days to expiry down to the expiry payoff: theta decay as the curves converge on it.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -59,13 +59,7 @@
       "mark": "fc-pnl3d",
       "camera": {
         "yaw": -35,
-        "pitch": 16,
-        "zoom": 1.35,
-        "target": [
-          -0.4,
-          1.0,
-          0
-        ]
+        "pitch": 16
       },
       "spot": {
         "x-eas:slot": "spot"
@@ -79,16 +73,12 @@
         },
         "y": {
           "field": "pnl"
-        },
-        "time": {
-          "field": "day",
-          "mode": "cumulative",
-          "step": 0.6
         }
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 6
       }
     }
   },

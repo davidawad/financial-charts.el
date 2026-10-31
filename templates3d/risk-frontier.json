@@ -3,7 +3,7 @@
   "x-eas": {
     "template": "risk-frontier",
     "version": "1.0.0",
-    "doc": "3D variant of financial-chart's risk-frontier (graphics.el, mark fc-risk-frontier3d): the frontiers as one surface of return over volatility (across) and date (back), coloured by Sharpe, each date's maximum-Sharpe portfolio marked; grows date by date.  2D: Efficient frontiers: return against volatility, one curve per date.",
+    "doc": "3D variant of financial-chart's risk-frontier (graphics.el, mark fc-risk-frontier3d): the frontiers as one surface of return over volatility (across) and date (back), coloured by Sharpe, each date's maximum-Sharpe portfolio marked.  2D: Efficient frontiers: return against volatility, one curve per date.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -36,13 +36,9 @@
         },
         "color": {
           "field": "sharpe"
-        },
-        "time": {
-          "field": "date",
-          "mode": "cumulative",
-          "step": 0.6
         }
       },
+      "replay": "date",
       "camera": {
         "yaw": -35,
         "pitch": 28,
@@ -50,7 +46,8 @@
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 5
       }
     }
   },

@@ -74,7 +74,7 @@
         }
       ]
     },
-    "doc": "3D variant of financial-chart's options-vrp (graphics.el, mark fc-vrp3d): implied and realized volatility as the two edges of one ribbon over time, filled green where implied is rich and red where realized overtakes it, IV rank as bars behind and the front/back IV ratio in front; replays day by day.  2D: Implied against realized volatility over time; the gap between them is the variance risk premium, green when implied is rich.",
+    "doc": "3D variant of financial-chart's options-vrp (graphics.el, mark fc-vrp3d): implied and realized volatility as the two edges of one ribbon over time, filled green where implied is rich and red where realized overtakes it, IV rank as bars behind and the front/back IV ratio in front; replays from its first third day by day.  2D: Implied against realized volatility over time; the gap between them is the variance risk premium, green when implied is rich.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -98,16 +98,13 @@
       "encoding": {
         "x": {
           "field": "date"
-        },
-        "time": {
-          "field": "date",
-          "mode": "cumulative",
-          "step": 0.12
         }
       },
+      "replay": "date",
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 6
       },
       "camera": {
         "yaw": -25,

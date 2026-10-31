@@ -3,7 +3,7 @@
   "x-eas": {
     "template": "risk-factor-exposure",
     "version": "1.0.0",
-    "doc": "3D variant of financial-chart's risk-factor-exposure (graphics.el, mark fc-risk-ribbons3d): one ribbon per factor around a zero plane, long exposures standing above it and short ones hanging below; replays date by date.  2D: Factor exposures over time: each factor's rolling regression beta, with a zero line.",
+    "doc": "3D variant of financial-chart's risk-factor-exposure (graphics.el, mark fc-risk-ribbons3d): one ribbon per factor around a zero plane, long exposures standing above it and short ones hanging below; replays date by date from its first third, the dates to come a dim ghost.  2D: Factor exposures over time: each factor's rolling regression beta, with a zero line.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -41,13 +41,9 @@
         },
         "y": {
           "field": "beta"
-        },
-        "time": {
-          "field": "date",
-          "mode": "cumulative",
-          "step": 0.25
         }
       },
+      "replay": "date",
       "camera": {
         "yaw": 40,
         "pitch": 30,
@@ -55,7 +51,8 @@
       },
       "timeline": {
         "loop": true,
-        "autoplay": true
+        "autoplay": true,
+        "duration": 6
       }
     }
   },

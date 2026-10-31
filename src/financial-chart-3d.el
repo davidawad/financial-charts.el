@@ -659,6 +659,7 @@ graphics.el's bar3d, gains green and losses red."
 (when (featurep 'graphics-eas-marks)
   (financial-chart-3d--register-marks))
 (require 'financial-chart-3d-vol-surface)
+(with-eval-after-load 'financial-chart-3d (require 'financial-chart-3d-valuation))
 
 ;;; Opening variants
 

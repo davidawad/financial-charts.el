@@ -3,8 +3,8 @@
 Four charts of options positioning, each a 2D template in
 `templates/financial/` (what eas draws when graphics.el is absent) and
 its 3D variant in `templates3d/` (`fc3d/NAME`, drawn by graphics.el).
-`src/financial-chart-3d-options.el` registers their marks;
-`scripts/templates3d-options.py` writes both templates. Their goldens
+`src/financial-chart-3d-positioning.el` registers their marks;
+`scripts/templates3d-positioning.py` writes both templates. Their goldens
 are in [3d.md](3d.md).
 
 | chart | metrics | 3D mark | replay |
@@ -51,7 +51,7 @@ Slots:
 - Max pain is the strike, of those the expiry lists, minimising what its
   options pay holders at expiry: the sum over strikes K of
   `call_oi * max(0, S - K) + put_oi * max(0, K - S)`, least at S; ties go
-  to the lower strike (`financial-chart-3d-options-max-pain`). The
+  to the lower strike (`financial-chart-3d-positioning-max-pain`). The
   fixture's `max_pain` rows are exactly what its chain gives (590, 580,
   580, 585), which the tests check.
 
@@ -80,7 +80,7 @@ strikes as gold triangles on the zero line.
 - The gamma flip is where net gamma by strike (summed over expiries,
   `|call| - |put|`) changes sign between neighbouring strikes,
   interpolated linearly; of several, the one nearest spot
-  (`financial-chart-3d-options-gamma-flip`). The template computes it
+  (`financial-chart-3d-positioning-gamma-flip`). The template computes it
   (`"flip": true` in its `x-eas.graphics`; the mark also takes a price
   there). In the fixture it is 582.29, below spot: positive gamma.
 
@@ -123,7 +123,7 @@ scale spans all snapshots, so the replay grows ribbons in place.
 - `date`: ISO date, one row per day (oldest first). `iv`: 30-day ATM
   implied volatility, percent. `rv`: 20-day realized volatility,
   percent (`stats.realized_vol`). `vrp`: `iv - rv`, optional (the
-  ribbon is drawn from `iv` and `rv`; `financial-chart-3d-options-vrp-rows`
+  ribbon is drawn from `iv` and `rv`; `financial-chart-3d-positioning-vrp-rows`
   adds it to rows without one, for the 2D tooltip). `iv_rank`: 0 to 100
   (`opt.iv_rank`), optional. `calendar_ratio`: front over back implied
   volatility (`opt.calendar_iv_ratio`, above 1 is backwardation),

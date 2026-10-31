@@ -4,11 +4,11 @@
 Each chart is a 2D template in templates/financial/ (what eas draws
 when graphics.el is absent) and its 3D variant in templates3d/: the
 same body plus an x-eas.graphics naming a mark that
-src/financial-chart-3d-options.el registers.  The examples are the
+src/financial-chart-3d-positioning.el registers.  The examples are the
 fixtures in test/fixtures/3d/options/; the data contracts are in
-docs/3d-options.md.
+docs/3d-positioning.md.
 
-    python3 scripts/templates3d-options.py
+    python3 scripts/templates3d-positioning.py
 
 financial-chart-3d-test.el checks that every variant's body equals its
 template's, so a change here means running this again.

@@ -1,4 +1,4 @@
-;;; financial-chart-3d-options.el --- 3D options positioning: OI, GEX, skew and VRP -*- lexical-binding: t; -*-
+;;; financial-chart-3d-positioning.el --- 3D options positioning: OI, GEX, skew and VRP -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026 David Awad
 
@@ -28,7 +28,7 @@
 ;;                 it; replays
 ;;
 ;; This package never fetches data: each template takes the rows the
-;; named invest-metrics metric emits (docs/3d-options.md, the data
+;; named invest-metrics metric emits (docs/3d-positioning.md, the data
 ;; contracts).  The marks are registered with graphics.el when it loads
 ;; (`graphics-eas-define-mark'), as financial-chart-3d.el registers its
 ;; own:
@@ -47,25 +47,25 @@
 
 (declare-function graphics-eas-define-mark "graphics-eas-marks" (mark function))
 
-(defconst financial-chart-3d-options-call-color "#26a69a" "Calls and call gamma.")
-(defconst financial-chart-3d-options-put-color "#ef5350" "Puts and put gamma.")
-(defconst financial-chart-3d-options-spot-color "#ffffff" "The spot plane.")
-(defconst financial-chart-3d-options-flip-color "#b279a2" "The gamma-flip plane.")
-(defconst financial-chart-3d-options-max-pain-color "#ffb74d" "Max-pain posts.")
-(defconst financial-chart-3d-options-grid-color "#344769" "Floor lines.")
+(defconst financial-chart-3d-positioning-call-color "#26a69a" "Calls and call gamma.")
+(defconst financial-chart-3d-positioning-put-color "#ef5350" "Puts and put gamma.")
+(defconst financial-chart-3d-positioning-spot-color "#ffffff" "The spot plane.")
+(defconst financial-chart-3d-positioning-flip-color "#b279a2" "The gamma-flip plane.")
+(defconst financial-chart-3d-positioning-max-pain-color "#ffb74d" "Max-pain posts.")
+(defconst financial-chart-3d-positioning-grid-color "#344769" "Floor lines.")
 
 ;;; Pure helpers
 
-(defun financial-chart-3d-options--number (row key)
+(defun financial-chart-3d-positioning--number (row key)
   "ROW's number at KEY as a float, or nil."
   (let ((v (financial-chart-3d--value row key)))
     (and (numberp v) (float v))))
 
-(defun financial-chart-3d-options--numbers (rows key)
+(defun financial-chart-3d-positioning--numbers (rows key)
   "The numbers at KEY of ROWS."
-  (delq nil (mapcar (lambda (r) (financial-chart-3d-options--number r key)) rows)))
+  (delq nil (mapcar (lambda (r) (financial-chart-3d-positioning--number r key)) rows)))
 
-(defun financial-chart-3d-options-max-pain (rows &optional strike-key expiry-key call-key put-key)
+(defun financial-chart-3d-positioning-max-pain (rows &optional strike-key expiry-key call-key put-key)
   "Max-pain strike of each expiry of open-interest ROWS.
 ROWS are {expiry, strike, call_oi, put_oi} (STRIKE-KEY, EXPIRY-KEY,
 CALL-KEY and PUT-KEY name other fields).  Max pain is the strike, of
@@ -80,14 +80,14 @@ strike.  Rows (:expiry E :max_pain K), expiries in first-seen order."
           (mapcar
            (lambda (expiry)
              (let* ((chain (seq-filter (lambda (r) (and (equal (financial-chart-3d--value r ek) expiry)
-                                                        (financial-chart-3d-options--number r sk)))
+                                                        (financial-chart-3d-positioning--number r sk)))
                                        rows))
-                    (strikes (sort (delete-dups (financial-chart-3d-options--numbers chain sk)) #'<))
+                    (strikes (sort (delete-dups (financial-chart-3d-positioning--numbers chain sk)) #'<))
                     (pain (lambda (s)
                             (cl-loop for r in chain
-                                     for k = (financial-chart-3d-options--number r sk)
-                                     sum (+ (* (or (financial-chart-3d-options--number r ck) 0) (max 0 (- s k)))
-                                            (* (or (financial-chart-3d-options--number r pk) 0) (max 0 (- k s))))))))
+                                     for k = (financial-chart-3d-positioning--number r sk)
+                                     sum (+ (* (or (financial-chart-3d-positioning--number r ck) 0) (max 0 (- s k)))
+                                            (* (or (financial-chart-3d-positioning--number r pk) 0) (max 0 (- k s))))))))
                (when strikes
                  (let ((best (car strikes)) (least (funcall pain (car strikes))))
                    (dolist (s (cdr strikes))
@@ -96,28 +96,28 @@ strike.  Rows (:expiry E :max_pain K), expiries in first-seen order."
                    (list :expiry expiry :max_pain (if (= best (ftruncate best)) (truncate best) best))))))
            (financial-chart-3d--categories (mapcar (lambda (r) (financial-chart-3d--value r ek)) rows))))))
 
-(defun financial-chart-3d-options-net-by-strike (rows &optional strike-key up-key down-key)
+(defun financial-chart-3d-positioning-net-by-strike (rows &optional strike-key up-key down-key)
   "ROWS' net exposure by strike: ((STRIKE . NET) ...), strikes ascending.
 NET sums |UP-KEY| - |DOWN-KEY| (call_gex and put_gex by default) over
 the rows at the strike, every expiry together."
   (let ((sk (or strike-key :strike)) (uk (or up-key :call_gex)) (dk (or down-key :put_gex))
         (net nil))
     (dolist (r (financial-chart-3d--rows rows))
-      (when-let* ((k (financial-chart-3d-options--number r sk)))
+      (when-let* ((k (financial-chart-3d-positioning--number r sk)))
         (let ((cell (assoc k net)))
           (unless cell (setq cell (cons k 0.0)) (push cell net))
-          (setcdr cell (+ (cdr cell) (abs (or (financial-chart-3d-options--number r uk) 0))
-                          (- (abs (or (financial-chart-3d-options--number r dk) 0))))))))
+          (setcdr cell (+ (cdr cell) (abs (or (financial-chart-3d-positioning--number r uk) 0))
+                          (- (abs (or (financial-chart-3d-positioning--number r dk) 0))))))))
     (sort net (lambda (a b) (< (car a) (car b))))))
 
-(defun financial-chart-3d-options-gamma-flip (rows &optional spot strike-key up-key down-key)
+(defun financial-chart-3d-positioning-gamma-flip (rows &optional spot strike-key up-key down-key)
   "The gamma flip of GEX ROWS: where net gamma by strike changes sign.
-Net gamma by strike is `financial-chart-3d-options-net-by-strike'
+Net gamma by strike is `financial-chart-3d-positioning-net-by-strike'
 \(STRIKE-KEY, UP-KEY, DOWN-KEY); each sign change between neighbouring
 strikes is interpolated linearly, and the one nearest SPOT (the
 lowest without SPOT) is returned, rounded to 2 decimals.  nil when net
 gamma never changes sign."
-  (let* ((net (financial-chart-3d-options-net-by-strike rows strike-key up-key down-key))
+  (let* ((net (financial-chart-3d-positioning-net-by-strike rows strike-key up-key down-key))
          (flips (cl-loop for (a b) on net while b
                          for na = (cdr a) for nb = (cdr b)
                          when (or (and (< na 0) (> nb 0)) (and (> na 0) (< nb 0)))
@@ -129,7 +129,7 @@ gamma never changes sign."
                     (car flips))))
         (/ (fround (* best 100.0)) 100.0)))))
 
-(defun financial-chart-3d-options--place (keys value)
+(defun financial-chart-3d-positioning--place (keys value)
   "World x of numeric VALUE among sorted numeric KEYS placed at 0, 1, ...
 centred on 0: linear between neighbouring keys and along the end
 steps beyond them."
@@ -142,14 +142,14 @@ steps beyond them."
                                         when (<= (aref v i) value (aref v (1+ i))) return i)))))
                (- (+ i (/ (- value (aref v i)) (float (- (aref v (1+ i)) (aref v i))))) x0))))))
 
-(defun financial-chart-3d-options--ramp (from to u)
+(defun financial-chart-3d-positioning--ramp (from to u)
   "The colour U (0 to 1) of the way from colour FROM to TO."
   (let ((rgb (lambda (c) (mapcar (lambda (i) (string-to-number (substring c i (+ i 2)) 16)) '(1 3 5))))
         (u (max 0.0 (min 1.0 u))))
     (apply #'format "#%02x%02x%02x"
            (cl-mapcar (lambda (x y) (round (+ x (* u (- y x))))) (funcall rgb from) (funcall rgb to)))))
 
-(defun financial-chart-3d-options--frame (id x0 y0 z0 x1 y1 z1 color)
+(defun financial-chart-3d-positioning--frame (id x0 y0 z0 x1 y1 z1 color)
   "Segments ID outlining the rectangle from X0 Y0 Z0 to X1 Y1 Z1 in COLOR.
 The rectangle is in a plane of constant x (X0 = X1) or of constant y
 \(Y0 = Y1)."
@@ -163,15 +163,15 @@ The rectangle is in a plane of constant x (X0 = X1) or of constant y
 
 ;;; Strikes by expiry: OI and GEX
 
-(defun financial-chart-3d-options--strikes-mark (graphics rows)
+(defun financial-chart-3d-positioning--strikes-mark (graphics rows)
   "Primitives of the fc-strikes3d mark: GRAPHICS over strike ROWS.
 Channels x (strike), z (expiry), up (calls: call_oi, call_gex) and
 down (puts).  Each row is a column on the strike by expiry floor: |up|
 rises above it and |down| hangs below it, on one scale.  Options:
 `spot' (a plane through the strike axis), `flip' (t: the gamma flip,
-`financial-chart-3d-options-gamma-flip'; or a price), `max_pain' (rows
+`financial-chart-3d-positioning-gamma-flip'; or a price), `max_pain' (rows
 {expiry, max_pain}) or `max_pain_auto' (compute them,
-`financial-chart-3d-options-max-pain'), `height' (of the tallest
+`financial-chart-3d-positioning-max-pain'), `height' (of the tallest
 column, default 3), `band' (column width in strike steps, default
 0.5), `spacing' (between expiries, default 2.4) and `depth' (column
 depth, a fraction of the spacing, default 0.3)."
@@ -180,15 +180,15 @@ depth, a fraction of the spacing, default 0.3)."
          (uk (financial-chart-3d--field graphics "up" "call_oi"))
          (dk (financial-chart-3d--field graphics "down" "put_oi"))
          (dom (financial-chart-3d--domain rows))
-         (strikes (sort (delete-dups (financial-chart-3d-options--numbers dom xk)) #'<))
+         (strikes (sort (delete-dups (financial-chart-3d-positioning--numbers dom xk)) #'<))
          (expiries (financial-chart-3d--categories (mapcar (lambda (r) (financial-chart-3d--value r zk)) dom)))
          (nx (max 1 (length strikes))) (nz (max 1 (length expiries)))
          (x0 (/ (1- nx) 2.0))
          (gap (float (financial-chart-3d--opt graphics "spacing" 2.4)))
          (zc (/ (* gap (1- nz)) 2.0))
          (z-at (lambda (e) (- (* gap (or (cl-position e expiries :test #'equal) 0)) zc)))
-         (top (apply #'max 1e-9 (mapcar #'abs (append (financial-chart-3d-options--numbers dom uk)
-                                                       (financial-chart-3d-options--numbers dom dk)))))
+         (top (apply #'max 1e-9 (mapcar #'abs (append (financial-chart-3d-positioning--numbers dom uk)
+                                                       (financial-chart-3d-positioning--numbers dom dk)))))
          (height (float (financial-chart-3d--opt graphics "height" 3)))
          (scale (/ height top))
          (half (/ (financial-chart-3d--opt graphics "band" 0.5) 2.0))
@@ -199,20 +199,20 @@ depth, a fraction of the spacing, default 0.3)."
          (spot (let ((s (financial-chart-3d--opt graphics "spot"))) (and (numberp s) s)))
          (flip (let ((f (financial-chart-3d--opt graphics "flip")))
                  (cond ((numberp f) f)
-                       ((eq f t) (financial-chart-3d-options-gamma-flip
+                       ((eq f t) (financial-chart-3d-positioning-gamma-flip
                                   dom spot xk uk dk)))))
          (max-pain (let ((given (financial-chart-3d--opt graphics "max_pain")))
                      (cond ((and given (financial-chart-3d--rows given)))
                            ((eq (financial-chart-3d--opt graphics "max_pain_auto") t)
-                            (financial-chart-3d-options-max-pain dom xk zk uk dk)))))
+                            (financial-chart-3d-positioning-max-pain dom xk zk uk dk)))))
          boxes colors grid posts tops path)
     (dolist (row rows)
-      (let ((k (financial-chart-3d-options--number row xk)) (e (financial-chart-3d--value row zk)))
+      (let ((k (financial-chart-3d-positioning--number row xk)) (e (financial-chart-3d--value row zk)))
         (when (and k e)
-          (let ((x (financial-chart-3d-options--place strikes k)) (z (funcall z-at e)))
-            (cl-loop for (key sign color) in `((,uk 1 ,financial-chart-3d-options-call-color)
-                                               (,dk -1 ,financial-chart-3d-options-put-color))
-                     for v = (financial-chart-3d-options--number row key)
+          (let ((x (financial-chart-3d-positioning--place strikes k)) (z (funcall z-at e)))
+            (cl-loop for (key sign color) in `((,uk 1 ,financial-chart-3d-positioning-call-color)
+                                               (,dk -1 ,financial-chart-3d-positioning-put-color))
+                     for v = (financial-chart-3d-positioning--number row key)
                      when (and v (/= v 0))
                      do (let ((y (* sign scale (abs v))))
                           (push (vector (funcall r (- x half)) (funcall r (min 0 y)) (funcall r (- z zhalf))
@@ -224,9 +224,9 @@ depth, a fraction of the spacing, default 0.3)."
       (let ((z (funcall r (funcall z-at e))))
         (push (vector left 0 z right 0 z) grid)))
     (dolist (m max-pain)
-      (let ((k (financial-chart-3d-options--number m :max_pain)) (e (financial-chart-3d--value m :expiry)))
+      (let ((k (financial-chart-3d-positioning--number m :max_pain)) (e (financial-chart-3d--value m :expiry)))
         (when (and k (member e expiries))
-          (let* ((x (funcall r (financial-chart-3d-options--place strikes k)))
+          (let* ((x (funcall r (financial-chart-3d-positioning--place strikes k)))
                  (z (funcall r (funcall z-at e)))
                  (y (funcall r (* 1.18 height))) (c 0.16))
             (push (vector x 0 z x y z) posts)
@@ -239,34 +239,34 @@ depth, a fraction of the spacing, default 0.3)."
        (list (list :id "axes" :type "segments" :color "#d2ddeb"
                    :segments (vector (vector left 0 back right 0 back) (vector left 0 back left 0 front)
                                      (vector left (funcall r (- height)) back left (funcall r height) back)))
-             (financial-chart-3d-options--frame "floor" left 0 back right 0 front
-                                                financial-chart-3d-options-grid-color)
-             (list :id "lanes" :type "segments" :color financial-chart-3d-options-grid-color
+             (financial-chart-3d-positioning--frame "floor" left 0 back right 0 front
+                                                financial-chart-3d-positioning-grid-color)
+             (list :id "lanes" :type "segments" :color financial-chart-3d-positioning-grid-color
                    :segments (vconcat (nreverse grid)))
              (list :id "bars" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors))))
        (when spot
-         (let ((x (funcall r (financial-chart-3d-options--place strikes spot))))
-           (list (financial-chart-3d-options--frame "spot" x (- height) back x height front
-                                                    financial-chart-3d-options-spot-color))))
+         (let ((x (funcall r (financial-chart-3d-positioning--place strikes spot))))
+           (list (financial-chart-3d-positioning--frame "spot" x (- height) back x height front
+                                                    financial-chart-3d-positioning-spot-color))))
        (when flip
-         (let ((x (funcall r (financial-chart-3d-options--place strikes flip))))
-           (list (financial-chart-3d-options--frame "flip" x (- height) back x height front
-                                                    financial-chart-3d-options-flip-color))))
+         (let ((x (funcall r (financial-chart-3d-positioning--place strikes flip))))
+           (list (financial-chart-3d-positioning--frame "flip" x (- height) back x height front
+                                                    financial-chart-3d-positioning-flip-color))))
        (when posts
-         (list (list :id "max-pain" :type "segments" :color financial-chart-3d-options-max-pain-color
+         (list (list :id "max-pain" :type "segments" :color financial-chart-3d-positioning-max-pain-color
                      :segments (vconcat (nreverse posts)
                                         (cl-loop for (a b) on path while b collect (vconcat a b))))
                (list :id "max-pain-tops" :type "boxes" :boxes (vconcat (nreverse tops))
-                     :color financial-chart-3d-options-max-pain-color)))))))
+                     :color financial-chart-3d-positioning-max-pain-color)))))))
 
 ;;; Skew term structure over time
 
-(defun financial-chart-3d-options--sort-values (values)
+(defun financial-chart-3d-positioning--sort-values (values)
   "Distinct VALUES sorted: numbers ascending, else as strings (ISO dates)."
   (sort (financial-chart-3d--categories values)
         (lambda (a b) (if (and (numberp a) (numberp b)) (< a b) (string< (format "%s" a) (format "%s" b))))))
 
-(defun financial-chart-3d-options--skew-mark (graphics rows)
+(defun financial-chart-3d-positioning--skew-mark (graphics rows)
   "Primitives of the fc-skew3d mark: GRAPHICS over skew snapshot ROWS.
 Channels x (the snapshot's date, evenly spaced in order) and z (tenor,
 one lane each, shortest in front); `panels' names the value fields
@@ -283,8 +283,8 @@ width in lane steps, default 0.4)."
          (panels (mapcar #'financial-chart-3d--key
                          (append (financial-chart-3d--opt graphics "panels" ["rr25" "bf25"]) nil)))
          (dom (financial-chart-3d--domain rows))
-         (dates (financial-chart-3d-options--sort-values (mapcar (lambda (r) (financial-chart-3d--value r xk)) dom)))
-         (tenors (financial-chart-3d-options--sort-values (mapcar (lambda (r) (financial-chart-3d--value r zk)) dom)))
+         (dates (financial-chart-3d-positioning--sort-values (mapcar (lambda (r) (financial-chart-3d--value r xk)) dom)))
+         (tenors (financial-chart-3d-positioning--sort-values (mapcar (lambda (r) (financial-chart-3d--value r zk)) dom)))
          (extent (financial-chart-3d--opt graphics "extent" [12 5]))
          (w (/ (float (elt extent 0)) 2)) (d (/ (float (elt extent 1)) 2))
          (nd (length dates)) (nt (length tenors))
@@ -297,14 +297,14 @@ width in lane steps, default 0.4)."
          (height (float (financial-chart-3d--opt graphics "height" 2.4)))
          (gap (* 0.5 height))
          (np (length panels))
-         (newest (car (last (financial-chart-3d-options--sort-values
+         (newest (car (last (financial-chart-3d-positioning--sort-values
                              (mapcar (lambda (r) (financial-chart-3d--value r xk)) rows)))))
          (r #'financial-chart-3d--r3)
          (out nil))
     (cl-loop
      for field in panels for p from 0
      do (let* ((base (* (- np 1 p) (+ height gap)))
-               (values (financial-chart-3d-options--numbers dom field))
+               (values (financial-chart-3d-positioning--numbers dom field))
                (lo (apply #'min 0.0 values)) (hi (apply #'max 0.0 values))
                (span (if (> hi lo) (- hi lo) 1.0))
                (y-at (lambda (v) (funcall r (+ base (* height (/ (- v lo) span))))))
@@ -314,14 +314,14 @@ width in lane steps, default 0.4)."
           (dolist (tenor tenors)
             (let* ((points (sort (delq nil (mapcar (lambda (row)
                                                      (when-let* (((equal (financial-chart-3d--value row zk) tenor))
-                                                                 (v (financial-chart-3d-options--number row field))
+                                                                 (v (financial-chart-3d-positioning--number row field))
                                                                  (date (financial-chart-3d--value row xk)))
                                                        (list (funcall x-at date) (funcall y-at v) date)))
                                                    rows))
                                  (lambda (a b) (< (car a) (car b)))))
                    (z (funcall z-at tenor))
                    (u (if (> nt 1) (/ (cl-position tenor tenors :test #'equal) (float (1- nt))) 0.0))
-                   (color (financial-chart-3d-options--ramp "#f58518" "#4c78a8" u))
+                   (color (financial-chart-3d-positioning--ramp "#f58518" "#4c78a8" u))
                    (first n))
               (dolist (pt points)
                 (push (vector (funcall r (car pt)) (nth 1 pt) (funcall r (- z zhalf))) verts)
@@ -345,7 +345,7 @@ width in lane steps, default 0.4)."
                                                               (funcall r (- w)) (funcall r (+ base height)) (funcall r (- d)))
                                                       (vector (funcall r (- w)) (funcall r base) (funcall r (- d))
                                                               (funcall r w) (funcall r base) (funcall r (- d)))))
-                              (financial-chart-3d-options--frame (concat name "-zero") (funcall r (- w)) zero (funcall r (- d))
+                              (financial-chart-3d-positioning--frame (concat name "-zero") (funcall r (- w)) zero (funcall r (- d))
                                                                  (funcall r w) zero (funcall r d) "#8a94a6")
                               (list :id (concat name "-ribbons") :type "mesh" :vertices (vconcat (nreverse verts))
                                     :triangles (vconcat (nreverse tris)) :colors (vconcat (nreverse tri-colors)))
@@ -357,18 +357,18 @@ width in lane steps, default 0.4)."
 
 ;;; Implied against realized volatility
 
-(defun financial-chart-3d-options-vrp-rows (rows &optional iv-key rv-key)
+(defun financial-chart-3d-positioning-vrp-rows (rows &optional iv-key rv-key)
   "ROWS with :vrp, implied minus realized volatility, where missing.
 IV-KEY and RV-KEY name the fields (default iv and rv).  Rows without
 both numbers keep no :vrp."
   (let ((ik (or iv-key :iv)) (rk (or rv-key :rv)))
     (mapcar (lambda (r)
-              (let ((iv (financial-chart-3d-options--number r ik)) (rv (financial-chart-3d-options--number r rk)))
-                (if (or (financial-chart-3d-options--number r :vrp) (not (and iv rv))) r
+              (let ((iv (financial-chart-3d-positioning--number r ik)) (rv (financial-chart-3d-positioning--number r rk)))
+                (if (or (financial-chart-3d-positioning--number r :vrp) (not (and iv rv))) r
                   (append r (list :vrp (/ (fround (* 100 (- iv rv))) 100.0))))))
             (financial-chart-3d--rows rows))))
 
-(defun financial-chart-3d-options--vrp-mark (graphics rows)
+(defun financial-chart-3d-positioning--vrp-mark (graphics rows)
   "Primitives of the fc-vrp3d mark: GRAPHICS over daily volatility ROWS.
 Channel x is the date (evenly spaced, in order); fields `iv' and `rv'
 \(encoding channels iv and rv) are implied and realized volatility on
@@ -394,23 +394,23 @@ default [12 4.5]) and `height' (default 4)."
          (x-at (lambda (date) (let ((i (or (cl-position date dates :test #'equal) 0)))
                                 (if (> n 1) (- (* 2 w (/ i (float (1- n)))) w) 0.0))))
          (step (if (> n 1) (/ (* 2 w) (1- n)) 1.0))
-         (vols (append (financial-chart-3d-options--numbers dom ik) (financial-chart-3d-options--numbers dom rk)))
+         (vols (append (financial-chart-3d-positioning--numbers dom ik) (financial-chart-3d-positioning--numbers dom rk)))
          (vlo (if vols (apply #'min vols) 0.0)) (vhi (if vols (apply #'max vols) 1.0))
          (vlo (- vlo (* 0.15 (max 1e-9 (- vhi vlo)))))
          (vspan (if (> vhi vlo) (- vhi vlo) 1.0))
          (r #'financial-chart-3d--r3)
          (y-at (lambda (v) (funcall r (* height (/ (- v vlo) vspan)))))
-         (ratios (financial-chart-3d-options--numbers dom ck))
-         (has-rank (financial-chart-3d-options--numbers dom nk))
+         (ratios (financial-chart-3d-positioning--numbers dom ck))
+         (has-rank (financial-chart-3d-positioning--numbers dom nk))
          (z-main 0.0) (z-rank (- lane)) (z-ratio lane)
          (half (* 0.22 lane))
          (rows (seq-filter (lambda (row) (and (financial-chart-3d--value row xk)
-                                              (financial-chart-3d-options--number row ik)
-                                              (financial-chart-3d-options--number row rk)))
+                                              (financial-chart-3d-positioning--number row ik)
+                                              (financial-chart-3d-positioning--number row rk)))
                            rows))
          (points (sort (mapcar (lambda (row) (list (funcall x-at (financial-chart-3d--value row xk))
-                                                   (financial-chart-3d-options--number row ik)
-                                                   (financial-chart-3d-options--number row rk)))
+                                                   (financial-chart-3d-positioning--number row ik)
+                                                   (financial-chart-3d-positioning--number row rk)))
                                rows)
                        (lambda (a b) (< (car a) (car b)))))
          verts tris tri-colors (nv 0) iv-line rv-line rank-boxes rank-colors ratio-line ratio-colors)
@@ -426,7 +426,7 @@ default [12 4.5]) and `height' (default 4)."
                      (cl-loop for i from 1 below (1- k)
                               do (push (vector (+ first (* face k)) (+ first (* face k) i) (+ first (* face k) i 1)) tris)
                               (push color tri-colors))))))
-          (green financial-chart-3d-options-call-color) (red financial-chart-3d-options-put-color))
+          (green financial-chart-3d-positioning-call-color) (red financial-chart-3d-positioning-put-color))
       (cl-loop for (a b) on points while b
                do (pcase-let* ((`(,x0 ,i0 ,r0) a) (`(,x1 ,i1 ,r1) b)
                                (d0 (- i0 r0)) (d1 (- i1 r1)))
@@ -450,20 +450,20 @@ default [12 4.5]) and `height' (default 4)."
     ;; IV rank behind: a bar per day, up to half the height at rank 100.
     (when has-rank
       (dolist (row rows)
-        (when-let* ((rank (financial-chart-3d-options--number row nk)))
+        (when-let* ((rank (financial-chart-3d-positioning--number row nk)))
           (let ((x (funcall x-at (financial-chart-3d--value row xk))) (bh (* 0.3 step)))
             (push (vector (funcall r (- x bh)) 0 (funcall r (- z-rank half))
                           (funcall r (+ x bh)) (funcall r (max 0.01 (* 0.5 height (/ (min 100 (max 0 rank)) 100.0))))
                           (funcall r (+ z-rank half)))
                   rank-boxes)
-            (push (financial-chart-3d-options--ramp "#2c3e7a" "#ffb74d" (/ rank 100.0)) rank-colors)))))
+            (push (financial-chart-3d-positioning--ramp "#2c3e7a" "#ffb74d" (/ rank 100.0)) rank-colors)))))
     ;; The front/back ratio in front, on its own scale: 1.0 ruled.
     (when ratios
       (let* ((lo (min 1.0 (apply #'min ratios))) (hi (max 1.0 (apply #'max ratios)))
              (span (if (> hi lo) (- hi lo) 1.0))
              (ry (lambda (v) (funcall r (* 0.45 height (/ (- v lo) span)))))
              (pts (sort (delq nil (mapcar (lambda (row)
-                                            (when-let* ((v (financial-chart-3d-options--number row ck)))
+                                            (when-let* ((v (financial-chart-3d-positioning--number row ck)))
                                               (cons (funcall x-at (financial-chart-3d--value row xk)) v)))
                                           rows))
                         (lambda (a b) (< (car a) (car b))))))
@@ -471,7 +471,7 @@ default [12 4.5]) and `height' (default 4)."
                  do (push (vector (funcall r (car a)) (funcall ry (cdr a)) (funcall r z-ratio)
                                   (funcall r (car b)) (funcall ry (cdr b)) (funcall r z-ratio))
                           ratio-line)
-                 (push (if (> (+ (cdr a) (cdr b)) 2.0) financial-chart-3d-options-put-color "#9ecae9") ratio-colors))
+                 (push (if (> (+ (cdr a) (cdr b)) 2.0) financial-chart-3d-positioning-put-color "#9ecae9") ratio-colors))
         (push (vector (funcall r (- w)) (funcall ry 1.0) (funcall r z-ratio) (funcall r w) (funcall ry 1.0) (funcall r z-ratio))
               ratio-line)
         (push "#8a94a6" ratio-colors)))
@@ -494,21 +494,21 @@ default [12 4.5]) and `height' (default 4)."
 
 ;;; Registration
 
-(defconst financial-chart-3d-options-marks
-  '(("fc-strikes3d" . financial-chart-3d-options--strikes-mark)
-    ("fc-skew3d" . financial-chart-3d-options--skew-mark)
-    ("fc-vrp3d" . financial-chart-3d-options--vrp-mark))
+(defconst financial-chart-3d-positioning-marks
+  '(("fc-strikes3d" . financial-chart-3d-positioning--strikes-mark)
+    ("fc-skew3d" . financial-chart-3d-positioning--skew-mark)
+    ("fc-vrp3d" . financial-chart-3d-positioning--vrp-mark))
   "The options-positioning 3D marks: (MARK . FUNCTION).")
 
-(defun financial-chart-3d-options--register-marks ()
-  "Register `financial-chart-3d-options-marks' with graphics.el."
-  (dolist (m financial-chart-3d-options-marks)
+(defun financial-chart-3d-positioning--register-marks ()
+  "Register `financial-chart-3d-positioning-marks' with graphics.el."
+  (dolist (m financial-chart-3d-positioning-marks)
     (graphics-eas-define-mark (car m) (cdr m))))
 
 ;; graphics.el loaded already: register now; else when a 3D command
 ;; loads it.
 (with-eval-after-load 'graphics-eas-marks
-  (financial-chart-3d-options--register-marks))
+  (financial-chart-3d-positioning--register-marks))
 
-(provide 'financial-chart-3d-options)
-;;; financial-chart-3d-options.el ends here
+(provide 'financial-chart-3d-positioning)
+;;; financial-chart-3d-positioning.el ends here

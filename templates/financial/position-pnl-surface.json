@@ -1,0 +1,193 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "position-pnl-surface",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "fields",
+          "props": {
+            "source": "auto"
+          }
+        }
+      ]
+    },
+    "doc": "A multi-leg option position's P/L across spot, a curve per days to expiry down to the expiry payoff: theta decay as the curves converge on it.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {spot, dte, day, pnl}: invest metric opt.payoff_grid (docs/3d-options.md), furthest dte first, dte 0 the expiry payoff"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "A multi-leg option position's P/L across spot, a curve per days to expiry down to the expiry payoff: theta decay as the curves converge on it.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "y_title": {
+        "type": "string",
+        "default": "P/L",
+        "doc": "y-axis title"
+      },
+      "spot": {
+        "type": "number",
+        "doc": "the underlying's price now: a rule across the chart (omit for none)"
+      }
+    },
+    "example": "../examples/3d/position-pnl-surface.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "layer": [
+    {
+      "name": "zero",
+      "data": {
+        "values": [
+          {
+            "level": 0
+          }
+        ]
+      },
+      "mark": {
+        "type": "rule",
+        "color": "gray",
+        "strokeDash": [
+          2,
+          2
+        ]
+      },
+      "encoding": {
+        "y": {
+          "field": "level",
+          "type": "quantitative"
+        }
+      }
+    },
+    {
+      "name": "curves",
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "spot",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "spot"
+        },
+        "y": {
+          "field": "pnl",
+          "type": "quantitative",
+          "title": {
+            "x-eas:slot": "y_title"
+          }
+        },
+        "color": {
+          "field": "dte",
+          "type": "nominal",
+          "sort": null,
+          "title": "DTE"
+        },
+        "tooltip": [
+          {
+            "field": "dte",
+            "type": "quantitative",
+            "title": "DTE"
+          },
+          {
+            "field": "spot",
+            "type": "quantitative"
+          },
+          {
+            "field": "pnl",
+            "type": "quantitative",
+            "title": {
+              "x-eas:slot": "y_title"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "expiry",
+      "transform": [
+        {
+          "filter": "datum.dte == 0"
+        }
+      ],
+      "mark": {
+        "type": "line",
+        "color": "#4c78a8",
+        "strokeWidth": 2.5
+      },
+      "encoding": {
+        "x": {
+          "field": "spot",
+          "type": "quantitative"
+        },
+        "y": {
+          "field": "pnl",
+          "type": "quantitative"
+        }
+      }
+    },
+    {
+      "x-eas:when": "spot",
+      "spec": {
+        "name": "spot",
+        "data": {
+          "values": [
+            {
+              "spot": {
+                "x-eas:slot": "spot"
+              }
+            }
+          ]
+        },
+        "mark": {
+          "type": "rule",
+          "color": "#ffb74d",
+          "strokeDash": [
+            4,
+            2
+          ]
+        },
+        "encoding": {
+          "x": {
+            "field": "spot",
+            "type": "quantitative",
+            "title": "spot"
+          }
+        }
+      }
+    }
+  ]
+}

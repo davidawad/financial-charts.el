@@ -1,0 +1,181 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "greeks-surface",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "fields",
+          "props": {
+            "source": "auto"
+          }
+        }
+      ]
+    },
+    "doc": "One option greek across spot, a curve per days to expiry: how delta, gamma, vega, theta, vanna or charm reshape as expiry nears.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {spot, dte, day, delta, gamma, vega, theta, vanna, charm}: invest metric opt.greeks_grid (docs/3d-options.md), furthest dte first"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "One option greek across spot, a curve per days to expiry: how delta, gamma, vega, theta, vanna or charm reshape as expiry nears.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "greek": {
+        "enum": [
+          "delta",
+          "gamma",
+          "vega",
+          "theta",
+          "vanna",
+          "charm"
+        ],
+        "default": "gamma",
+        "doc": "the greek drawn: delta, gamma, vega (per vol point), theta (per day), vanna (delta per vol point) or charm (delta per day)"
+      },
+      "spot": {
+        "type": "number",
+        "doc": "the underlying's price now: a rule across the chart (omit for none)"
+      }
+    },
+    "example": "../examples/3d/greeks-surface.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "layer": [
+    {
+      "name": "zero",
+      "data": {
+        "values": [
+          {
+            "level": 0
+          }
+        ]
+      },
+      "mark": {
+        "type": "rule",
+        "color": "gray",
+        "strokeDash": [
+          2,
+          2
+        ]
+      },
+      "encoding": {
+        "y": {
+          "field": "level",
+          "type": "quantitative"
+        }
+      }
+    },
+    {
+      "name": "curves",
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "spot",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "spot"
+        },
+        "y": {
+          "field": {
+            "x-eas:slot": "greek"
+          },
+          "type": "quantitative",
+          "title": {
+            "x-eas:slot": "greek"
+          }
+        },
+        "color": {
+          "field": "dte",
+          "type": "nominal",
+          "sort": null,
+          "title": "DTE"
+        },
+        "tooltip": [
+          {
+            "field": "dte",
+            "type": "quantitative",
+            "title": "DTE"
+          },
+          {
+            "field": "spot",
+            "type": "quantitative"
+          },
+          {
+            "field": {
+              "x-eas:slot": "greek"
+            },
+            "type": "quantitative",
+            "title": {
+              "x-eas:slot": "greek"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "x-eas:when": "spot",
+      "spec": {
+        "name": "spot",
+        "data": {
+          "values": [
+            {
+              "spot": {
+                "x-eas:slot": "spot"
+              }
+            }
+          ]
+        },
+        "mark": {
+          "type": "rule",
+          "color": "#ffb74d",
+          "strokeDash": [
+            4,
+            2
+          ]
+        },
+        "encoding": {
+          "x": {
+            "field": "spot",
+            "type": "quantitative",
+            "title": "spot"
+          }
+        }
+      }
+    }
+  ]
+}

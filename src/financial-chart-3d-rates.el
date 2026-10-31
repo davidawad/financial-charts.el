@@ -245,8 +245,29 @@ rating, tenor and spread_bps) pass through."
 
 ;;; CDS term structure: credit.cds_isda_implied_hazard_pd by date
 
-(defconst financial-chart-3d-rates-cds-measures '("auto" "spread_bp" "hazard_bps" "pd_pct")
-  "What a CDS row's value is: par spread, hazard rate (bps) or cumulative PD (%).")
+(defconst financial-chart-3d-rates-cds-measures '("value" "spread_bp" "hazard_bps" "pd_pct")
+  "The fields a CDS chart draws, the cds-term-structure template's measure enum.
+value is the par spread when every row has one, else the hazard rate
+\(bps); spread_bp, hazard_bps and pd_pct (cumulative PD, %) the rows'
+fields.  \"auto\", which `financial-chart-3d-rates-cds-measure' also
+takes, resolves to spread_bp or hazard_bps as value does.")
+
+(defun financial-chart-3d-rates-cds-measure (rows measure)
+  "The field of `financial-chart-3d-rates-cds-measures' MEASURE draws in ROWS.
+MEASURE nil or \"auto\" is the par spread (spread_bp) when every row has
+one, else the hazard rate (hazard_bps), or value for rows already flat
+without either; any other measure is itself.
+Signals `financial-chart-invalid-data' (bad_measure) for one not in
+the set."
+  (cond ((member measure '(nil "auto"))
+         (cond ((and rows (seq-every-p (lambda (r) (numberp (plist-get r :spread_bp))) rows)) "spread_bp")
+               ((seq-every-p (lambda (r) (numberp (plist-get r :hazard_bps))) rows) "hazard_bps")
+               (t "value")))
+        ((member measure financial-chart-3d-rates-cds-measures) measure)
+        (t (financial-chart-3d-rates--invalid
+            (format "measure %S is not one of auto, %s" measure
+                    (string-join financial-chart-3d-rates-cds-measures ", "))
+            "bad_measure" nil "measure"))))
 
 (defun financial-chart-3d-rates-cds-rows (entries &optional measure)
   "Flat CDS term-structure rows of ENTRIES, ISDA hazard and PD outputs.
@@ -255,16 +276,12 @@ Each entry is the metric's output {reference_entity, as_of, curve:
 {input, output} with the metric's input too, whose spreads give each
 maturity's par spread.  Rows {as_of, tenor (whole years to maturity),
 tenor_label, maturity, spread_bp, hazard_bps, pd_pct, value}, by date
-then tenor.  MEASURE (`financial-chart-3d-rates-cds-measures') picks
-value; \"auto\" (the default) is the par spread when every row has
-one, else the hazard rate.  Rows already flat (with as_of, tenor and
-value) pass through."
-  (let ((entries (financial-chart-3d--rows entries))
-        (measure (or measure "auto")))
-    (unless (member measure financial-chart-3d-rates-cds-measures)
-      (financial-chart-3d-rates--invalid
-       (format "measure %S is not one of %s" measure (string-join financial-chart-3d-rates-cds-measures ", "))
-       "bad_measure" nil "measure"))
+then tenor.  MEASURE (`financial-chart-3d-rates-cds-measure') picks
+value; nil, \"auto\" or \"value\" (the default) is the par spread when
+every row has one, else the hazard rate.  Rows already flat (with
+as_of, tenor and value) pass through."
+  (let ((entries (financial-chart-3d--rows entries)))
+    (financial-chart-3d-rates-cds-measure nil measure)
     (if (financial-chart-3d-rates--flat-p entries '(:as_of :tenor :value)) entries
       (let* ((rows
               (cl-loop
@@ -298,9 +315,8 @@ value) pass through."
                                             :spread_bp (if (numberp s) (float s) :null)
                                             :hazard_bps (financial-chart-3d-rates--round (* 10000 h) 2)
                                             :pd_pct (financial-chart-3d-rates--round (* 100 pd) 3))))))))
-             (field (if (equal measure "auto")
-                        (if (seq-every-p (lambda (r) (numberp (plist-get r :spread_bp))) rows) :spread_bp :hazard_bps)
-                      (financial-chart-3d--key measure))))
+             (field (financial-chart-3d--key
+                     (financial-chart-3d-rates-cds-measure rows (if (equal measure "value") nil measure)))))
         (mapcar (lambda (r) (append r (list :value (let ((v (plist-get r field))) (if (numberp v) v :null)))))
                 rows)))))
 
@@ -806,11 +822,18 @@ ARGS's :holding."
   "cds-term-structure bindings from credit.cds_isda_implied_hazard_pd OUTPUT.
 OUTPUT is one output, entries {input?, output} by date (the input
 gives the par spreads), or a list of outputs.  ARGS's :measure picks
-the value drawn (`financial-chart-3d-rates-cds-measures')."
-  (let ((entries (if (and (sequencep output) (not (keywordp (car-safe output))))
-                     (append output nil)
-                   (list output))))
-    (list :data (vconcat (financial-chart-3d-rates-cds-rows entries (plist-get args :measure))))))
+the field drawn: one of `financial-chart-3d-rates-cds-measures', or
+\"auto\" (the default), which binds the concrete field it resolves to
+\(`financial-chart-3d-rates-cds-measure'), so the template's measure
+slot, in 2D and 3D, always names a field of the rows."
+  (let* ((entries (if (and (sequencep output) (not (keywordp (car-safe output))))
+                      (append output nil)
+                    (list output)))
+         (measure (plist-get args :measure))
+         (rows (financial-chart-3d-rates-cds-rows entries measure)))
+    (list :data (vconcat rows)
+          :measure (if (equal measure "value") measure
+                     (financial-chart-3d-rates-cds-measure rows measure)))))
 
 (defconst financial-chart-3d-rates-metric-adapters
   '(("fi.nss_fit" "yield-curve" financial-chart-3d-rates--from-nss-fit)

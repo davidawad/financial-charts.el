@@ -59,7 +59,7 @@ pass the flat rows through), the same in 2D and 3D:
 | `fi.curve_regime` | `yield-curve` | entries `{as_of, output}`: the output's `inputs.curve_years` and `curve_rates` are the curve, its value the regime |
 | `fi.spread_suite`, `fi.spread_pctile` | `credit-spreads` | one output, a list of them (both metrics mixed) or entries `{output}` |
 | `fi.krd` | `key-rate-durations` | entries `{holding, output, dv01?, tenors?}`, or one output with `:holding` |
-| `credit.cds_isda_implied_hazard_pd` | `cds-term-structure` | entries `{input, output}` by date, or outputs; `:measure` picks the field drawn |
+| `credit.cds_isda_implied_hazard_pd` | `cds-term-structure` | entries `{input, output}` by date, or outputs; `:measure` picks the field drawn (`auto`, the default, binds the concrete one) |
 
 A curve without its date is `missing_date`; the other errors are the
 lowerings' below.
@@ -165,7 +165,11 @@ pd_pct, value}`; `hazard_bps` the hazard rate in bps, `pd_pct` the
 cumulative default probability in percent, `spread_bp` null without the
 input, `value` the par spread when every row has one, else the hazard
 rate. The `measure` slot picks the field drawn: `value` (default),
-`spread_bp`, `hazard_bps` or `pd_pct`. 2D: that field by tenor across
+`spread_bp`, `hazard_bps` or `pd_pct` (`financial-chart-3d-rates-cds-measures`,
+the one set the adapter and both templates share). The adapter's
+`:measure` also takes `auto`, its default, and binds the field it
+resolves to (`spread_bp` when every entry has its input, else
+`hazard_bps`), so 2D and 3D draw the same field. 2D: that field by tenor across
 and date down. 3D: as yield-curve, coloured by level (blue low to red
 high), replayed date by date. These outputs are `internal_only`: the
 chart is for the analyst's own Emacs, not for publishing.

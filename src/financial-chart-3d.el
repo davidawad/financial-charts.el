@@ -1404,10 +1404,11 @@ group docs, docs/3d-*.md, name them) plus, for metrics whose output
 does not echo it, the input it was run on.  ARGS is a plist of the
 same stamps for a single output, of the adapter's options, and of
 TEMPLATE's own slots (:title, :spot, ...), which are added last (the
-rest are not bindings).  Returns the plist
-`financial-chart-3d-open' and `eas-resolve' take as bindings, the
-same in 3D and 2D.  `financial-chart-3d-metric-templates' lists the
-pairs.  Signals `financial-chart-invalid-data' with :code, :index (the
+rest are not bindings), except a value outside the slot's enum that
+the adapter resolved itself (cds-term-structure's :measure \"auto\").
+Returns the plist `financial-chart-3d-open' and `eas-resolve' take as
+bindings, the same in 3D and 2D.  `financial-chart-3d-metric-templates'
+lists the pairs.  Signals `financial-chart-invalid-data' with :code, :index (the
 entry) and :field when OUTPUT is not what METRIC-ID emits."
   (let ((adapter (seq-find (lambda (a) (and (equal (car a) metric-id) (equal (nth 1 a) template)))
                            (financial-chart-3d--metric-adapters))))
@@ -1421,8 +1422,14 @@ entry) and :field when OUTPUT is not what METRIC-ID emits."
          metric-id (if feeds template "") (if feeds (string-join feeds ", ") ""))))
     (let ((bindings (funcall (nth 2 adapter) template output args))
           (slots (plist-get (plist-get (eas-template-get template) :meta) :slots)))
+      ;; An option spelled like a slot that the slot would refuse (cds
+      ;; :measure "auto") is the adapter's: it bound what it resolved.
       (cl-loop for (k v) on args by #'cddr
-               when (plist-member slots k) do (setq bindings (plist-put bindings k v)))
+               when (and (plist-member slots k)
+                         (not (and (plist-member bindings k)
+                                   (plist-get (plist-get slots k) :enum)
+                                   (not (seq-contains-p (plist-get (plist-get slots k) :enum) v)))))
+               do (setq bindings (plist-put bindings k v)))
       bindings)))
 
 (defun financial-chart-3d-metric-entries (output)

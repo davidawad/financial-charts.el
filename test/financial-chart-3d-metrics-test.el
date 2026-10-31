@@ -43,14 +43,15 @@
   (seq-filter (lambda (c) (equal (plist-get c :metric) metric))
               (append (plist-get (financial-chart-3d-metrics-test--runs) :cases) nil)))
 
-(defun financial-chart-3d-metrics-test--bindings (template series)
-  "TEMPLATE's bindings from SERIES, a runs.json series."
+(defun financial-chart-3d-metrics-test--bindings (template series &rest extra)
+  "TEMPLATE's bindings from SERIES, a runs.json series, and EXTRA args."
   (let ((args (plist-get series :args)))
     (apply #'financial-chart-3d-bindings-from-metric template (plist-get series :metric)
            (plist-get series :entries)
-           (cl-loop for (k v) on args by #'cddr
-                    append (list (intern (replace-regexp-in-string "_" "-" (symbol-name k)))
-                                 (if (vectorp v) (append v nil) v))))))
+           (append extra
+                   (cl-loop for (k v) on args by #'cddr
+                            append (list (intern (replace-regexp-in-string "_" "-" (symbol-name k)))
+                                         (if (vectorp v) (append v nil) v)))))))
 
 (defun financial-chart-3d-metrics-test--lit (view)
   "Lit cells of VIEW's 60x24 frame at the end of its replay."
@@ -153,6 +154,76 @@ ID names the 3D view."
                   (financial-chart-3d-metrics-test--draws
                    template (financial-chart-3d-bindings-from-metric template metric (plist-get c :output))
                    (format "fc3d-metrics-test:%s:%s" metric template)))))))))))
+
+;;; Every value of every enum slot binds and draws (fc-1en)
+
+(defconst financial-chart-3d-metrics-test-adapter-values
+  '(("cds-term-structure" :measure "auto"))
+  "Adapter option values beyond their slot's enum: (TEMPLATE KEY VALUE...).
+The adapter resolves them to a value of the enum before binding.")
+
+(defun financial-chart-3d-metrics-test--slot-values (template)
+  "Args to try on TEMPLATE: nil (the defaults), then (KEY VALUE) for each
+value of each enum slot and each of
+`financial-chart-3d-metrics-test-adapter-values'."
+  (let ((slots (plist-get (plist-get (eas-template-get template) :meta) :slots)))
+    (cons nil
+          (append
+           (cl-loop for (k slot) on slots by #'cddr
+                    append (mapcar (lambda (v) (list k v)) (append (plist-get slot :enum) nil)))
+           (cl-loop for (name k . values) in financial-chart-3d-metrics-test-adapter-values
+                    when (equal name template) append (mapcar (lambda (v) (list k v)) values))))))
+
+(ert-deftest financial-chart-3d-metrics-every-enum-value-draws ()
+  ;; For every pair and every value of every enum slot of its template
+  ;; (and the adapters' own values, and none), the bindings resolve in
+  ;; 2D and open a 3D frame that is not blank, carrying a measure the
+  ;; slot takes.
+  (pcase-dolist (`(,metric . ,templates) (financial-chart-3d-metric-templates))
+    (dolist (template templates)
+      (let* ((series (car (financial-chart-3d-metrics-test--series metric)))
+             (case (seq-find (lambda (c) (> (length (plist-get (plist-get c :output) :rows)) 2))
+                             (financial-chart-3d-metrics-test--cases metric)))
+             (slots (plist-get (plist-get (eas-template-get template) :meta) :slots)))
+        (dolist (extra (financial-chart-3d-metrics-test--slot-values template))
+          (ert-info ((format "%s -> %s %S" metric template extra))
+            (should (or series case))
+            (let ((bindings (if series
+                                (apply #'financial-chart-3d-metrics-test--bindings template series extra)
+                              (apply #'financial-chart-3d-bindings-from-metric template metric
+                                     (plist-get case :output) extra))))
+              (cl-loop for (k v) on bindings by #'cddr
+                       for enum = (plist-get (plist-get slots k) :enum)
+                       when enum do (should (seq-contains-p enum v)))
+              (financial-chart-3d-metrics-test--draws
+               template bindings (format "fc3d-metrics-test-enum:%s:%s" metric template)))))))))
+
+(ert-deftest financial-chart-3d-metrics-cds-measures-are-the-slot-enum ()
+  ;; One measure set: the adapter's is the 2D and 3D templates' enum.
+  (dolist (name '("cds-term-structure" "fc3d/cds-term-structure"))
+    (should (equal (append (plist-get (plist-get (plist-get (plist-get (eas-template-get name) :meta) :slots)
+                                                 :measure)
+                                      :enum)
+                           nil)
+                   financial-chart-3d-rates-cds-measures)))
+  ;; auto (or none) binds the field it resolves to: spreads when every
+  ;; entry gives them, else the hazard rate.
+  (let* ((entries (plist-get (car (financial-chart-3d-metrics-test--series "credit.cds_isda_implied_hazard_pd"))
+                             :entries))
+         (bare (mapcar (lambda (e) (plist-get e :output)) (append entries nil)))
+         (measure (lambda (output &rest args)
+                    (plist-get (apply #'financial-chart-3d-bindings-from-metric "cds-term-structure"
+                                      "credit.cds_isda_implied_hazard_pd" output args)
+                               :measure))))
+    (should (equal (funcall measure entries) "spread_bp"))
+    (should (equal (funcall measure entries :measure "auto") "spread_bp"))
+    (should (equal (funcall measure bare :measure "auto") "hazard_bps"))
+    (should (equal (funcall measure bare :measure "pd_pct") "pd_pct"))
+    (should (equal (funcall measure bare :measure "value") "value"))
+    (should (equal (plist-get (cddr (should-error (funcall measure bare :measure "spread")
+                                                  :type 'financial-chart-invalid-data))
+                              :code)
+                   "bad_measure"))))
 
 (ert-deftest financial-chart-3d-metrics-golden-outputs-adapt ()
   ;; One run's output (a golden case's), as an entry with its input and

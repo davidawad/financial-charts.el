@@ -57,7 +57,7 @@ deps-3d:
 	$(MAKE) -C $(GRAPHICS_DIR) module EAS_DIR=$(CURDIR)/$(EAS3D_DIR)/src
 
 test-3d: deps-3d
-	$(BATCH_3D) $(foreach t,$(sort $(wildcard test/financial-chart-3d*-test.el)),-l $(t)) -f ert-run-tests-batch-and-exit
+	$(BATCH_3D) $(foreach t,$(sort $(wildcard test/financial-chart-3d*-test.el)),--eval '(require (quote $(basename $(notdir $(t)))))') -f ert-run-tests-batch-and-exit
 
 templates3d:
 	python3 scripts/templates3d.py

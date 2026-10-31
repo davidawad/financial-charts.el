@@ -1,0 +1,99 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "risk-stress",
+    "version": "1.0.0",
+    "doc": "Stress scenario grid: each position's P/L under each scenario as coloured cells on a diverging scale, values printed.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {scenario, asset, pnl}: P/L (percent of NAV, or currency) of each position under each scenario; port.stress"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Stress scenario grid: each position's P/L under each scenario as coloured cells on a diverging scale, values printed.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "../test/fixtures/3d/risk/risk-stress.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "encoding": {
+    "x": {
+      "field": "asset",
+      "type": "nominal",
+      "sort": null,
+      "title": null,
+      "axis": {
+        "orient": "top"
+      }
+    },
+    "y": {
+      "field": "scenario",
+      "type": "nominal",
+      "sort": null,
+      "title": null
+    }
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": "rect",
+      "encoding": {
+        "color": {
+          "field": "pnl",
+          "type": "quantitative",
+          "title": null,
+          "scale": {
+            "scheme": "redyellowgreen",
+            "domainMid": 0
+          }
+        },
+        "tooltip": [
+          {
+            "field": "scenario",
+            "type": "nominal"
+          },
+          {
+            "field": "asset",
+            "type": "nominal"
+          },
+          {
+            "field": "pnl",
+            "type": "quantitative",
+            "format": ".2f"
+          }
+        ]
+      }
+    },
+    {
+      "name": "values",
+      "mark": {
+        "type": "text",
+        "fontSize": 10
+      },
+      "encoding": {
+        "text": {
+          "field": "pnl",
+          "type": "quantitative",
+          "format": ".1f"
+        }
+      }
+    }
+  ]
+}

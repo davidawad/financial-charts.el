@@ -1,0 +1,120 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "risk-stress",
+    "version": "1.0.0",
+    "doc": "3D variant of financial-chart's risk-stress (graphics.el, mark fc-risk-grid3d): the scenario by position grid as signed 3D bars, losses sinking red through the floor and gains rising green, a net column per scenario.  2D: Stress scenario grid: each position's P/L under each scenario as coloured cells on a diverging scale, values printed.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {scenario, asset, pnl}: P/L (percent of NAV, or currency) of each position under each scenario; port.stress"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Stress scenario grid: each position's P/L under each scenario as coloured cells on a diverging scale, values printed.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "test/fixtures/3d/risk/risk-stress.json",
+    "base": "risk-stress",
+    "graphics": {
+      "mark": "fc-risk-grid3d",
+      "encoding": {
+        "x": {
+          "field": "asset"
+        },
+        "z": {
+          "field": "scenario"
+        },
+        "y": {
+          "field": "pnl"
+        }
+      },
+      "net": "net",
+      "camera": {
+        "yaw": 30,
+        "pitch": -24,
+        "zoom": 1.35
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "encoding": {
+    "x": {
+      "field": "asset",
+      "type": "nominal",
+      "sort": null,
+      "title": null,
+      "axis": {
+        "orient": "top"
+      }
+    },
+    "y": {
+      "field": "scenario",
+      "type": "nominal",
+      "sort": null,
+      "title": null
+    }
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": "rect",
+      "encoding": {
+        "color": {
+          "field": "pnl",
+          "type": "quantitative",
+          "title": null,
+          "scale": {
+            "scheme": "redyellowgreen",
+            "domainMid": 0
+          }
+        },
+        "tooltip": [
+          {
+            "field": "scenario",
+            "type": "nominal"
+          },
+          {
+            "field": "asset",
+            "type": "nominal"
+          },
+          {
+            "field": "pnl",
+            "type": "quantitative",
+            "format": ".2f"
+          }
+        ]
+      }
+    },
+    {
+      "name": "values",
+      "mark": {
+        "type": "text",
+        "fontSize": 10
+      },
+      "encoding": {
+        "text": {
+          "field": "pnl",
+          "type": "quantitative",
+          "format": ".1f"
+        }
+      }
+    }
+  ]
+}

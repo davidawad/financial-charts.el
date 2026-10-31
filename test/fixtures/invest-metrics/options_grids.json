@@ -1,0 +1,359 @@
+{
+  "source": "financial-chart.el test/fixtures/3d/options/*.data.json (closed-form BSM, no dividends; scripts/options3d_fixtures.py) via docs/3d-options.md; dot-invest-emacs-parity-67z7f6.15",
+  "cases": [
+    {
+      "name": "greeks_grid replays the financial-chart.el greeks-surface fixture (long 100 call, vol 0.25, rate 0.04)",
+      "metric": "opt.greeks_grid",
+      "input": {
+        "kind": "call",
+        "strike": 100.0,
+        "expiry": "2026-12-18",
+        "vol": 0.25,
+        "rate": 0.04,
+        "spot": 100.0,
+        "spots": [
+          70.0,
+          130.0,
+          2.5
+        ],
+        "dtes": [
+          60,
+          45,
+          30,
+          21,
+          14,
+          7,
+          3
+        ],
+        "as_of": "2026-10-31"
+      },
+      "abs_tol": 1e-06,
+      "expect": {
+        "/metric": "opt.greeks_grid",
+        "/as_of": "2026-10-31",
+        "/params/spot": 100.0,
+        "/rows/0": {
+          "spot": 70.0,
+          "dte": 60,
+          "day": 0,
+          "delta": 0.000332861,
+          "gamma": 0.000171718,
+          "vega": 0.000345788,
+          "theta": -7.45277e-05,
+          "vanna": 0.000170801,
+          "charm": -3.69009e-05
+        },
+        "/rows/12": {
+          "spot": 100.0,
+          "dte": 60,
+          "day": 0,
+          "delta": 0.545996,
+          "gamma": 0.0390968,
+          "vega": 0.160672,
+          "theta": -0.0389785,
+          "vanna": -0.000224941,
+          "charm": -0.000381596
+        },
+        "/rows/24": {
+          "spot": 130.0,
+          "dte": 60,
+          "day": 0,
+          "delta": 0.996574,
+          "gamma": 0.0007824,
+          "vega": 0.00543393,
+          "theta": -0.0119688,
+          "vanna": -0.00107328,
+          "charm": 0.000212453
+        },
+        "/rows/37": {
+          "spot": 100.0,
+          "dte": 45,
+          "day": 15,
+          "delta": 0.539856,
+          "gamma": 0.0452205,
+          "vega": 0.139378,
+          "theta": -0.0442222,
+          "vanna": -0.00019513,
+          "charm": -0.000441365
+        },
+        "/rows/100": {
+          "spot": 70.0,
+          "dte": 14,
+          "day": 46,
+          "delta": 2.43416e-13,
+          "gamma": 5.22839e-13,
+          "vega": 2.45663e-13,
+          "theta": -2.21197e-13,
+          "vanna": 5.21663e-13,
+          "charm": -4.69781e-13
+        },
+        "/rows/174": {
+          "spot": 130.0,
+          "dte": 3,
+          "day": 57,
+          "delta": 1.0,
+          "gamma": 8.01861e-31,
+          "vega": 2.78455e-31,
+          "theta": -0.0109553,
+          "vanna": -1.09427e-30,
+          "charm": 4.54805e-30
+        }
+      }
+    },
+    {
+      "name": "greeks_grid is null at zero days to expiry, never a string",
+      "metric": "opt.greeks_grid",
+      "input": {
+        "kind": "call",
+        "strike": 100.0,
+        "vol": 0.25,
+        "rate": 0.04,
+        "spots": [
+          100.0,
+          100.0,
+          1.0
+        ],
+        "dtes": [
+          30,
+          0
+        ]
+      },
+      "expect": {
+        "/rows/1/dte": 0,
+        "/rows/1/day": 30,
+        "/rows/1/delta": null,
+        "/rows/1/gamma": null,
+        "/rows/1/charm": null
+      }
+    },
+    {
+      "name": "greeks_grid rejects a zero spot step",
+      "metric": "opt.greeks_grid",
+      "input": {
+        "kind": "call",
+        "strike": 100.0,
+        "vol": 0.25,
+        "spots": [
+          70.0,
+          130.0,
+          0.0
+        ],
+        "dtes": [
+          30
+        ]
+      },
+      "expect_error": true,
+      "expect": {}
+    },
+    {
+      "name": "payoff_grid replays the financial-chart.el position-pnl-surface fixture (90/100/110 call butterfly opened at 45 dte)",
+      "metric": "opt.payoff_grid",
+      "input": {
+        "legs": [
+          {
+            "kind": "call",
+            "strike": 90.0,
+            "qty": 1.0
+          },
+          {
+            "kind": "call",
+            "strike": 100.0,
+            "qty": -2.0
+          },
+          {
+            "kind": "call",
+            "strike": 110.0,
+            "qty": 1.0
+          }
+        ],
+        "multiplier": 100.0,
+        "opened": {
+          "spot": 100.0,
+          "dte": 45
+        },
+        "vol": 0.25,
+        "rate": 0.04,
+        "spot": 100.0,
+        "spots": [
+          80.0,
+          120.0,
+          2.0
+        ],
+        "dtes": [
+          45,
+          38,
+          31,
+          24,
+          17,
+          10,
+          5,
+          2,
+          0
+        ]
+      },
+      "abs_tol": 0.006,
+      "expect": {
+        "/metric": "opt.payoff_grid",
+        "/rows/0": {
+          "spot": 80.0,
+          "dte": 45,
+          "day": 0,
+          "pnl": -377.61
+        },
+        "/rows/12": {
+          "spot": 104.0,
+          "dte": 45,
+          "day": 0,
+          "pnl": -37.07
+        },
+        "/rows/24": {
+          "spot": 86.0,
+          "dte": 38,
+          "day": 7,
+          "pnl": -291.85
+        },
+        "/rows/37": {
+          "spot": 112.0,
+          "dte": 38,
+          "day": 7,
+          "pnl": -216.69
+        },
+        "/rows/100": {
+          "spot": 112.0,
+          "dte": 17,
+          "day": 28,
+          "pnl": -271.46
+        },
+        "/rows/188": {
+          "spot": 120.0,
+          "dte": 0,
+          "day": 45,
+          "pnl": -409.23
+        }
+      }
+    },
+    {
+      "name": "payoff_grid needs the expiry date",
+      "metric": "opt.payoff_grid",
+      "input": {
+        "legs": [
+          {
+            "kind": "call",
+            "strike": 100.0,
+            "premium": 5.0
+          }
+        ],
+        "vol": 0.25,
+        "spots": [
+          90.0,
+          110.0,
+          10.0
+        ],
+        "dtes": [
+          30
+        ]
+      },
+      "expect_error": true,
+      "expect": {}
+    },
+    {
+      "name": "pop_grid replays the financial-chart.el pop-surface fixture (short put, spot 100, vol 0.25, rate 0.04)",
+      "metric": "opt.pop_grid",
+      "input": {
+        "strategy": "short_put",
+        "vol": 0.25,
+        "rate": 0.04,
+        "spot": 100.0,
+        "strikes": [
+          70.0,
+          110.0,
+          2.5
+        ],
+        "dtes": [
+          90,
+          60,
+          45,
+          30,
+          21,
+          14,
+          7
+        ]
+      },
+      "abs_tol": 6e-05,
+      "expect": {
+        "/metric": "opt.pop_grid",
+        "/rows/0": {
+          "strike": 70.0,
+          "dte": 90,
+          "credit": 0.0047,
+          "breakeven": 69.9953,
+          "pop": 0.9981,
+          "prob_touch": 0.0039
+        },
+        "/rows/12": {
+          "strike": 100.0,
+          "dte": 90,
+          "credit": 4.4498,
+          "breakeven": 95.5502,
+          "pop": 0.6495,
+          "prob_touch": 1.0
+        },
+        "/rows/24": {
+          "strike": 87.5,
+          "dte": 60,
+          "credit": 0.36,
+          "breakeven": 87.14,
+          "pop": 0.915,
+          "prob_touch": 0.1842
+        },
+        "/rows/37": {
+          "strike": 77.5,
+          "dte": 45,
+          "credit": 0.0034,
+          "breakeven": 77.4966,
+          "pop": 0.9982,
+          "prob_touch": 0.0036
+        },
+        "/rows/100": {
+          "strike": 107.5,
+          "dte": 14,
+          "credit": 7.5032,
+          "breakeven": 99.9968,
+          "pop": 0.503,
+          "prob_touch": 1.0
+        },
+        "/rows/118": {
+          "strike": 110.0,
+          "dte": 7,
+          "credit": 9.9191,
+          "breakeven": 100.0809,
+          "pop": 0.4926,
+          "prob_touch": 1.0
+        }
+      }
+    },
+    {
+      "name": "pop_grid is null at expiry",
+      "metric": "opt.pop_grid",
+      "input": {
+        "strategy": "short_put",
+        "vol": 0.25,
+        "rate": 0.04,
+        "spot": 100.0,
+        "strikes": [
+          95.0,
+          95.0,
+          1.0
+        ],
+        "dtes": [
+          0
+        ]
+      },
+      "expect": {
+        "/rows/0/pop": null,
+        "/rows/0/prob_touch": null,
+        "/rows/0/dte": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,149 @@
+{
+  "source": "hand-derived (dot-invest-emacs-parity-67z7f6.16): perfectly correlated and anti-correlated series, an exact slope, and two-asset closed-form minimum-variance weights w1 = (s2^2 - rho s1 s2) / (s1^2 + s2^2 - 2 rho s1 s2)",
+  "cases": [
+    {
+      "name": "perfectly correlated and anti-correlated series over two 3-day windows",
+      "metric": "stats.rolling.correlation",
+      "input": {
+        "dates": ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"],
+        "series": [
+          {"label": "A", "values": [1, 2, 3, 4]},
+          {"label": "B", "values": [2, 4, 6, 8]},
+          {"label": "C", "values": [4, 3, 2, 1]}
+        ],
+        "window": 3
+      },
+      "expect": {
+        "/windows/0/window": "2026-01-03",
+        "/windows/1/window": "2026-01-04",
+        "/windows/0/labels": ["A", "B", "C"],
+        "/windows/0/matrix/0/0": 1.0,
+        "/windows/0/matrix/0/1": 1.0,
+        "/windows/1/matrix/0/2": -1.0,
+        "/windows/1/matrix/2/0": -1.0
+      }
+    },
+    {
+      "name": "step 2 keeps every other window end",
+      "metric": "stats.rolling.correlation",
+      "input": {
+        "dates": ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05"],
+        "series": [
+          {"label": "A", "values": [1, 2, 3, 4, 5]},
+          {"label": "B", "values": [5, 4, 3, 2, 1]}
+        ],
+        "window": 3,
+        "step": 2
+      },
+      "expect": {
+        "/windows/0/window": "2026-01-03",
+        "/windows/1/window": "2026-01-05",
+        "/windows/1/matrix/0/1": -1.0
+      }
+    },
+    {
+      "name": "returns = 1 + 2 * factor gives beta 2 in every window",
+      "metric": "stats.rolling.factor_regression",
+      "input": {
+        "dates": ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05"],
+        "returns": [3, 5, 9, 7, 11],
+        "factors": [{"label": "MKT", "values": [1, 2, 4, 3, 5]}],
+        "window": 4
+      },
+      "expect": {
+        "/windows/0/window": "2026-01-04",
+        "/windows/1/window": "2026-01-05",
+        "/windows/0/betas/MKT": 2.0,
+        "/windows/1/betas/MKT": 2.0
+      }
+    },
+    {
+      "name": "uncorrelated two-asset frontier starts at inverse-variance weights and ends at the best asset",
+      "metric": "port.frontier",
+      "input": {
+        "asof": "2026-03-31",
+        "labels": ["A", "B"],
+        "expected_returns": [0.10, 0.05],
+        "covariance": [[0.04, 0.0], [0.0, 0.01]],
+        "points": 2
+      },
+      "expect": {
+        "/asof": "2026-03-31",
+        "/points/0/weights": [0.2, 0.8],
+        "/points/0/ret": 0.06,
+        "/points/0/vol": 0.08944271909999159,
+        "/points/0/sharpe": 0.6708203932499369,
+        "/points/1/weights": [1.0, 0.0],
+        "/points/1/vol": 0.2,
+        "/points/1/sharpe": 0.5
+      },
+      "abs_tol": 1e-9
+    },
+    {
+      "name": "unconstrained minimum variance shorts the volatile asset (63/46, -17/46)",
+      "metric": "port.frontier",
+      "input": {
+        "expected_returns": [0.05, 0.08],
+        "covariance": [[0.01, 0.027], [0.027, 0.09]],
+        "points": 2
+      },
+      "expect": {
+        "/points/0/weights": [1.3695652173913044, -0.3695652173913043],
+        "/points/0/ret": 0.038913043478260866
+      },
+      "abs_tol": 1e-9
+    },
+    {
+      "name": "long-only clamps the same minimum-variance portfolio to the low-vol asset",
+      "metric": "port.frontier",
+      "input": {
+        "expected_returns": [0.05, 0.08],
+        "covariance": [[0.01, 0.027], [0.027, 0.09]],
+        "points": 2,
+        "long_only": true
+      },
+      "expect": {
+        "/points/0/weights": [1.0, 0.0],
+        "/points/0/vol": 0.1,
+        "/points/1/weights": [0.0, 1.0],
+        "/points/1/vol": 0.3
+      },
+      "abs_tol": 1e-9
+    },
+    {
+      "name": "output_scale 100 reports vol and ret in percent",
+      "metric": "port.frontier",
+      "input": {
+        "expected_returns": [0.10, 0.05],
+        "covariance": [[0.04, 0.0], [0.0, 0.01]],
+        "points": 2,
+        "output_scale": 100
+      },
+      "expect": {
+        "/points/1/vol": 20.0,
+        "/points/1/ret": 10.0,
+        "/points/1/sharpe": 0.5
+      },
+      "abs_tol": 1e-9
+    },
+    {
+      "name": "as-of series: one frontier per rolling window, uncorrelated 1:4 variances give weights 0.8/0.2",
+      "metric": "port.frontier",
+      "input": {
+        "dates": ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"],
+        "series": [
+          {"label": "A", "values": [0.03, 0.01, 0.03, 0.01]},
+          {"label": "B", "values": [0.06, 0.06, 0.02, 0.02]}
+        ],
+        "window": 4,
+        "annualization": 1,
+        "points": 2
+      },
+      "expect": {
+        "/series/0/asof": "2026-01-04",
+        "/series/0/points/0/weights": [0.8, 0.2]
+      },
+      "abs_tol": 1e-9
+    }
+  ]
+}

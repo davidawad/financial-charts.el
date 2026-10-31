@@ -1,0 +1,67 @@
+{
+  "source": "hand-derived from the Kelly growth formulas in financial-chart.el docs/3d-valuation.md (continuous g = f edge - sigma^2 f^2 / 2; binary g = p ln(1 + b f) + (1 - p) ln(1 - f), p = (1 + edge) / (1 + b)); dot-invest-emacs-parity-67z7f6.14",
+  "cases": [
+    {
+      "name": "continuous at the kelly fraction: 0.04 - 0.04/2",
+      "metric": "stats.kelly.growth",
+      "input": {
+        "model": "continuous",
+        "edge": 0.04,
+        "fraction": 1.0,
+        "sigma": 0.2
+      },
+      "expect": {
+        "/value": 0.02
+      }
+    },
+    {
+      "name": "continuous at twice kelly is zero growth",
+      "metric": "stats.kelly.growth",
+      "input": {
+        "model": "continuous",
+        "edge": 0.04,
+        "fraction": 2.0,
+        "sigma": 0.2
+      },
+      "expect": {
+        "/value": 0.0
+      }
+    },
+    {
+      "name": "binary even odds edge 10% at f* = 0.1",
+      "metric": "stats.kelly.growth",
+      "input": {
+        "model": "binary",
+        "edge": 0.1,
+        "fraction": 0.1,
+        "odds": 1.0
+      },
+      "expect": {
+        "/value": 0.0050083668463568876
+      }
+    },
+    {
+      "name": "binary whole bankroll is ruin (null)",
+      "metric": "stats.kelly.growth",
+      "input": {
+        "model": "binary",
+        "edge": 0.1,
+        "fraction": 1.0,
+        "odds": 1.0
+      },
+      "expect": {
+        "/value": null
+      }
+    },
+    {
+      "name": "continuous without sigma is an error",
+      "metric": "stats.kelly.growth",
+      "input": {
+        "model": "continuous",
+        "edge": 0.04,
+        "fraction": 1.0
+      },
+      "expect_error": true
+    }
+  ]
+}

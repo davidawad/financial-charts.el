@@ -1,0 +1,147 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "risk-underwater",
+    "version": "1.0.0",
+    "doc": "3D variant of financial-chart's risk-underwater (graphics.el, mark fc-risk-ribbons3d): one slab per strategy hanging below its own high-water line, a ridgeline as deep as each drawdown, the worst point of each marked; replays week by week.  2D: Underwater curves: each strategy's percent decline from its running high.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {date, strategy, equity}: each strategy's equity (NAV, any scale), dates oldest first; the drawdown is computed (stats.max_drawdown's underwater series)"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Underwater curves: each strategy's percent decline from its running high.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "x_type": {
+        "enum": [
+          "quantitative",
+          "temporal"
+        ],
+        "default": "temporal",
+        "doc": "temporal when date holds dates or epoch milliseconds"
+      }
+    },
+    "example": "test/fixtures/3d/risk/risk-underwater.json",
+    "base": "risk-underwater",
+    "graphics": {
+      "mark": "fc-risk-ribbons3d",
+      "encoding": {
+        "x": {
+          "field": "date"
+        },
+        "z": {
+          "field": "strategy"
+        },
+        "y": {
+          "field": "equity"
+        },
+        "time": {
+          "field": "date",
+          "mode": "cumulative",
+          "step": 0.08
+        }
+      },
+      "transform": "underwater",
+      "stack": 0.9,
+      "camera": {
+        "yaw": 30,
+        "pitch": 22,
+        "zoom": 1.2
+      },
+      "timeline": {
+        "loop": true,
+        "autoplay": true
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "window": [
+        {
+          "op": "max",
+          "field": "equity",
+          "as": "peak"
+        }
+      ],
+      "groupby": [
+        "strategy"
+      ],
+      "sort": [
+        {
+          "field": "date"
+        }
+      ],
+      "frame": [
+        null,
+        0
+      ]
+    },
+    {
+      "calculate": "datum.equity / datum.peak - 1",
+      "as": "drawdown"
+    }
+  ],
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "date",
+      "type": {
+        "x-eas:slot": "x_type"
+      },
+      "title": null
+    },
+    "y": {
+      "field": "drawdown",
+      "type": "quantitative",
+      "title": "drawdown",
+      "axis": {
+        "format": ".0%"
+      }
+    },
+    "color": {
+      "field": "strategy",
+      "type": "nominal",
+      "sort": null,
+      "title": null
+    },
+    "tooltip": [
+      {
+        "field": "date",
+        "type": {
+          "x-eas:slot": "x_type"
+        }
+      },
+      {
+        "field": "strategy",
+        "type": "nominal"
+      },
+      {
+        "field": "equity",
+        "type": "quantitative"
+      },
+      {
+        "field": "drawdown",
+        "type": "quantitative",
+        "format": ".1%"
+      }
+    ]
+  }
+}

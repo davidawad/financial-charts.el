@@ -1,0 +1,112 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "risk-contribution",
+    "version": "1.0.0",
+    "doc": "3D variant of financial-chart's risk-contribution (graphics.el, mark fc-risk-ribbons3d): one ribbon per asset, its height that asset's share of portfolio volatility; replays date by date.  2D: Risk contribution over time: each asset's share of portfolio volatility, stacked to 100%.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {date, asset, contribution}: percent of portfolio volatility per asset and date (summing to 100 per date), dates oldest first; stats.risk_contribution per rebalance date"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Risk contribution over time: each asset's share of portfolio volatility, stacked to 100%.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "x_type": {
+        "enum": [
+          "quantitative",
+          "temporal"
+        ],
+        "default": "temporal",
+        "doc": "temporal when date holds dates or epoch milliseconds"
+      }
+    },
+    "example": "test/fixtures/3d/risk/risk-contribution.json",
+    "base": "risk-contribution",
+    "graphics": {
+      "mark": "fc-risk-ribbons3d",
+      "encoding": {
+        "x": {
+          "field": "date"
+        },
+        "z": {
+          "field": "asset"
+        },
+        "y": {
+          "field": "contribution"
+        },
+        "time": {
+          "field": "date",
+          "mode": "cumulative",
+          "step": 0.25
+        }
+      },
+      "camera": {
+        "yaw": 40,
+        "pitch": 30,
+        "zoom": 1.2
+      },
+      "timeline": {
+        "loop": true,
+        "autoplay": true
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "mark": "area",
+  "encoding": {
+    "x": {
+      "field": "date",
+      "type": {
+        "x-eas:slot": "x_type"
+      },
+      "title": null
+    },
+    "y": {
+      "field": "contribution",
+      "type": "quantitative",
+      "stack": "zero",
+      "title": "% of risk"
+    },
+    "color": {
+      "field": "asset",
+      "type": "nominal",
+      "sort": null,
+      "title": null
+    },
+    "tooltip": [
+      {
+        "field": "date",
+        "type": {
+          "x-eas:slot": "x_type"
+        }
+      },
+      {
+        "field": "asset",
+        "type": "nominal"
+      },
+      {
+        "field": "contribution",
+        "type": "quantitative",
+        "format": ".1f"
+      }
+    ]
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "risk-return-distribution",
+    "version": "1.0.0",
+    "doc": "Return distributions across horizons: the share of returns in each bin, one curve per horizon.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {horizon, return}: return samples (percent) per horizon label, horizons shortest first; the samples stats.var / stats.var_cvar.* read"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Return distributions across horizons: the share of returns in each bin, one curve per horizon.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "bins": {
+        "type": "integer",
+        "default": 17,
+        "doc": "return bins, shared by every horizon"
+      }
+    },
+    "example": "../test/fixtures/3d/risk/risk-return-distribution.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "bin": {
+        "maxbins": {
+          "x-eas:slot": "bins"
+        }
+      },
+      "field": "return",
+      "as": "bin"
+    },
+    {
+      "aggregate": [
+        {
+          "op": "count",
+          "as": "count"
+        }
+      ],
+      "groupby": [
+        "horizon",
+        "bin"
+      ]
+    },
+    {
+      "joinaggregate": [
+        {
+          "op": "sum",
+          "field": "count",
+          "as": "total"
+        }
+      ],
+      "groupby": [
+        "horizon"
+      ]
+    },
+    {
+      "calculate": "datum.count / datum.total",
+      "as": "share"
+    }
+  ],
+  "mark": {
+    "type": "line",
+    "interpolate": "step"
+  },
+  "encoding": {
+    "x": {
+      "field": "bin",
+      "type": "quantitative",
+      "title": "return %"
+    },
+    "y": {
+      "field": "share",
+      "type": "quantitative",
+      "title": "share",
+      "axis": {
+        "format": ".0%"
+      }
+    },
+    "color": {
+      "field": "horizon",
+      "type": "nominal",
+      "sort": null,
+      "title": null
+    },
+    "tooltip": [
+      {
+        "field": "horizon",
+        "type": "nominal"
+      },
+      {
+        "field": "bin",
+        "type": "quantitative",
+        "title": "return %"
+      },
+      {
+        "field": "share",
+        "type": "quantitative",
+        "format": ".1%"
+      }
+    ]
+  }
+}

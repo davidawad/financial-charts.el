@@ -1,0 +1,160 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "risk-correlation",
+    "version": "1.0.0",
+    "doc": "3D variant of financial-chart's risk-correlation (graphics.el, mark fc-risk-grid3d): the correlation matrix as signed 3D bars on an asset by asset floor (up green for positive, down red for negative), animated window by window so the bars rise and sink as correlations shift.  2D: Rolling correlation matrix: the latest window's pairwise correlations as coloured cells on a diverging scale, values printed.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {window, row, column, value}: one full matrix per window (an ISO date or index), windows oldest first; stats.correlation lowered by financial-chart-3d-risk-matrix-rows (docs/3d-risk.md)"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Rolling correlation matrix: the latest window's pairwise correlations as coloured cells on a diverging scale, values printed.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "test/fixtures/3d/risk/risk-correlation.json",
+    "base": "risk-correlation",
+    "graphics": {
+      "mark": "fc-risk-grid3d",
+      "encoding": {
+        "x": {
+          "field": "column"
+        },
+        "z": {
+          "field": "row"
+        },
+        "y": {
+          "field": "value"
+        },
+        "time": {
+          "field": "window",
+          "mode": "frame",
+          "step": 0.8,
+          "easing": "cubic-in-out"
+        }
+      },
+      "domain": [
+        -1,
+        1
+      ],
+      "diagonal": false,
+      "camera": {
+        "yaw": 35,
+        "pitch": 35,
+        "zoom": 1.2
+      },
+      "timeline": {
+        "loop": true,
+        "autoplay": true
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "window": [
+        {
+          "op": "dense_rank",
+          "as": "rank"
+        }
+      ],
+      "sort": [
+        {
+          "field": "window",
+          "order": "descending"
+        }
+      ]
+    },
+    {
+      "filter": "datum.rank == 1"
+    }
+  ],
+  "encoding": {
+    "x": {
+      "field": "column",
+      "type": "nominal",
+      "sort": null,
+      "title": null,
+      "axis": {
+        "orient": "top"
+      }
+    },
+    "y": {
+      "field": "row",
+      "type": "nominal",
+      "sort": null,
+      "title": null
+    }
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": "rect",
+      "encoding": {
+        "color": {
+          "field": "value",
+          "type": "quantitative",
+          "title": null,
+          "scale": {
+            "scheme": "redyellowgreen",
+            "domain": [
+              -1,
+              1
+            ]
+          }
+        },
+        "tooltip": [
+          {
+            "field": "window",
+            "type": "nominal"
+          },
+          {
+            "field": "row",
+            "type": "nominal"
+          },
+          {
+            "field": "column",
+            "type": "nominal"
+          },
+          {
+            "field": "value",
+            "type": "quantitative",
+            "format": ".2f"
+          }
+        ]
+      }
+    },
+    {
+      "name": "values",
+      "mark": {
+        "type": "text",
+        "fontSize": 10
+      },
+      "encoding": {
+        "text": {
+          "field": "value",
+          "type": "quantitative",
+          "format": ".2f"
+        }
+      }
+    }
+  ]
+}

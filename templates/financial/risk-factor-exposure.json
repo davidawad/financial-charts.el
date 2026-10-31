@@ -1,0 +1,111 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "risk-factor-exposure",
+    "version": "1.0.0",
+    "doc": "Factor exposures over time: each factor's rolling regression beta, with a zero line.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {date, factor, beta}: rolling factor betas, dates oldest first; stats.factor_regression per window (or port.beta_weighted_delta per underlying, as factor)"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Factor exposures over time: each factor's rolling regression beta, with a zero line.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "x_type": {
+        "enum": [
+          "quantitative",
+          "temporal"
+        ],
+        "default": "temporal",
+        "doc": "temporal when date holds dates or epoch milliseconds"
+      }
+    },
+    "example": "../test/fixtures/3d/risk/risk-factor-exposure.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "layer": [
+    {
+      "name": "zero",
+      "data": {
+        "values": [
+          {
+            "zero": 0
+          }
+        ]
+      },
+      "mark": {
+        "type": "rule",
+        "color": "gray",
+        "strokeDash": [
+          2,
+          2
+        ]
+      },
+      "encoding": {
+        "y": {
+          "field": "zero",
+          "type": "quantitative"
+        }
+      }
+    },
+    {
+      "name": "betas",
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "date",
+          "type": {
+            "x-eas:slot": "x_type"
+          },
+          "title": null
+        },
+        "y": {
+          "field": "beta",
+          "type": "quantitative",
+          "title": "beta"
+        },
+        "color": {
+          "field": "factor",
+          "type": "nominal",
+          "sort": null,
+          "title": null
+        },
+        "tooltip": [
+          {
+            "field": "date",
+            "type": {
+              "x-eas:slot": "x_type"
+            }
+          },
+          {
+            "field": "factor",
+            "type": "nominal"
+          },
+          {
+            "field": "beta",
+            "type": "quantitative",
+            "format": ".2f"
+          }
+        ]
+      }
+    }
+  ]
+}

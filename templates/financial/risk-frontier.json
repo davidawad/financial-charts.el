@@ -1,0 +1,86 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "risk-frontier",
+    "version": "1.0.0",
+    "doc": "Efficient frontiers: return against volatility, one curve per date.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {date, vol, ret, sharpe}: points along each date's efficient frontier (volatility and return in percent, Sharpe ratio), the same number per date, dates oldest first; port.frontier (requested, docs/3d-risk.md)"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Efficient frontiers: return against volatility, one curve per date.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "../test/fixtures/3d/risk/risk-frontier.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "vol",
+      "type": "quantitative",
+      "title": "volatility %",
+      "scale": {
+        "zero": false
+      }
+    },
+    "y": {
+      "field": "ret",
+      "type": "quantitative",
+      "title": "return %",
+      "scale": {
+        "zero": false
+      }
+    },
+    "color": {
+      "field": "date",
+      "type": "nominal",
+      "sort": null,
+      "title": null
+    },
+    "order": {
+      "field": "ret",
+      "type": "quantitative"
+    },
+    "tooltip": [
+      {
+        "field": "date",
+        "type": "nominal"
+      },
+      {
+        "field": "vol",
+        "type": "quantitative",
+        "format": ".2f"
+      },
+      {
+        "field": "ret",
+        "type": "quantitative",
+        "format": ".2f"
+      },
+      {
+        "field": "sharpe",
+        "type": "quantitative",
+        "format": ".2f"
+      }
+    ]
+  }
+}

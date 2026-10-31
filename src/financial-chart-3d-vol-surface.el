@@ -75,20 +75,93 @@
 CHAIN is a plist with :snapshots, or a vector or list of snapshots."
   (append (if (keywordp (car-safe chain)) (plist-get chain :snapshots) chain) nil))
 
-(defun financial-chart-3d-vol-surface-rows (chain)
+(defun financial-chart-3d--vol-iv-surface-p (object)
+  "Non-nil if OBJECT is one `opt.iv_surface' result: a plist with :iv."
+  (and (keywordp (car-safe object)) (plist-member object :iv) (plist-member object :strikes)))
+
+(defun financial-chart-3d--vol-series-p (chain)
+  "Non-nil if CHAIN is a sequence of {time, surface} pairs."
+  (and (sequencep chain) (not (stringp chain)) (not (keywordp (car-safe chain)))
+       (> (length chain) 0)
+       (let ((first (elt chain 0))) (and (keywordp (car-safe first)) (plist-member first :surface)))))
+
+(defun financial-chart-3d--vol-now ()
+  "The local time now, ISO 8601 to the second."
+  (format-time-string "%Y-%m-%dT%H:%M:%S"))
+
+(defun financial-chart-3d--vol-surface-snapshot (surface time index)
+  "SURFACE, one `opt.iv_surface' result, as a chain snapshot at TIME.
+SURFACE is {underlying_price?, strikes, moneyness?, days_to_expiry,
+iv: [[IV per strike] per expiry]} with null for a missing IV.  The spot
+is `underlying_price', else the mean of strike / moneyness.  INDEX
+names the snapshot in errors."
+  (let* ((strikes (append (financial-chart-3d--vol-get surface :strikes) nil))
+         (moneyness (append (financial-chart-3d--vol-get surface :moneyness) nil))
+         (dtes (append (financial-chart-3d--vol-get surface :days_to_expiry) nil))
+         (grid (append (financial-chart-3d--vol-get surface :iv) nil))
+         (spot (or (financial-chart-3d--vol-get surface :underlying_price)
+                   (let ((spots (cl-loop for k in strikes for m in moneyness
+                                         when (and (numberp k) (numberp m) (> m 0)) collect (/ k (float m)))))
+                     (and spots (/ (apply #'+ spots) (length spots)))))))
+    (unless (and strikes (seq-every-p #'numberp strikes))
+      (financial-chart--invalid index "strikes" "missing_strike" "the surface needs numeric strikes"))
+    (unless (and dtes (seq-every-p #'numberp dtes))
+      (financial-chart--invalid index "days_to_expiry" "missing_dte" "the surface needs numeric days_to_expiry"))
+    (unless (numberp spot)
+      (financial-chart--invalid index "underlying_price" "missing_spot"
+                                "the surface needs underlying_price, or moneyness beside its strikes"))
+    (unless (and (= (length grid) (length dtes))
+                 (seq-every-p (lambda (row) (and (sequencep row) (= (length row) (length strikes)))) grid))
+      (financial-chart--invalid index "iv" "bad_shape" "iv must be %d expiries of %d strikes"
+                                (length dtes) (length strikes)))
+    (list :time time :spot spot
+          :chain (vconcat (cl-loop for dte in dtes for row in grid
+                                   nconc (cl-loop for k in strikes for iv across (vconcat row)
+                                                  collect (list :strike k :dte dte :iv iv)))))))
+
+(defun financial-chart-3d--vol-normalize (chain time)
+  "CHAIN's snapshots as a list, whatever shape CHAIN has.
+CHAIN is chain snapshots (see `financial-chart-3d-vol-surface-rows'),
+one `opt.iv_surface' result (at TIME, or its own `time', or now), or a
+sequence of {time, surface} pairs."
+  (cond
+   ((financial-chart-3d--vol-iv-surface-p chain)
+    (list (financial-chart-3d--vol-surface-snapshot
+           chain (or time (financial-chart-3d--vol-get chain :time) (financial-chart-3d--vol-now)) 0)))
+   ((financial-chart-3d--vol-series-p chain)
+    (cl-loop for pair in (append chain nil) for i from 0
+             for at = (financial-chart-3d--vol-get pair :time)
+             for surface = (financial-chart-3d--vol-get pair :surface)
+             do (unless (stringp at)
+                  (financial-chart--invalid i "time" "missing_time" "each pair needs a time (an ISO 8601 string)"))
+             (unless (financial-chart-3d--vol-iv-surface-p surface)
+               (financial-chart--invalid i "surface" "missing_surface" "each pair needs an opt.iv_surface surface"))
+             collect (financial-chart-3d--vol-surface-snapshot surface at i)))
+   (t (financial-chart-3d--vol-snapshots chain))))
+
+(cl-defun financial-chart-3d-vol-surface-rows (chain &key time)
   "Rows {time, spot, strike, dte, expiry, iv} of option CHAIN, a vector.
-CHAIN is {snapshots: [{time, spot, chain: [{strike, expiry, dte, iv}
-...]} ...]} (as the fixture test/fixtures/3d/vol-surface/spy-chain.json
-holds it), or just its snapshots.  A snapshot's quotes may be under
-`chain' or `quotes'; a quote without `dte' gets the calendar days from
-the snapshot's time to its `expiry'.  Quotes without an IV are left
-out: a chain's far strikes often have none.  IV is a fraction (0.18 is
-18%).  Rows are by quote time, then days to expiry, then strike.
-Signals `financial-chart-invalid-data' naming the snapshot and field
-of the first malformed one."
+CHAIN is any of:
+
+- {snapshots: [{time, spot, chain: [{strike, expiry, dte, iv}
+  ...]} ...]} (as the fixture test/fixtures/3d/vol-surface/spy-chain.json
+  holds it), or just its snapshots.  A snapshot's quotes may be under
+  `chain' or `quotes'; a quote without `dte' gets the calendar days from
+  the snapshot's time to its `expiry'.
+- One result of `invest metric run opt.iv_surface', verbatim:
+  {underlying_price?, strikes, moneyness, days_to_expiry, iv: [[IV per
+  strike] per expiry]}, one snapshot at TIME (default its own `time',
+  else now).  Without `underlying_price' the spot is strike / moneyness.
+- A sequence of {time, surface} pairs, SURFACE such a result: the
+  snapshots of a replay.
+
+Quotes without an IV (null) are left out: a chain's far strikes often
+have none.  IV is a fraction (0.18 is 18%).  Rows are by quote time,
+then days to expiry, then strike.  Signals `financial-chart-invalid-data'
+naming the snapshot and field of the first malformed one."
   (let ((rows nil))
     (cl-loop
-     for snap in (financial-chart-3d--vol-snapshots chain) for i from 0 do
+     for snap in (financial-chart-3d--vol-normalize chain time) for i from 0 do
      (let ((time (financial-chart-3d--vol-get snap :time))
            (spot (financial-chart-3d--vol-get snap :spot))
            (quotes (or (financial-chart-3d--vol-get snap :chain) (financial-chart-3d--vol-get snap :quotes))))
@@ -151,6 +224,16 @@ end; all missing stays all nil."
                               (before (aref values before))
                               (t (aref values after))))))))
     out))
+
+(defconst financial-chart-3d-vol-surface-max-strikes 41
+  "Most strikes the wire mesh draws (option `max_strikes').")
+
+(defun financial-chart-3d--vol-columns (n most)
+  "Indices of N strikes the mesh draws: all, or MOST evenly spread.
+The first and the last are always among them."
+  (if (or (<= n most) (< most 2))
+      (number-sequence 0 (1- n))
+    (delete-dups (cl-loop for k below most collect (round (* k (1- n)) (1- most))))))
 
 (defun financial-chart-3d--vol-at (strikes ivs spot)
   "SPOT's place among STRIKES (a list) and its IV from IVS (a vector).
@@ -237,16 +320,22 @@ the surface moves in place from one quote time to the next."
         (t
          ;; A wire mesh: each expiry's smile and each strike's term
          ;; structure, every segment coloured by its mean IV.
-         (let ((every (max 1 (financial-chart-3d--opt graphics "strike_every" (max 1 (round nx 6)))))
-               segments colors)
+         ;; A wide chain (a live one has 125 strikes) is drawn on at
+         ;; most `max_strikes' of them, evenly spread: every strike's
+         ;; segment would blur to a solid sheet.  The ATM line keeps
+         ;; them all.
+         (let* ((cols (financial-chart-3d--vol-columns
+                       nx (financial-chart-3d--opt graphics "max_strikes" financial-chart-3d-vol-surface-max-strikes)))
+                (every (max 1 (financial-chart-3d--opt graphics "strike_every" (max 1 (round (length cols) 6)))))
+                segments colors)
            (cl-loop for smile in smiles for j from 0 do
-                    (dotimes (i (1- nx))
+                    (cl-loop for (i i2) on cols while i2 do
                       (push (vector (funcall x-at i) (funcall y-at (aref smile i)) (funcall z-at j)
-                                    (funcall x-at (1+ i)) (funcall y-at (aref smile (1+ i))) (funcall z-at j))
+                                    (funcall x-at i2) (funcall y-at (aref smile i2)) (funcall z-at j))
                             segments)
-                      (push (funcall color (/ (+ (aref smile i) (aref smile (1+ i))) 2)) colors)))
-           (dotimes (i nx)
-             (when (or (zerop (% i every)) (= i (1- nx)))
+                      (push (funcall color (/ (+ (aref smile i) (aref smile i2)) 2)) colors)))
+           (cl-loop for i in cols for c from 0 do
+             (when (or (zerop (% c every)) (= i (1- nx)))
               (cl-loop for (a b) on smiles for j from 0 while b do
                       (push (vector (funcall x-at i) (funcall y-at (aref a i)) (funcall z-at j)
                                     (funcall x-at i) (funcall y-at (aref b i)) (funcall z-at (1+ j)))
@@ -268,18 +357,23 @@ the surface moves in place from one quote time to the next."
 
 ;;; Opening
 
-(cl-defun financial-chart-3d-vol-surface-open (chain &key title id show)
-  "Open the 3D IV surface of option CHAIN and return its eas view.
-CHAIN is as `financial-chart-3d-vol-surface-rows' takes it, or its rows
-already.  TITLE titles it; ID names the view (default
-\"fc3d/vol-surface\"); SHOW draws it in a graphics.el buffer, where SPC
-plays the session.  Signals `financial-chart-3d-unavailable' without
-graphics.el."
-  (let ((rows (if (and (sequencep chain) (not (keywordp (car-safe chain)))
-                       (> (length chain) 0) (plist-get (elt chain 0) :strike))
-                  (vconcat chain)
-                (financial-chart-3d-vol-surface-rows chain))))
-    (financial-chart-3d-open "vol-surface" :bindings (list :data rows :title (or title ""))
+(cl-defun financial-chart-3d-vol-surface-open (surface-or-series &key symbol title time id show)
+  "Open the 3D IV surface of SURFACE-OR-SERIES and return its eas view.
+SURFACE-OR-SERIES is anything `financial-chart-3d-vol-surface-rows'
+takes: one `opt.iv_surface' result verbatim (one keyframe at TIME,
+default now), a sequence of {time, surface} pairs (a replay), chain
+snapshots, or their rows already.  SYMBOL names the underlying in the
+title (\"NVDA implied volatility\"); TITLE overrides it.  ID names the
+view (default \"fc3d/vol-surface\"); SHOW draws it in a graphics.el
+buffer, where SPC plays the replay.  Signals
+`financial-chart-3d-unavailable' without graphics.el."
+  (let ((rows (if (and (sequencep surface-or-series) (not (keywordp (car-safe surface-or-series)))
+                       (> (length surface-or-series) 0) (plist-get (elt surface-or-series 0) :strike))
+                  (vconcat surface-or-series)
+                (financial-chart-3d-vol-surface-rows surface-or-series :time time))))
+    (financial-chart-3d-open "vol-surface"
+                             :bindings (list :data rows
+                                             :title (or title (if symbol (format "%s implied volatility" symbol) "")))
                              :id id :show show)))
 
 ;;; The example

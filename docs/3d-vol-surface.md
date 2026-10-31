@@ -63,15 +63,72 @@ the dotfiles repository and was not available to this package. The
 template example `examples/vol-surface.data.json` is this fixture's rows
 (`financial-chart-3d-vol-surface-write-example` regenerates it).
 
+## From `opt.iv_surface` (invest-vol-surface)
+
+`financial-chart-3d-vol-surface-rows` and `financial-chart-3d-vol-surface-open`
+take the output of `invest metric run opt.iv_surface` verbatim, so
+invest-vol-surface can pass it straight to `fc3d/vol-surface`. One result is
+one snapshot:
+
+```json
+{"underlying_price": 769.64,
+ "strikes": [768.0, 769.0, 770.0],
+ "moneyness": [0.9978691336209137, 0.9991684423886492, 1.0004677511563849],
+ "days_to_expiry": [11, 32],
+ "iv": [[null, 0.2, 0.19], [0.26, 0.24, 0.22]]}
+```
+
+| field | | |
+|---|---|---|
+| `strikes` | required | numbers, one per column of `iv` |
+| `days_to_expiry` | required | numbers, one per row of `iv` |
+| `iv` | required | one array per expiry, each with one IV (a fraction) or `null` per strike |
+| `underlying_price` | optional | the spot. If it is absent, the spot is the mean of `strike / moneyness` |
+| `moneyness` | optional | `strike / spot`, one per strike. Needed when `underlying_price` is absent |
+| `time` | optional | the quote time (ISO 8601) |
+
+- A single result is one keyframe. Its time is the `:time` argument, then
+  its own `time`, then now.
+- A replay is an array of `{time, surface}` pairs, one result per pair:
+
+  ```json
+  [{"time": "2026-10-30T10:00:00", "surface": {"strikes": [...], "days_to_expiry": [...], "iv": [...], ...}},
+   {"time": "2026-10-30T12:00:00", "surface": {...}}]
+  ```
+
+- `null` cells are dropped. The mark interpolates them along each smile.
+- Rows have `expiry` null, because the result carries only days to expiry.
+- Errors use `financial-chart-invalid-data`, with `:index` set to the
+  snapshot (the pair's position). The codes are `missing_strike`,
+  `missing_dte`, `missing_spot` (no `underlying_price` and no usable
+  `moneyness`), `bad_shape` (`iv` is not `days_to_expiry` x `strikes`),
+  `missing_time` and `missing_surface` (a malformed pair), plus `bad_iv` and
+  `empty_chain` as above.
+
+The fixture `test/fixtures/3d/vol-surface/iv_surface.json` is a verbatim
+copy of invest-vol-surface's `test/fixtures/vol-surface/iv_surface.json`
+from the dotfiles repository. A live NVDA chain is 24 expiries x 125 strikes. The
+wire mesh draws at most `max_strikes` (41) of the strikes, evenly spread,
+so that it stays readable. The ATM line is computed from every strike. The
+tests cover the fixture, a synthetic 24 x 125 surface with nulls, and a
+3-snapshot replay.
+
 ## Opening it
 
 ```elisp
 (require 'financial-chart-3d)
 ;; 3D, from chain snapshots or rows; SPC plays the session
 (financial-chart-3d-vol-surface-open CHAIN :title "SPY IV" :show t)
+;; 3D, from opt.iv_surface output (one result, or {time, surface} pairs)
+(financial-chart-3d-vol-surface-open SURFACE-OR-SERIES :symbol "NVDA" :show t)
 ;; 2D, eas only
 (eas-view-open "vol-surface" :bindings (list :data (financial-chart-3d-vol-surface-rows CHAIN)))
 ```
+
+`financial-chart-3d-vol-surface-open (SURFACE-OR-SERIES &key symbol title
+time id show)` returns the view. `symbol` titles it "SYMBOL implied
+volatility", and `title` overrides that. `time` is the time of a single
+`opt.iv_surface` result.
 
 A caller such as invest-vol-surface can offer the 3D view when
 `(financial-chart-3d-available-p)` is non-nil. It should keep its 2D
@@ -85,7 +142,8 @@ Options in `x-eas.graphics`:
 | option | default | |
 |---|---|---|
 | `style` | `"wire"` | `"wire"`: each expiry's smile and every `strike_every`-th strike's term line as segments, each coloured by its IV; `"surface"`: one lit heightfield |
-| `strike_every` | strikes / 6 | spacing of the wire mesh's term lines |
+| `max_strikes` | 41 | most strikes the wire mesh draws, evenly spread (the ATM line uses all of them) |
+| `strike_every` | drawn strikes / 6 | spacing of the wire mesh's term lines, counted over the drawn strikes |
 | `height` | 4 (template: 5) | world height of the IV range |
 | `extent` | `[12, 9]` | world width (strikes) and depth (expiries) |
 | `low_color`, `mid_color`, `high_color` | viridis `#3b528b`, `#21918c`, `#fde725` | IV colour ramp (`surface` uses low and high) |

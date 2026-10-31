@@ -1,0 +1,211 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "pop-surface",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "fields",
+          "props": {
+            "source": "auto"
+          }
+        }
+      ]
+    },
+    "doc": "3D variant of financial-chart's pop-surface (graphics.el, mark fc-pop3d): the probability as a surface over strike and expiry, red at 0 to green at 1, the even-odds level framed.  2D: Probability of profit (or of touch) of an option trade across strikes, a curve per expiry, with the even-odds line.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {strike, dte, pop, prob_touch, credit, breakeven}: invest metric opt.pop_grid (docs/3d-options.md), probabilities as fractions"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Probability of profit (or of touch) of an option trade across strikes, a curve per expiry, with the even-odds line.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "metric": {
+        "enum": [
+          "pop",
+          "prob_touch"
+        ],
+        "default": "pop",
+        "doc": "the probability drawn: pop (profit at expiry) or prob_touch (the strike touched before expiry)"
+      },
+      "spot": {
+        "type": "number",
+        "doc": "the underlying's price now: a rule across the chart (omit for none)"
+      }
+    },
+    "example": "examples/3d/pop-surface.data.json",
+    "base": "pop-surface",
+    "graphics": {
+      "mark": "fc-pop3d",
+      "camera": {
+        "yaw": 35,
+        "pitch": 18,
+        "zoom": 1.35,
+        "target": [
+          -0.6,
+          0.9,
+          0
+        ]
+      },
+      "spot": {
+        "x-eas:slot": "spot"
+      },
+      "encoding": {
+        "x": {
+          "field": "strike"
+        },
+        "z": {
+          "field": "dte"
+        },
+        "y": {
+          "field": {
+            "x-eas:slot": "metric"
+          }
+        }
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "layer": [
+    {
+      "name": "even",
+      "data": {
+        "values": [
+          {
+            "level": 0.5
+          }
+        ]
+      },
+      "mark": {
+        "type": "rule",
+        "color": "gray",
+        "strokeDash": [
+          2,
+          2
+        ]
+      },
+      "encoding": {
+        "y": {
+          "field": "level",
+          "type": "quantitative"
+        }
+      }
+    },
+    {
+      "name": "curves",
+      "mark": "line",
+      "encoding": {
+        "x": {
+          "field": "strike",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "strike"
+        },
+        "y": {
+          "field": {
+            "x-eas:slot": "metric"
+          },
+          "type": "quantitative",
+          "title": {
+            "x-eas:slot": "metric"
+          }
+        },
+        "color": {
+          "field": "dte",
+          "type": "nominal",
+          "sort": null,
+          "title": "DTE"
+        },
+        "tooltip": [
+          {
+            "field": "dte",
+            "type": "quantitative",
+            "title": "DTE"
+          },
+          {
+            "field": "strike",
+            "type": "quantitative"
+          },
+          {
+            "field": {
+              "x-eas:slot": "metric"
+            },
+            "type": "quantitative",
+            "title": {
+              "x-eas:slot": "metric"
+            }
+          },
+          {
+            "field": "credit",
+            "type": "quantitative"
+          }
+        ]
+      }
+    },
+    {
+      "x-eas:when": "spot",
+      "spec": {
+        "name": "spot",
+        "data": {
+          "values": [
+            {
+              "spot": {
+                "x-eas:slot": "spot"
+              }
+            }
+          ]
+        },
+        "mark": {
+          "type": "rule",
+          "color": "#ffb74d",
+          "strokeDash": [
+            4,
+            2
+          ]
+        },
+        "encoding": {
+          "x": {
+            "field": "spot",
+            "type": "quantitative",
+            "title": "strike"
+          }
+        }
+      }
+    }
+  ]
+}

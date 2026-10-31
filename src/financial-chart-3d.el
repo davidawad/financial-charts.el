@@ -662,6 +662,7 @@ graphics.el's bar3d, gains green and losses red."
 (with-eval-after-load 'financial-chart-3d (require 'financial-chart-3d-valuation))
 (require 'financial-chart-3d-risk)
 (require 'financial-chart-3d-options)
+(require 'financial-chart-3d-market)
 
 ;;; Opening variants
 

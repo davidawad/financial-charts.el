@@ -9,3 +9,4 @@
                           ("examples/order-book" "examples/order-book/*.json")
                           ("examples/3d" "examples/3d/*.json")
                           ("test/fixtures/3d/options" "test/fixtures/3d/options/*.json")))
+                          ("test/fixtures/3d/market" "test/fixtures/3d/market/*.json")))

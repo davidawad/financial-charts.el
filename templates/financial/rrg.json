@@ -1,0 +1,312 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "rrg",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "row",
+          "children": [
+            {
+              "component": "text",
+              "props": {
+                "text": {
+                  "expr": "datum.symbol"
+                },
+                "priority": 95
+              }
+            },
+            {
+              "component": "quantity",
+              "props": {
+                "field": "rs_ratio",
+                "priority": 90,
+                "label": "ratio"
+              }
+            },
+            {
+              "component": "quantity",
+              "props": {
+                "field": "rs_momentum",
+                "priority": 85,
+                "label": "momentum"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "doc": "Relative rotation graph: each symbol's RS-Ratio (across) by RS-Momentum (up), both centred on 100, its trail over the last tail dates ending at a labelled dot; leading top right, weakening bottom right, lagging bottom left, improving top left.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {date, symbol, rs_ratio, rs_momentum}: one per symbol per date, as ta.rel_strength emits them or financial-chart-3d-rrg-rows computes them"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Relative rotation graph: each symbol's RS-Ratio (across) by RS-Momentum (up), both centred on 100, its trail over the last tail dates ending at a labelled dot; leading top right, weakening bottom right, lagging bottom left, improving top left.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "tail": {
+        "type": "integer",
+        "default": 8,
+        "doc": "dates of trail drawn per symbol, newest last"
+      }
+    },
+    "example": "../test/fixtures/3d/market/rrg.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 260,
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "window": [
+        {
+          "op": "dense_rank",
+          "as": "recent"
+        }
+      ],
+      "sort": [
+        {
+          "field": "date",
+          "order": "descending"
+        }
+      ]
+    },
+    {
+      "filter": {
+        "field": "recent",
+        "lte": {
+          "x-eas:slot": "tail"
+        }
+      }
+    }
+  ],
+  "layer": [
+    {
+      "name": "ratio-100",
+      "transform": [
+        {
+          "aggregate": [
+            {
+              "op": "count",
+              "as": "n"
+            }
+          ]
+        },
+        {
+          "calculate": "100",
+          "as": "centre"
+        }
+      ],
+      "mark": {
+        "type": "rule",
+        "color": "#8a94a6",
+        "strokeDash": [
+          4,
+          2
+        ]
+      },
+      "encoding": {
+        "x": {
+          "field": "centre",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          }
+        }
+      }
+    },
+    {
+      "name": "momentum-100",
+      "transform": [
+        {
+          "aggregate": [
+            {
+              "op": "count",
+              "as": "n"
+            }
+          ]
+        },
+        {
+          "calculate": "100",
+          "as": "centre"
+        }
+      ],
+      "mark": {
+        "type": "rule",
+        "color": "#8a94a6",
+        "strokeDash": [
+          4,
+          2
+        ]
+      },
+      "encoding": {
+        "y": {
+          "field": "centre",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          }
+        }
+      }
+    },
+    {
+      "name": "trails",
+      "mark": {
+        "type": "line",
+        "opacity": 0.7
+      },
+      "encoding": {
+        "x": {
+          "field": "rs_ratio",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "RS-Ratio"
+        },
+        "y": {
+          "field": "rs_momentum",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "RS-Momentum"
+        },
+        "detail": {
+          "field": "symbol",
+          "type": "nominal"
+        },
+        "color": {
+          "field": "symbol",
+          "type": "nominal",
+          "title": "symbol"
+        },
+        "order": {
+          "field": "date"
+        }
+      }
+    },
+    {
+      "name": "heads",
+      "transform": [
+        {
+          "filter": "datum.recent == 1"
+        }
+      ],
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 60
+      },
+      "encoding": {
+        "x": {
+          "field": "rs_ratio",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "RS-Ratio"
+        },
+        "y": {
+          "field": "rs_momentum",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "RS-Momentum"
+        },
+        "color": {
+          "field": "symbol",
+          "type": "nominal",
+          "title": "symbol"
+        },
+        "tooltip": [
+          {
+            "field": "symbol",
+            "type": "nominal"
+          },
+          {
+            "field": "date",
+            "type": "nominal"
+          },
+          {
+            "field": "rs_ratio",
+            "type": "quantitative",
+            "format": ".2f"
+          },
+          {
+            "field": "rs_momentum",
+            "type": "quantitative",
+            "format": ".2f"
+          }
+        ]
+      }
+    },
+    {
+      "name": "labels",
+      "transform": [
+        {
+          "filter": "datum.recent == 1"
+        }
+      ],
+      "mark": {
+        "type": "text",
+        "dx": 6,
+        "align": "left",
+        "fontSize": 10
+      },
+      "encoding": {
+        "x": {
+          "field": "rs_ratio",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "RS-Ratio"
+        },
+        "y": {
+          "field": "rs_momentum",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "RS-Momentum"
+        },
+        "text": {
+          "field": "symbol",
+          "type": "nominal"
+        }
+      }
+    }
+  ]
+}

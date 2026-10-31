@@ -1,0 +1,1208 @@
+{
+  "generator": "hand-authored textbook vectors; numerical definitions cited per pack",
+  "sources": [
+    "Murphy, Technical Analysis of the Financial Markets (1999), technical indicators",
+    "Wilder, New Concepts in Technical Trading Systems (1978), RSI and directional movement",
+    "Bailey and Lopez de Prado, The Deflated Sharpe Ratio (2014), PSR/DSR",
+    "Hull, Options, Futures, and Other Derivatives, VaR/CVaR risk definitions"
+  ],
+  "cases": [
+    {
+      "name": "ta.rsi textbook vector",
+      "metric": "ta.rsi",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "rsi"
+      }
+    },
+    {
+      "name": "ta.macd textbook vector",
+      "metric": "ta.macd",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "macd"
+      }
+    },
+    {
+      "name": "ta.stochastic textbook vector",
+      "metric": "ta.stochastic",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "stochastic"
+      }
+    },
+    {
+      "name": "ta.dmi textbook vector",
+      "metric": "ta.dmi",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "dmi"
+      }
+    },
+    {
+      "name": "ta.adx textbook vector",
+      "metric": "ta.adx",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "adx"
+      }
+    },
+    {
+      "name": "ta.williams_r textbook vector",
+      "metric": "ta.williams_r",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "williams_r"
+      }
+    },
+    {
+      "name": "ta.obv textbook vector",
+      "metric": "ta.obv",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "obv"
+      }
+    },
+    {
+      "name": "ta.cmf textbook vector",
+      "metric": "ta.cmf",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "cmf"
+      }
+    },
+    {
+      "name": "ta.vwap textbook vector",
+      "metric": "ta.vwap",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "vwap"
+      }
+    },
+    {
+      "name": "ta.keltner textbook vector",
+      "metric": "ta.keltner",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "keltner"
+      }
+    },
+    {
+      "name": "ta.donchian textbook vector",
+      "metric": "ta.donchian",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "donchian"
+      }
+    },
+    {
+      "name": "ta.dema textbook vector",
+      "metric": "ta.dema",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "dema"
+      }
+    },
+    {
+      "name": "ta.tema textbook vector",
+      "metric": "ta.tema",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "tema"
+      }
+    },
+    {
+      "name": "ta.kama textbook vector",
+      "metric": "ta.kama",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "kama"
+      }
+    },
+    {
+      "name": "ta.hull textbook vector",
+      "metric": "ta.hull",
+      "input": {
+        "closes": [
+          10,
+          11,
+          10,
+          12
+        ],
+        "highs": [
+          11,
+          12,
+          11,
+          13
+        ],
+        "lows": [
+          9,
+          10,
+          9,
+          11
+        ],
+        "volumes": [
+          100,
+          200,
+          150,
+          250
+        ],
+        "period": 2,
+        "fast": 1,
+        "slow": 2,
+        "signal": 1,
+        "smooth": 2
+      },
+      "expect": {
+        "/key": "hull"
+      }
+    },
+    {
+      "name": "stats.sharpe textbook vector",
+      "metric": "stats.sharpe",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "sharpe"
+      }
+    },
+    {
+      "name": "stats.sortino textbook vector",
+      "metric": "stats.sortino",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "sortino"
+      }
+    },
+    {
+      "name": "stats.max_drawdown textbook vector",
+      "metric": "stats.max_drawdown",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "max_drawdown"
+      }
+    },
+    {
+      "name": "stats.calmar textbook vector",
+      "metric": "stats.calmar",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "calmar"
+      }
+    },
+    {
+      "name": "stats.omega textbook vector",
+      "metric": "stats.omega",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "omega"
+      }
+    },
+    {
+      "name": "stats.ulcer textbook vector",
+      "metric": "stats.ulcer",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "ulcer"
+      }
+    },
+    {
+      "name": "stats.var_cvar.historical textbook vector",
+      "metric": "stats.var_cvar.historical",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "historical_var_cvar"
+      }
+    },
+    {
+      "name": "stats.var_cvar.parametric textbook vector",
+      "metric": "stats.var_cvar.parametric",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "parametric_var_cvar"
+      }
+    },
+    {
+      "name": "stats.psr textbook vector",
+      "metric": "stats.psr",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "psr"
+      }
+    },
+    {
+      "name": "stats.dsr textbook vector",
+      "metric": "stats.dsr",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "dsr"
+      }
+    },
+    {
+      "name": "stats.kelly.binary textbook vector",
+      "metric": "stats.kelly.binary",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "kelly_binary"
+      }
+    },
+    {
+      "name": "stats.kelly.continuous textbook vector",
+      "metric": "stats.kelly.continuous",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "kelly_continuous"
+      }
+    },
+    {
+      "name": "stats.correlation textbook vector",
+      "metric": "stats.correlation",
+      "input": {
+        "returns": [
+          -0.1,
+          0,
+          0.1,
+          0.2
+        ],
+        "other_returns": [
+          -0.2,
+          0,
+          0.2,
+          0.4
+        ],
+        "annualization": 1,
+        "alpha": 0.75,
+        "annual_return": 0.2,
+        "trials": 2,
+        "probability": 0.6,
+        "win": 2,
+        "loss": -1,
+        "odds": 2
+      },
+      "expect": {
+        "/key": "correlation"
+      }
+    },
+    {
+      "name": "stats.realized_vol golden vector",
+      "metric": "stats.realized_vol",
+      "input": {
+        "returns": [
+          0.01,
+          -0.01,
+          0.02
+        ]
+      },
+      "expect": {
+        "/key": "realized_volatility"
+      }
+    },
+    {
+      "name": "stats.vol_target_size golden vector",
+      "metric": "stats.vol_target_size",
+      "input": {
+        "returns": [
+          0.01,
+          -0.01,
+          0.02
+        ],
+        "target_volatility": 0.1
+      },
+      "expect": {
+        "/key": "vol_target_size"
+      }
+    },
+    {
+      "name": "stats.risk_suite golden vector",
+      "metric": "stats.risk_suite",
+      "input": {
+        "returns": [
+          0.01,
+          -0.01,
+          0.02
+        ]
+      },
+      "expect": {
+        "/metrics/0/key": "realized_volatility",
+        "/metrics/2/key": "var"
+      }
+    },
+    {
+      "name": "stats.mortality_table golden vector",
+      "metric": "stats.mortality_table",
+      "input": {
+        "annual_mortality": [
+          0.01,
+          0.02,
+          0.03
+        ],
+        "start_age": 40,
+        "age": 41,
+        "years": 2
+      },
+      "expect": {
+        "/key": "survival_probability",
+        "/value": 0.9506
+      }
+    },
+    {
+      "name": "stats.binom_ci golden vector",
+      "metric": "stats.binom_ci",
+      "input": {
+        "successes": 5,
+        "trials": 10
+      },
+      "expect": {
+        "/key": "binom_ci",
+        "/value/estimate": 0.5
+      }
+    },
+    {
+      "name": "stats.pack golden vector",
+      "metric": "stats.pack",
+      "input": {
+        "returns": [
+          0.01,
+          -0.01,
+          0.02
+        ]
+      },
+      "expect": {
+        "/metrics/0/key": "realized_volatility",
+        "/metrics/5/key": "dsr"
+      }
+    },
+    {
+      "name": "stats.effective_n golden vector",
+      "metric": "stats.effective_n",
+      "input": {
+        "weights": [
+          0.5,
+          0.5
+        ]
+      },
+      "expect": {
+        "/key": "effective_n",
+        "/value": 2.0
+      }
+    },
+    {
+      "name": "stats.brier golden vector",
+      "metric": "stats.brier",
+      "input": {
+        "forecasts": [
+          0.8,
+          0.2
+        ],
+        "outcomes": [
+          1,
+          0
+        ]
+      },
+      "expect": {
+        "/key": "brier",
+        "/value": 0.04
+      }
+    },
+    {
+      "name": "stats.reliability golden vector",
+      "metric": "stats.reliability",
+      "input": {
+        "forecasts": [
+          0.8,
+          0.2
+        ],
+        "outcomes": [
+          1,
+          0
+        ],
+        "bins": 2
+      },
+      "expect": {
+        "/key": "reliability",
+        "/value/0/count": 1,
+        "/value/1/count": 1
+      }
+    },
+    {
+      "name": "stats.hhi golden vector",
+      "metric": "stats.hhi",
+      "input": {
+        "weights": [
+          0.5,
+          0.5
+        ]
+      },
+      "expect": {
+        "/key": "hhi",
+        "/value": 0.5
+      }
+    },
+    {
+      "name": "stats.var golden vector",
+      "metric": "stats.var",
+      "input": {
+        "returns": [
+          0.1,
+          -0.2,
+          0.05,
+          -0.01
+        ]
+      },
+      "expect": {
+        "/key": "var",
+        "/value/var": 0.2,
+        "/value/cvar": 0.2
+      }
+    },
+    {
+      "name": "stats.risk_contribution golden vector",
+      "metric": "stats.risk_contribution",
+      "input": {
+        "weights": [
+          0.5,
+          0.5
+        ],
+        "covariance": [
+          [
+            0.04,
+            0.01
+          ],
+          [
+            0.01,
+            0.09
+          ]
+        ]
+      },
+      "expect": {
+        "/key": "risk_contribution",
+        "/value/portfolio_volatility": 0.19364916731037085
+      }
+    },
+    {
+      "name": "stats.dedupe golden vector",
+      "metric": "stats.dedupe",
+      "input": {
+        "values": [
+          "a",
+          "a",
+          "b"
+        ]
+      },
+      "expect": {
+        "/key": "dedupe",
+        "/value/unique_count": 2,
+        "/value/duplicate_count": 1
+      }
+    },
+    {
+      "name": "stats.discrete_sharpe golden vector",
+      "metric": "stats.discrete_sharpe",
+      "input": {
+        "probability": 0.6,
+        "win": 1.0,
+        "loss": -1.0
+      },
+      "expect": {
+        "/key": "discrete_sharpe",
+        "/value": 0.20412414523193148
+      }
+    },
+    {
+      "name": "stats.factor_regression golden vector",
+      "metric": "stats.factor_regression",
+      "input": {
+        "returns": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "factors": [
+          [
+            1,
+            2,
+            3,
+            4
+          ]
+        ]
+      },
+      "expect": {
+        "/key": "factor_regression",
+        "/value/alpha": 0.0,
+        "/value/betas/0": 1.0
+      }
+    }
+  ]
+}

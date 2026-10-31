@@ -1,0 +1,22 @@
+{
+  "cases": [
+    {"name":"balanced options flow skew","metric":"opt.positioning_skew","input":{"call_volume":25,"put_volume":75},"expect":{"/value":0.5}},
+    {"name":"at-the-money call margin","metric":"opt.margin_req","input":{"premium":2,"underlying_price":100,"strike":100,"option_type":"call"},"expect":{"/value":2200.0}},
+    {"name":"american call no-dividend floor","metric":"opt.bs2002","input":{"option_type":"call","underlying_price":100,"strike":100,"risk_free_rate":0,"dividend_yield":0,"sigma":0.2,"t_years":1},"expect":{"/american_price":7.965567455405804}},
+    {"name":"second order greeks computed from bsm","metric":"opt.greeks.second_order","input":{"option_type":"call","underlying_price":100,"strike":100,"risk_free_rate":0,"dividend_yield":0,"sigma":0.2,"t_years":1},"expect":{"/gamma":0.01984762737385059,"/volga":-1.984762737385059}},
+    {"name":"breakeven at expected move boundary","metric":"opt.em_vs_breakeven","input":{"underlying_price":100,"expected_move":10,"breakeven":110},"expect":{"/inside_expected_move":true}},
+    {"name":"iv context static range","metric":"opt.iv_context","input":{"iv":0.2,"history":[0.1,0.2,0.3]},"expect":{"/rank_pct":50.0,"/percentile_pct":66.66666666666667}},
+    {"name":"implied realized volatility premium","metric":"opt.vrp","input":{"implied_vol":0.3,"realized_vol":0.2},"expect":{"/vrp":0.1}},
+    {"name":"25 delta risk reversal and butterfly","metric":"opt.skew_rr25_bf25","input":{"call_25d_iv":0.24,"put_25d_iv":0.28,"atm_iv":0.2},"expect":{"/rr25":-0.04,"/bf25":0.06}},
+    {"name":"chain summary","metric":"opt.chain_stats","input":{"strikes":[90,100,100,110],"ivs":[0.2,0.3]},"expect":{"/contract_count":4,"/unique_strikes":3,"/mean_iv":0.25}},
+    {"name":"max pain equal open interest","metric":"opt.max_pain","input":{"strikes":[90,100,110],"call_open_interest":[1,1,1],"put_open_interest":[1,1,1]},"expect":{"/strike":100}},
+    {"name":"dealer short gamma exposure","metric":"opt.gex","input":{"underlying_price":100,"strikes":[100],"gamma":[0.01],"open_interest":[10]},"expect":{"/gex":-1000}},
+    {"name":"barrier at spot","metric":"opt.prob_touch","input":{"underlying_price":100,"barrier":100,"sigma":0.2,"t_years":1},"expect":{"/probability_touch":1.0}},
+    {"name":"earnings move comparison","metric":"opt.earnings.implied_vs_realized","input":{"implied_move_pct":8,"realized_move_pct":4},"expect":{"/premium_pct":4,"/implied_to_realized":2}},
+    {"name":"weekly expiration present","metric":"opt.has_weeklies","input":{"dte_days":[3,30,60]},"expect":{"/has_weeklies":true,"/weekly_expirations":1}},
+    {"name":"positive expectancy condor","metric":"opt.condor.optimal","input":{"credit":2,"wing_width":5,"probability_profit":0.8},"expect":{"/max_loss":3,"/expected_value":1,"/optimal":true}},
+    {"name":"roll credit and tenor","metric":"opt.roll_analysis","input":{"current_value":2,"roll_value":3,"current_dte_days":10,"roll_dte_days":30},"expect":{"/roll_credit":1,"/dte_change":20}},
+    {"name":"dividend exceeds call extrinsic","metric":"opt.early_exercise_risk","input":{"option_type":"call","dividend_amount":2,"extrinsic_value":1},"expect":{"/risk":true}},
+    {"name":"calendar implied volatility ratio","metric":"opt.calendar_iv_ratio","input":{"near_iv":0.4,"far_iv":0.2},"expect":{"/calendar_iv_ratio":2}}
+  ]
+}

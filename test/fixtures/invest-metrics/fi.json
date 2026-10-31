@@ -1,0 +1,1637 @@
+{
+  "pack": "fi",
+  "cases": [
+    {
+      "name": "fi.ytw",
+      "metric": "fi.ytw",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 0.05
+      }
+    },
+    {
+      "name": "fi.dv01",
+      "metric": "fi.dv01",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 0.04
+      }
+    },
+    {
+      "name": "fi.effective_duration",
+      "metric": "fi.effective_duration",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 4.0
+      }
+    },
+    {
+      "name": "fi.oas",
+      "metric": "fi.oas",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 150.0
+      }
+    },
+    {
+      "name": "fi.spread_suite",
+      "metric": "fi.spread_suite",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 150.0
+      }
+    },
+    {
+      "name": "fi.krd",
+      "metric": "fi.krd",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 6.0
+      }
+    },
+    {
+      "name": "fi.horizon_return",
+      "metric": "fi.horizon_return",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 10.25
+      }
+    },
+    {
+      "name": "fi.breakeven_bps",
+      "metric": "fi.breakeven_bps",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 300.0
+      }
+    },
+    {
+      "name": "fi.rolldown_carry",
+      "metric": "fi.rolldown_carry",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 1000.0
+      }
+    },
+    {
+      "name": "fi.nss_fit",
+      "metric": "fi.nss_fit",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 0.04
+      }
+    },
+    {
+      "name": "fi.curve_regime",
+      "metric": "fi.curve_regime",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 1.0
+      }
+    },
+    {
+      "name": "fi.forward_path",
+      "metric": "fi.forward_path",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 0.045
+      }
+    },
+    {
+      "name": "fi.breakeven_inflation",
+      "metric": "fi.breakeven_inflation",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 300.0
+      }
+    },
+    {
+      "name": "fi.immunization",
+      "metric": "fi.immunization",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 2.0
+      }
+    },
+    {
+      "name": "fi.mbs_psa",
+      "metric": "fi.mbs_psa",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 100.0
+      }
+    },
+    {
+      "name": "fi.credit_ratios",
+      "metric": "fi.credit_ratios",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 4.0
+      }
+    },
+    {
+      "name": "fi.rating_notch",
+      "metric": "fi.rating_notch",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 13.0
+      }
+    },
+    {
+      "name": "fi.spread_pctile",
+      "metric": "fi.spread_pctile",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 66.66666666666667
+      }
+    },
+    {
+      "name": "fi.distress_flags",
+      "metric": "fi.distress_flags",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 0.0
+      }
+    },
+    {
+      "name": "fi.cds_basis",
+      "metric": "fi.cds_basis",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 25.0
+      }
+    },
+    {
+      "name": "fi.el_adjusted_carry",
+      "metric": "fi.el_adjusted_carry",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 380.0
+      }
+    },
+    {
+      "name": "fi.tax_equiv_yield",
+      "metric": "fi.tax_equiv_yield",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 0.06666666666666667
+      }
+    },
+    {
+      "name": "fi.oid_tax",
+      "metric": "fi.oid_tax",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 10.0
+      }
+    },
+    {
+      "name": "fi.liquidity_score",
+      "metric": "fi.liquidity_score",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 25.0
+      }
+    },
+    {
+      "name": "fi.repo_specialness",
+      "metric": "fi.repo_specialness",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 100.0
+      }
+    },
+    {
+      "name": "fi.tbill_yield_conv",
+      "metric": "fi.tbill_yield_conv",
+      "input": {
+        "face": 100.0,
+        "coupon_rate": 0.05,
+        "frequency": 2,
+        "years": 2.0,
+        "price": 100.0,
+        "ytm": 0.05,
+        "duration": 4.0,
+        "spread_bps": 150.0,
+        "key_rate_shocks": [
+          1.0,
+          2.0,
+          3.0
+        ],
+        "horizon_years": 2.0,
+        "nominal_yield": 0.05,
+        "real_yield": 0.02,
+        "curve_years": [
+          1.0,
+          2.0,
+          5.0
+        ],
+        "curve_rates": [
+          0.03,
+          0.04,
+          0.05
+        ],
+        "forward_rates": [
+          0.04,
+          0.045
+        ],
+        "psa": 100.0,
+        "ebitda": 20.0,
+        "interest_expense": 5.0,
+        "total_debt": 40.0,
+        "rating": "BBB",
+        "spread_history_bps": [
+          100.0,
+          150.0,
+          200.0
+        ],
+        "cds_spread_bps": 175.0,
+        "default_probability": 0.02,
+        "recovery_rate": 0.4,
+        "tax_rate": 0.25,
+        "tax_exempt": true,
+        "issue_price": 90.0,
+        "market_depth": 50.0,
+        "bid_ask_bps": 1.0,
+        "repo_rate": 0.03,
+        "general_collateral_rate": 0.04,
+        "bill_discount_rate": 0.04,
+        "bill_days": 90.0,
+        "bill_price": 99.0
+      },
+      "expect": {
+        "/value": 4.09652076318743
+      }
+    },
+    {
+      "name": "fi.convexity",
+      "metric": "fi.convexity",
+      "input": {
+        "convexity": 39.3516
+      },
+      "expect": {
+        "/value": 39.3516
+      }
+    },
+    {
+      "name": "fi.recovery_rate",
+      "metric": "fi.recovery_rate",
+      "input": {
+        "recovery_rate": 0.4
+      },
+      "expect": {
+        "/value": 0.4
+      }
+    }
+  ]
+}

@@ -9,4 +9,10 @@ real metric output without the dotfiles checkout:
 - kelly_growth.json: stats.kelly.growth
 - risk_rolling.json: stats.rolling.correlation, stats.rolling.factor_regression, port.frontier
 
+- fi.json: fi.nss_fit, fi.krd, fi.spread_suite, fi.curve_regime and the other fi.* metrics
+- opt.json: opt.gex, opt.chain_stats, opt.skew_rr25_bf25, opt.vrp, opt.max_pain, ...
+- ta_v2.json: ta.rel_strength
+- indicator_stats.json: stats.risk_contribution, stats.var, ...
+- port.json: port.stress
+
 Refresh by copying them again; the invest lane owns their shape.

@@ -1,0 +1,10 @@
+{
+  "generator": "hand-checked deterministic vectors from the formulas stated in each metric",
+  "sources": ["24/7 calendar arithmetic", "Murphy, Technical Analysis of the Financial Markets (1999)"],
+  "cases": [
+    {"name":"continuous market annualization", "metric":"ta.session_247", "input":{"observations":48,"interval_minutes":30,"days_per_year":365}, "expect":{"/key":"session_247","/value/periods_per_year":17520,"/value/observed_minutes":1440,"/value/coverage_days":1}},
+    {"name":"core trailing average and period return", "metric":"ta.core", "input":{"closes":[100,102,101,104],"highs":[101,103,102,105],"lows":[99,101,100,103],"period":2}, "expect":{"/key":"core","/value/sma":102.5,"/value/period_return_pct":4,"/value/mean_high_low_range":2}},
+    {"name":"indicator lab stochastic and channel", "metric":"ta.indicator_lab", "input":{"closes":[10,11,12,13],"highs":[11,12,13,14],"lows":[9,10,11,12],"period":2}, "expect":{"/key":"indicator_lab","/value/stochastic_k":66.66666666666666,"/value/donchian_upper":14,"/value/donchian_lower":11}},
+    {"name":"benchmark-relative strength", "metric":"ta.rel_strength", "input":{"closes":[100,110,120],"benchmark_closes":[100,100,100]}, "expect":{"/key":"rel_strength","/value/price_relative":1.2,"/value/relative_return_pct":20,"/value/relative_series":[1,1.1,1.2]}}
+  ]
+}

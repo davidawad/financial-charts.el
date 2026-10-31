@@ -1,0 +1,281 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "options-oi",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "when",
+          "props": {
+            "test": "isValid(datum.total)"
+          },
+          "children": [
+            {
+              "component": "row",
+              "children": [
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "strike",
+                    "label": "strike",
+                    "priority": 95
+                  }
+                },
+                {
+                  "component": "signed-value",
+                  "props": {
+                    "field": "total",
+                    "label": "OI",
+                    "priority": 90
+                  }
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "component": "fields",
+              "props": {
+                "source": "auto"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "doc": "Open interest by strike, calls up and puts down, summed over expiries, with spot ruled and each expiry's max-pain strike marked.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "opt.chain_stats rows {expiry, strike, call_oi, put_oi}"
+      },
+      "spot": {
+        "type": "number",
+        "required": true,
+        "doc": "the underlying's price, a plane through the strike axis"
+      },
+      "max_pain": {
+        "shape": "plist",
+        "default": null,
+        "doc": "opt.max_pain rows {expiry, max_pain}; computed from the open interest when left out"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Open interest by strike, calls up and puts down, summed over expiries, with spot ruled and each expiry's max-pain strike marked.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "../test/fixtures/3d/options/oi.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 240,
+  "data": {
+    "name": "data"
+  },
+  "layer": [
+    {
+      "name": "strikes",
+      "transform": [
+        {
+          "fold": [
+            "call_oi",
+            "put_oi"
+          ],
+          "as": [
+            "side",
+            "amount"
+          ]
+        },
+        {
+          "calculate": "datum.side == 'put_oi' ? 'puts' : 'calls'",
+          "as": "type"
+        },
+        {
+          "calculate": "datum.side == 'put_oi' ? -abs(datum.amount) : abs(datum.amount)",
+          "as": "signed"
+        },
+        {
+          "aggregate": [
+            {
+              "op": "sum",
+              "field": "signed",
+              "as": "total"
+            }
+          ],
+          "groupby": [
+            "strike",
+            "type"
+          ]
+        },
+        {
+          "calculate": "datum.strike - 1.8",
+          "as": "left"
+        },
+        {
+          "calculate": "datum.strike + 1.8",
+          "as": "right"
+        },
+        {
+          "calculate": "0",
+          "as": "zero"
+        }
+      ],
+      "mark": {
+        "type": "rect"
+      },
+      "encoding": {
+        "x": {
+          "field": "left",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": "strike"
+        },
+        "x2": {
+          "field": "right"
+        },
+        "y": {
+          "field": "total",
+          "type": "quantitative",
+          "title": "open interest (puts below)"
+        },
+        "y2": {
+          "field": "zero"
+        },
+        "color": {
+          "field": "type",
+          "type": "nominal",
+          "title": null,
+          "scale": {
+            "domain": [
+              "calls",
+              "puts"
+            ],
+            "range": [
+              "#26a69a",
+              "#ef5350"
+            ]
+          }
+        },
+        "tooltip": [
+          {
+            "field": "strike",
+            "type": "quantitative"
+          },
+          {
+            "field": "type",
+            "type": "nominal"
+          },
+          {
+            "field": "total",
+            "type": "quantitative",
+            "title": "open interest (puts below)",
+            "format": ",.0f"
+          }
+        ]
+      }
+    },
+    {
+      "name": "spot",
+      "data": {
+        "values": [
+          {
+            "spot": {
+              "x-eas:slot": "spot"
+            }
+          }
+        ]
+      },
+      "mark": {
+        "type": "rule",
+        "color": "#d2ddeb",
+        "strokeDash": [
+          4,
+          2
+        ]
+      },
+      "encoding": {
+        "x": {
+          "field": "spot",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          }
+        },
+        "tooltip": [
+          {
+            "field": "spot",
+            "type": "quantitative",
+            "format": ".2f"
+          }
+        ]
+      }
+    },
+    {
+      "x-eas:when": "max_pain",
+      "spec": {
+        "name": "max-pain",
+        "data": {
+          "name": "max_pain"
+        },
+        "mark": {
+          "type": "point",
+          "shape": "triangle-up",
+          "filled": true,
+          "color": "#ffb74d",
+          "size": 80
+        },
+        "encoding": {
+          "x": {
+            "field": "max_pain",
+            "type": "quantitative",
+            "scale": {
+              "zero": false
+            }
+          },
+          "y": {
+            "datum": 0
+          },
+          "tooltip": [
+            {
+              "field": "expiry",
+              "type": "nominal"
+            },
+            {
+              "field": "max_pain",
+              "type": "quantitative",
+              "title": "max pain"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

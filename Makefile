@@ -57,7 +57,7 @@ deps-3d:
 	$(MAKE) -C $(GRAPHICS_DIR) module EAS_DIR=$(CURDIR)/$(EAS3D_DIR)/src
 
 test-3d: deps-3d
-	$(BATCH_3D) -l test/financial-chart-3d-test.el -f ert-run-tests-batch-and-exit
+	$(BATCH_3D) -l test/financial-chart-3d-test.el -l test/financial-chart-3d-options-test.el -f ert-run-tests-batch-and-exit
 
 templates3d:
 	python3 scripts/templates3d.py

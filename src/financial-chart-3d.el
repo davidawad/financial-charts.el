@@ -1069,4 +1069,5 @@ example book)."
            :data (financial-chart-3d-book-history (financial-chart-3d--example-snapshot) 39)))))
 
 (provide 'financial-chart-3d)
+(require 'financial-chart-3d-options)
 ;;; financial-chart-3d.el ends here

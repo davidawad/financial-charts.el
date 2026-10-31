@@ -1,0 +1,13 @@
+{
+  "data": [
+    {"kind":"spot","time":"2026-10-30T10:00:00","years":0,"price":100,"shape":"contango"},
+    {"kind":"contract","time":"2026-10-30T10:00:00","symbol":"F1","expiry":"2026-11-29","years":0.0821,"price":101,"mark":101,"bid":100.9,"ask":101.1,"oi":82000,"volume":12000,"basis":1,"carry":0.1212,"implied_yield":-0.0812,"annualized_roll":0.18,"roll_to_next":0.18,"roll_sign":"contango","shape":"contango"},
+    {"kind":"contract","time":"2026-10-30T10:00:00","symbol":"F2","expiry":"2027-01-28","years":0.2464,"price":104,"mark":104,"bid":103.9,"ask":104.1,"oi":42000,"volume":8000,"basis":4,"carry":0.1584,"implied_yield":-0.1184,"annualized_roll":0,"roll_to_next":0,"roll_sign":"flat","shape":"contango"},
+    {"kind":"spot","time":"2026-10-30T12:00:00","years":0,"price":100.1,"shape":"contango"},
+    {"kind":"contract","time":"2026-10-30T12:00:00","symbol":"F1","expiry":"2026-11-29","years":0.0821,"price":101.1,"mark":101.1,"bid":101,"ask":101.2,"oi":82000,"volume":13000,"basis":1,"carry":0.1212,"implied_yield":-0.0812,"annualized_roll":0.18,"roll_to_next":0.18,"roll_sign":"contango","shape":"contango"},
+    {"kind":"contract","time":"2026-10-30T12:00:00","symbol":"F2","expiry":"2027-01-28","years":0.2464,"price":104.2,"mark":104.2,"bid":104.1,"ask":104.3,"oi":42000,"volume":9000,"basis":4.1,"carry":0.1584,"implied_yield":-0.1184,"annualized_roll":0,"roll_to_next":0,"roll_sign":"flat","shape":"contango"},
+    {"kind":"spot","time":"2026-10-30T15:30:00","years":0,"price":100.2,"shape":"backwardation"},
+    {"kind":"contract","time":"2026-10-30T15:30:00","symbol":"F1","expiry":"2026-11-29","years":0.0821,"price":100.8,"mark":100.8,"bid":100.7,"ask":100.9,"oi":82000,"volume":14000,"basis":0.6,"carry":0.0725,"implied_yield":-0.0325,"annualized_roll":-0.12,"roll_to_next":-0.12,"roll_sign":"backwardation","shape":"backwardation"},
+    {"kind":"contract","time":"2026-10-30T15:30:00","symbol":"F2","expiry":"2027-01-28","years":0.2464,"price":99.5,"mark":99.5,"bid":99.4,"ask":99.6,"oi":42000,"volume":10000,"basis":-0.7,"carry":-0.0285,"implied_yield":0.0685,"annualized_roll":0,"roll_to_next":0,"roll_sign":"flat","shape":"backwardation"}
+  ]
+}

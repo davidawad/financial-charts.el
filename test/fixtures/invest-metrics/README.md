@@ -13,10 +13,16 @@ adapters can be tested against metric fixtures without the dotfiles checkout:
 - ta_v2.json: ta.rel_strength
 - indicator_stats.json: stats.risk_contribution, stats.var, ...
 - port.json: port.stress
+- futures.json: copied fut.term_structure golden inputs and expected pointers (including valid and rejected cases)
+- ../3d/futures/curve-es.json: a recorded invest-fetch Schwab /ES raw curve
+- ../3d/futures/term-structure-es.json: its computed term-structure output
 
 `options_forward.json` is from the `opt-forward` branch; the NVDA density
 and forward outputs are in `test/fixtures/3d/density-surface/`. Refresh by
 copying them again; the invest lane owns their shape.
+
+`futures.json` is from dotfiles master (fut.term_structure goldens); the
+recorded /ES curve and its term structure are in `test/fixtures/3d/futures/`.
 
 ## runs.json (generated)
 

@@ -48,6 +48,7 @@
 ;;                        back in time (`financial-chart-3d-payoff-surface')
 ;;   fc-depth3d           cumulative depth walls per side
 ;;   fc-diverging3d       bar3d coloured by sign
+;;   fc-futures-curve3d   futures by tenor, roll, and snapshot time
 ;;
 ;; The series variants replay along a looping `timeline' whose position
 ;; the marks read (`financial-chart-3d--phase'): every frame draws all
@@ -785,6 +786,7 @@ graphics.el's bar3d, gains green and losses red."
 (require 'financial-chart-3d-risk)
 (require 'financial-chart-3d-options)
 (require 'financial-chart-3d-market)
+(require 'financial-chart-3d-futures)
 
 ;;; Opening variants
 
@@ -1058,7 +1060,7 @@ The renders are read from DIRECTORY (default
               "registered by `financial-chart-3d.el` with `graphics-eas-define-mark`:\n"
               "candles whose scales span the whole series, stacked panes, a volume\n"
               "profile beside candles, the underwater curve, a payoff heightfield, depth\n"
-              "walls and sign-coloured bars.\n\n"
+              "walls, sign-coloured bars and futures curves with roll tooltips.\n\n"
               "A replay draws every row at every moment: a series starts from its first\n"
               "third in colour, the rest a dim ghost the replay colours bar by bar; a\n"
               "payoff surface stays whole while a bright trace sweeps it to expiry. The\n"
@@ -1374,7 +1376,8 @@ example book)."
   '(financial-chart-3d-risk-metric-adapters financial-chart-3d-options-metric-adapters
     financial-chart-3d-positioning-metric-adapters financial-chart-3d-rates-metric-adapters
     financial-chart-3d-market-metric-adapters financial-chart-3d-valuation-metric-adapters
-    financial-chart-3d-vol-surface-metric-adapters)
+    financial-chart-3d-vol-surface-metric-adapters
+    financial-chart-3d-futures-metric-adapters)
   "Each group's adapters: a list of (METRIC-ID TEMPLATE FUNCTION).
 FUNCTION takes TEMPLATE, the metric's OUTPUT and ARGS (a plist) and
 returns TEMPLATE's bindings; each lives in its group's file.")

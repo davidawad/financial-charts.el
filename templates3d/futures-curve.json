@@ -1,0 +1,160 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "futures-curve",
+    "version": "1.0.0",
+    "doc": "3D variant of financial-chart's futures-curve (graphics.el, mark fc-futures-curve3d): one snapshot as a futures curve by years to expiry, with price or basis as height, roll sign as colour, the spot reference plane and annualized roll between contracts; snapshot sequences replay as contract by date.  2D: Futures term structure from fut.term_structure: contract price or basis by years to expiry, coloured by curve shape and roll direction.",
+    "example": "examples/futures-curve.data.json",
+    "slots": {
+      "data": {
+        "shape": "invest/futures-curve",
+        "required": true,
+        "doc": "rows from fut.term_structure; one row per contract, pair or spot reference"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Futures prices and annualized roll by expiry."
+      },
+      "measure": {
+        "type": "string",
+        "enum": [
+          "price",
+          "basis"
+        ],
+        "default": "price",
+        "doc": "height to draw"
+      }
+    },
+    "base": "futures-curve",
+    "graphics": {
+      "mark": "fc-futures-curve3d",
+      "encoding": {
+        "x": {
+          "field": "years"
+        },
+        "z": {
+          "field": "time"
+        },
+        "y": {
+          "field": {
+            "x-eas:slot": "measure"
+          }
+        },
+        "color": {
+          "field": "roll_sign"
+        }
+      },
+      "replay": "time",
+      "colors": {
+        "contango": "#26a69a",
+        "backwardation": "#ef5350",
+        "flat": "#eeca3b"
+      },
+      "extent": [
+        12,
+        12
+      ],
+      "height": 8,
+      "camera": {
+        "yaw": 10,
+        "pitch": 18,
+        "zoom": 1.35
+      },
+      "timeline": {
+        "loop": true,
+        "autoplay": true,
+        "duration": 6
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 220,
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "filter": "datum.kind == 'contract'"
+    }
+  ],
+  "mark": {
+    "type": "line",
+    "point": true
+  },
+  "encoding": {
+    "x": {
+      "field": "years",
+      "type": "quantitative",
+      "title": "years to expiry"
+    },
+    "y": {
+      "field": {
+        "x-eas:slot": "measure"
+      },
+      "type": "quantitative",
+      "title": "price / basis"
+    },
+    "color": {
+      "field": "roll_sign",
+      "type": "nominal",
+      "title": "roll"
+    },
+    "tooltip": [
+      {
+        "field": "symbol",
+        "type": "nominal"
+      },
+      {
+        "field": "expiry",
+        "type": "nominal"
+      },
+      {
+        "field": "bid",
+        "type": "quantitative"
+      },
+      {
+        "field": "ask",
+        "type": "quantitative"
+      },
+      {
+        "field": "mark",
+        "type": "quantitative"
+      },
+      {
+        "field": "oi",
+        "type": "quantitative",
+        "title": "open interest"
+      },
+      {
+        "field": "volume",
+        "type": "quantitative"
+      },
+      {
+        "field": "basis",
+        "type": "quantitative"
+      },
+      {
+        "field": "carry",
+        "type": "quantitative"
+      },
+      {
+        "field": "implied_yield",
+        "type": "quantitative"
+      },
+      {
+        "field": "roll_to_next",
+        "type": "quantitative"
+      }
+    ]
+  }
+}

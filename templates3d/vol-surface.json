@@ -1,0 +1,250 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "vol-surface",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "when",
+          "props": {
+            "test": "isValid(datum.iv)"
+          },
+          "children": [
+            {
+              "component": "row",
+              "children": [
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "strike",
+                    "label": "K",
+                    "priority": 90
+                  }
+                },
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "dte",
+                    "label": "DTE",
+                    "priority": 85
+                  }
+                },
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "iv_pct",
+                    "label": "IV%",
+                    "priority": 95
+                  }
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "component": "fields",
+              "props": {
+                "source": "auto"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "doc": "3D variant of financial-chart's vol-surface (graphics.el, mark fc-vol-surface3d): IV surface over strike and days to expiry as a mesh of each expiry's smile and the strikes' term structures, coloured by IV, the at-the-money term structure traced across it; replays the session quote time by quote time while the camera sways.  2D: Implied-volatility surface of an option chain: strike across, days to expiry down, each cell coloured by its IV, at the latest quote time of the rows.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {time, spot, strike, dte, expiry, iv}: IV (a fraction, 0.18 = 18%) per strike and expiry at each quote time (ISO 8601); financial-chart-3d-vol-surface-rows lowers chain snapshots to these"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Implied volatility by strike and days to expiry at the latest quote: skew down the strikes, term structure down the expiries.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "labels": {
+        "type": "boolean",
+        "default": false,
+        "doc": "print each cell's IV in percent"
+      }
+    },
+    "example": "examples/vol-surface.data.json",
+    "base": "vol-surface",
+    "graphics": {
+      "mark": "fc-vol-surface3d",
+      "encoding": {
+        "x": {
+          "field": "strike"
+        },
+        "z": {
+          "field": "dte"
+        },
+        "y": {
+          "field": "iv"
+        },
+        "time": {
+          "field": "time",
+          "mode": "frame",
+          "step": 1.0,
+          "easing": "linear"
+        }
+      },
+      "height": 5,
+      "style": "wire",
+      "camera": {
+        "yaw": -25,
+        "pitch": 30,
+        "zoom": 1.3,
+        "target": [
+          -1.0,
+          1.0,
+          0.5
+        ]
+      },
+      "camera_path": {
+        "keyframes": [
+          {
+            "t": 0,
+            "yaw": 0
+          },
+          {
+            "t": 4,
+            "yaw": 15
+          },
+          {
+            "t": 8,
+            "yaw": 0
+          }
+        ]
+      },
+      "timeline": {
+        "loop": true,
+        "autoplay": true
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "calculate": "time(datum.time)",
+      "as": "quote_ms"
+    },
+    {
+      "joinaggregate": [
+        {
+          "op": "max",
+          "field": "quote_ms",
+          "as": "latest_ms"
+        }
+      ]
+    },
+    {
+      "filter": "datum.quote_ms == datum.latest_ms"
+    },
+    {
+      "calculate": "round(datum.iv * 1000) / 10",
+      "as": "iv_pct"
+    }
+  ],
+  "encoding": {
+    "x": {
+      "field": "strike",
+      "type": "ordinal",
+      "title": "strike"
+    },
+    "y": {
+      "field": "dte",
+      "type": "ordinal",
+      "title": "days to expiry"
+    }
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": "rect",
+      "encoding": {
+        "color": {
+          "field": "iv_pct",
+          "type": "quantitative",
+          "title": "IV %",
+          "scale": {
+            "scheme": "viridis"
+          }
+        },
+        "tooltip": [
+          {
+            "field": "time",
+            "type": "nominal",
+            "title": "quote"
+          },
+          {
+            "field": "strike",
+            "type": "quantitative"
+          },
+          {
+            "field": "expiry",
+            "type": "nominal"
+          },
+          {
+            "field": "dte",
+            "type": "quantitative",
+            "title": "DTE"
+          },
+          {
+            "field": "iv_pct",
+            "type": "quantitative",
+            "title": "IV %",
+            "format": ".1f"
+          }
+        ]
+      }
+    },
+    {
+      "x-eas:when": "labels",
+      "spec": {
+        "name": "values",
+        "mark": {
+          "type": "text",
+          "fontSize": 9
+        },
+        "encoding": {
+          "text": {
+            "field": "iv_pct",
+            "type": "quantitative",
+            "format": ".0f"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "vol-surface",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {
+          "component": "text",
+          "props": {
+            "text": {
+              "expr": "at"
+            },
+            "priority": 10,
+            "style": {
+              "dim": true
+            }
+          }
+        },
+        {
+          "component": "when",
+          "props": {
+            "test": "isValid(datum.iv)"
+          },
+          "children": [
+            {
+              "component": "row",
+              "children": [
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "strike",
+                    "label": "K",
+                    "priority": 90
+                  }
+                },
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "dte",
+                    "label": "DTE",
+                    "priority": 85
+                  }
+                },
+                {
+                  "component": "quantity",
+                  "props": {
+                    "field": "iv_pct",
+                    "label": "IV%",
+                    "priority": 95
+                  }
+                }
+              ]
+            }
+          ],
+          "else": [
+            {
+              "component": "fields",
+              "props": {
+                "source": "auto"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "doc": "Implied-volatility surface of an option chain: strike across, days to expiry down, each cell coloured by its IV, at the latest quote time of the rows.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {time, spot, strike, dte, expiry, iv}: IV (a fraction, 0.18 = 18%) per strike and expiry at each quote time (ISO 8601); financial-chart-3d-vol-surface-rows lowers chain snapshots to these"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Implied volatility by strike and days to expiry at the latest quote: skew down the strikes, term structure down the expiries.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "labels": {
+        "type": "boolean",
+        "default": false,
+        "doc": "print each cell's IV in percent"
+      }
+    },
+    "example": "../examples/vol-surface.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 200,
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "calculate": "time(datum.time)",
+      "as": "quote_ms"
+    },
+    {
+      "joinaggregate": [
+        {
+          "op": "max",
+          "field": "quote_ms",
+          "as": "latest_ms"
+        }
+      ]
+    },
+    {
+      "filter": "datum.quote_ms == datum.latest_ms"
+    },
+    {
+      "calculate": "round(datum.iv * 1000) / 10",
+      "as": "iv_pct"
+    }
+  ],
+  "encoding": {
+    "x": {
+      "field": "strike",
+      "type": "ordinal",
+      "title": "strike"
+    },
+    "y": {
+      "field": "dte",
+      "type": "ordinal",
+      "title": "days to expiry"
+    }
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": "rect",
+      "encoding": {
+        "color": {
+          "field": "iv_pct",
+          "type": "quantitative",
+          "title": "IV %",
+          "scale": {
+            "scheme": "viridis"
+          }
+        },
+        "tooltip": [
+          {
+            "field": "time",
+            "type": "nominal",
+            "title": "quote"
+          },
+          {
+            "field": "strike",
+            "type": "quantitative"
+          },
+          {
+            "field": "expiry",
+            "type": "nominal"
+          },
+          {
+            "field": "dte",
+            "type": "quantitative",
+            "title": "DTE"
+          },
+          {
+            "field": "iv_pct",
+            "type": "quantitative",
+            "title": "IV %",
+            "format": ".1f"
+          }
+        ]
+      }
+    },
+    {
+      "x-eas:when": "labels",
+      "spec": {
+        "name": "values",
+        "mark": {
+          "type": "text",
+          "fontSize": 9
+        },
+        "encoding": {
+          "text": {
+            "field": "iv_pct",
+            "type": "quantitative",
+            "format": ".0f"
+          }
+        }
+      }
+    }
+  ]
+}

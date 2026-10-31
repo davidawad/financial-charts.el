@@ -1,0 +1,127 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "kelly-surface",
+    "version": "1.0.0",
+    "doc": "3D variant of financial-chart's kelly-surface (graphics.el, mark fc-kelly3d): log growth as a surface over bet fraction and edge, the Kelly fraction traced along its ridge and the zero-growth line where over-betting starts to lose.  2D: Kelly log-growth rate over edge by bet fraction: green where betting grows the bankroll, red where over-betting shrinks it.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {edge, fraction, growth}: stats.kelly.binary or stats.kelly.continuous evaluated over the grid (docs/3d-valuation.md; financial-chart-3d-kelly-surface computes it)"
+      },
+      "model": {
+        "type": "string",
+        "default": "continuous",
+        "doc": "\"binary\" (stats.kelly.binary) or \"continuous\" (stats.kelly.continuous): the model the growth rows come from, for the record"
+      },
+      "sigma": {
+        "type": "number",
+        "default": 0.2,
+        "doc": "continuous model: annualised volatility of the asset; binary: unused"
+      },
+      "odds": {
+        "type": "number",
+        "default": 1,
+        "doc": "binary model: net odds b paid on a win; continuous: unused"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Kelly log-growth rate over edge by bet fraction: green where betting grows the bankroll, red where over-betting shrinks it.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "example": "test/fixtures/3d/valuation/kelly-surface.data.json",
+    "base": "kelly-surface",
+    "graphics": {
+      "mark": "fc-kelly3d",
+      "encoding": {
+        "x": {
+          "field": "fraction"
+        },
+        "z": {
+          "field": "edge"
+        },
+        "y": {
+          "field": "growth"
+        }
+      },
+      "level": 0,
+      "trace": "max",
+      "plane_color": "#5b6b86",
+      "contour_color": "#ffb74d",
+      "height": 5,
+      "camera": {
+        "yaw": -135,
+        "pitch": 25,
+        "zoom": 1.15
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": {
+    "step": 30
+  },
+  "height": {
+    "step": 18
+  },
+  "data": {
+    "name": "data"
+  },
+  "encoding": {
+    "x": {
+      "field": "fraction",
+      "type": "ordinal",
+      "title": "fraction of bankroll"
+    },
+    "y": {
+      "field": "edge",
+      "type": "ordinal",
+      "sort": "descending",
+      "title": "edge"
+    }
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": "rect",
+      "encoding": {
+        "color": {
+          "field": "growth",
+          "type": "quantitative",
+          "title": "log growth",
+          "scale": {
+            "scheme": "redyellowgreen",
+            "domainMid": 0
+          }
+        },
+        "tooltip": [
+          {
+            "field": "edge",
+            "type": "quantitative",
+            "format": ".2%"
+          },
+          {
+            "field": "fraction",
+            "type": "quantitative",
+            "format": ".2f"
+          },
+          {
+            "field": "growth",
+            "type": "quantitative",
+            "format": ".4f"
+          }
+        ]
+      }
+    }
+  ]
+}

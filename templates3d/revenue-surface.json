@@ -1,0 +1,155 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "revenue-surface",
+    "version": "1.0.0",
+    "doc": "3D variant of financial-chart's revenue-surface (graphics.el, mark fc-revenue3d): revenue as a surface over fiscal year and outcome quantile, the cone widening with the horizon and the median traced; it grows year by year.  2D: Revenue possibility fan: forecast revenue by fiscal year at each quantile of the outcome distribution, the median emphasised.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {year, quantile, revenue}: eq.revenue.possibility_surface (docs/3d-valuation.md), quantile in (0, 1), revenue in the metric's unit"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "Revenue possibility fan: forecast revenue by fiscal year at each quantile of the outcome distribution, the median emphasised.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "y_title": {
+        "type": "string",
+        "default": "revenue",
+        "doc": "y-axis title (name the unit)"
+      }
+    },
+    "example": "test/fixtures/3d/valuation/revenue-surface.data.json",
+    "base": "revenue-surface",
+    "graphics": {
+      "mark": "fc-revenue3d",
+      "encoding": {
+        "x": {
+          "field": "year"
+        },
+        "z": {
+          "field": "quantile"
+        },
+        "y": {
+          "field": "revenue"
+        },
+        "time": {
+          "field": "year",
+          "mode": "cumulative",
+          "step": 0.4
+        }
+      },
+      "trace": 0.5,
+      "front": true,
+      "low_color": "#2c3e7a",
+      "high_color": "#ffb74d",
+      "height": 6,
+      "camera": {
+        "yaw": -55,
+        "pitch": 24,
+        "zoom": 1.15
+      },
+      "timeline": {
+        "loop": true,
+        "autoplay": true
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": "container",
+  "height": 220,
+  "data": {
+    "name": "data"
+  },
+  "layer": [
+    {
+      "name": "quantiles",
+      "mark": {
+        "type": "line",
+        "strokeWidth": 1
+      },
+      "encoding": {
+        "x": {
+          "field": "year",
+          "type": "quantitative",
+          "title": "fiscal year",
+          "scale": {
+            "zero": false
+          },
+          "axis": {
+            "format": "d"
+          }
+        },
+        "y": {
+          "field": "revenue",
+          "type": "quantitative",
+          "scale": {
+            "zero": false
+          },
+          "title": {
+            "x-eas:slot": "y_title"
+          }
+        },
+        "color": {
+          "field": "quantile",
+          "type": "ordinal",
+          "title": "quantile",
+          "scale": {
+            "scheme": "blues"
+          }
+        },
+        "tooltip": [
+          {
+            "field": "year",
+            "type": "quantitative",
+            "format": "d"
+          },
+          {
+            "field": "quantile",
+            "type": "quantitative",
+            "format": ".0%"
+          },
+          {
+            "field": "revenue",
+            "type": "quantitative",
+            "format": ",.2f"
+          }
+        ]
+      }
+    },
+    {
+      "name": "median",
+      "transform": [
+        {
+          "filter": "datum.quantile == 0.5"
+        }
+      ],
+      "mark": {
+        "type": "line",
+        "color": "#f58518",
+        "strokeWidth": 2
+      },
+      "encoding": {
+        "x": {
+          "field": "year",
+          "type": "quantitative"
+        },
+        "y": {
+          "field": "revenue",
+          "type": "quantitative"
+        }
+      }
+    }
+  ]
+}

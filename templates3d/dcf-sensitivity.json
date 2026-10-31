@@ -1,0 +1,175 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "dcf-sensitivity",
+    "version": "1.0.0",
+    "doc": "3D variant of financial-chart's dcf-sensitivity (graphics.el, mark fc-dcf3d): value per share as a surface over WACC and terminal growth, the current price a plane through it and the fair-value line where they cross; snapshots morph one into the next.  2D: DCF value per share over a WACC by terminal growth grid, each cell coloured against the current price (green above it, red below), the latest snapshot when the rows carry several.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {wacc, terminal_growth, value_per_share, as_of?, price?}: eq.dcf evaluated over the grid (docs/3d-valuation.md); rows with as_of are snapshots, the 2D chart draws the latest"
+      },
+      "price": {
+        "type": "number",
+        "required": true,
+        "doc": "current price per share (eq.price_target's price): the colour scale's midpoint, the 3D chart's plane; a row's own price overrides it in 3D"
+      },
+      "title": {
+        "type": "string",
+        "default": ""
+      },
+      "description": {
+        "type": "string",
+        "default": "DCF value per share over a WACC by terminal growth grid, each cell coloured against the current price (green above it, red below), the latest snapshot when the rows carry several.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      },
+      "labels": {
+        "type": "boolean",
+        "default": true,
+        "doc": "print each cell's value per share"
+      }
+    },
+    "example": "test/fixtures/3d/valuation/dcf-sensitivity.data.json",
+    "base": "dcf-sensitivity",
+    "graphics": {
+      "mark": "fc-dcf3d",
+      "encoding": {
+        "x": {
+          "field": "wacc"
+        },
+        "z": {
+          "field": "terminal_growth"
+        },
+        "y": {
+          "field": "value_per_share"
+        },
+        "time": {
+          "field": "as_of",
+          "mode": "frame",
+          "step": 1.2,
+          "easing": "cubic-in-out"
+        }
+      },
+      "level": {
+        "x-eas:slot": "price"
+      },
+      "level_field": "price",
+      "height": 6,
+      "camera": {
+        "yaw": 140,
+        "pitch": 20,
+        "zoom": 1.2
+      },
+      "timeline": {
+        "loop": true,
+        "autoplay": true
+      }
+    }
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "width": {
+    "step": 40
+  },
+  "height": {
+    "step": 22
+  },
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "calculate": "isValid(datum.as_of) ? datum.as_of : ''",
+      "as": "snapshot"
+    },
+    {
+      "joinaggregate": [
+        {
+          "op": "max",
+          "field": "snapshot",
+          "as": "latest"
+        }
+      ]
+    },
+    {
+      "filter": "datum.snapshot == datum.latest"
+    }
+  ],
+  "encoding": {
+    "x": {
+      "field": "wacc",
+      "type": "ordinal",
+      "title": "WACC",
+      "axis": {
+        "format": ".1%"
+      }
+    },
+    "y": {
+      "field": "terminal_growth",
+      "type": "ordinal",
+      "sort": "descending",
+      "title": "terminal growth",
+      "axis": {
+        "format": ".1%"
+      }
+    }
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": "rect",
+      "encoding": {
+        "color": {
+          "field": "value_per_share",
+          "type": "quantitative",
+          "title": "value / share",
+          "scale": {
+            "scheme": "redyellowgreen",
+            "domainMid": {
+              "x-eas:slot": "price"
+            }
+          }
+        },
+        "tooltip": [
+          {
+            "field": "wacc",
+            "type": "quantitative",
+            "format": ".2%"
+          },
+          {
+            "field": "terminal_growth",
+            "type": "quantitative",
+            "format": ".2%"
+          },
+          {
+            "field": "value_per_share",
+            "type": "quantitative",
+            "format": ".2f"
+          }
+        ]
+      }
+    },
+    {
+      "x-eas:when": "labels",
+      "spec": {
+        "name": "values",
+        "mark": {
+          "type": "text",
+          "fontSize": 9
+        },
+        "encoding": {
+          "text": {
+            "field": "value_per_share",
+            "type": "quantitative",
+            "format": ".0f"
+          }
+        }
+      }
+    }
+  ]
+}

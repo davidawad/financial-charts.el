@@ -628,7 +628,8 @@ of the series, stacked price/volume/RSI panels, a volume profile beside
 the candles, the underwater drawdown curve, option payoff surfaces over
 price and days to expiry with a trace sweeping them to expiry, depth
 walls, a streaming order-book surface, the price ladder and P/L as 3D
-bars. Each view's camera is fitted to its data, so it fills its window at
+bars, and futures term structures with their spot reference and annualized
+roll. Each view's camera is fitted to its data, so it fills its window at
 any size. [docs/3d.md](docs/3d.md) shows every render and what it reads.
 
 graphics.el is optional and not in Package-Requires: without it nothing
@@ -689,9 +690,11 @@ what its adapters read; this package still fetches nothing.
 | `eq.dcf` (`--grid`) | `dcf-sensitivity` |
 | `stats.kelly.growth` (`--grid`) | `kelly-surface` |
 | `opt.iv_surface` | `vol-surface` |
+| `fut.term_structure` | `futures-curve` |
 
-`test/financial-chart-3d-metrics-test.el` draws every pair from real
-metric output (`test/fixtures/invest-metrics/runs.json`).
+`test/financial-chart-3d-metrics-test.el` draws every registered pair from
+metric output (`test/fixtures/invest-metrics/runs.json`); the futures replay
+uses three synthetic snapshots.
 
 ## Layout
 

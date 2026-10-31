@@ -3,7 +3,7 @@
 Verbatim copies of the dotfiles repository's
 `src/rust/crates/invest-metrics/tests/fixtures/golden/` cases at
 ead6f883ea7, so the 3D templates' adapters can be tested against
-real metric output without the dotfiles checkout:
+metric output without the dotfiles checkout:
 
 - options_grids.json: opt.greeks_grid, opt.payoff_grid, opt.pop_grid
 - kelly_growth.json: stats.kelly.growth
@@ -14,8 +14,10 @@ real metric output without the dotfiles checkout:
 - ta_v2.json: ta.rel_strength
 - indicator_stats.json: stats.risk_contribution, stats.var, ...
 - port.json: port.stress
+- fut_term_structure.json: local golden-shaped cases for fut.term_structure (contango, backwardation, mixed, single, and dated contracts)
+- es_curve.json: a representative invest-fetch Schwab /ES raw-curve shape fixture
 
-Refresh by copying them again; the invest lane owns their shape.
+The futures metric fixtures are retained locally because the source dotfiles checkout is not part of this standalone package checkout. Refresh the copied upstream goldens when that checkout is available. For upstream cases, refresh by copying them again; the invest lane owns their shape.
 
 ## runs.json (generated)
 

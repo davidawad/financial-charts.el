@@ -38,7 +38,7 @@ METRICS = {
     "opt.greeks_grid", "opt.payoff_grid", "opt.pop_grid",
     "opt.chain_stats", "opt.gex", "opt.max_pain", "opt.skew_rr25_bf25", "opt.vrp",
     "fi.nss_fit", "fi.curve_regime", "fi.spread_suite", "fi.spread_pctile", "fi.krd",
-    "ta.rel_strength", "stats.kelly.growth",
+    "ta.rel_strength", "stats.kelly.growth", "fut.term_structure",
 }
 
 
@@ -257,6 +257,16 @@ def series():
                      for d in (9, 23, 51, 79) for k in range(550, 626, 5)]
         snaps.append(({"time": time}, {"underlying_price": s0, "contracts": contracts}, None))
     out.append(("opt.iv_surface", "three intraday snapshots", {"drop_input": True}, snaps))
+    # Futures term structure: a synthetic 3-snapshot curve for the replay.
+    futures = []
+    for time, prices in (("2026-10-30T10:00:00", [101.0, 104.0]),
+                         ("2026-10-30T12:00:00", [101.1, 104.2]),
+                         ("2026-10-30T15:30:00", [100.8, 99.5])):
+        inp = {"as_of": "2026-10-30", "spot": 100.0, "rate": 0.04,
+               "contracts": [{"symbol": "F1", "expiry": "2026-11-29", "price": prices[0]},
+                             {"symbol": "F2", "expiry": "2027-01-28", "price": prices[1]}]}
+        futures.append(({"time": time}, inp, None))
+    out.append(("fut.term_structure", "three futures curve snapshots", {"drop_input": True}, futures))
     return out
 
 

@@ -1,0 +1,42 @@
+{
+  "source": "representative invest-fetch Schwab /ES raw curve shape; sample values",
+  "root": "/ES",
+  "as_of": "2026-10-30",
+  "spot_symbol": "$SPX",
+  "contracts": [
+    {
+      "symbol": "/ESZ6",
+      "expiry": "2026-12-18",
+      "expiry_source": "schwab",
+      "bid": 6818.25,
+      "ask": 6818.75,
+      "last": 6818.5,
+      "mark": 6818.5,
+      "open_interest": 824311,
+      "volume": 1013344
+    },
+    {
+      "symbol": "/ESH7",
+      "expiry": "2027-03-19",
+      "expiry_source": "schwab",
+      "bid": 6871.25,
+      "ask": 6872.0,
+      "last": 6871.75,
+      "mark": 6871.625,
+      "open_interest": 112480,
+      "volume": 242118
+    },
+    {
+      "symbol": "/ESM7",
+      "expiry": "2027-06-18",
+      "expiry_source": "schwab",
+      "bid": 6927.5,
+      "ask": 6928.25,
+      "last": 6927.75,
+      "mark": 6927.875,
+      "open_interest": 15422,
+      "volume": 35641
+    }
+  ],
+  "cases": []
+}

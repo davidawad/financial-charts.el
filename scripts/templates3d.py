@@ -186,6 +186,21 @@ VARIANTS = {
             "band": 0.6,
         },
     },
+    "futures-curve": {
+        "source": "templates/financial/futures-curve.json",
+        "example": "examples/futures-curve.data.json",
+        "reading": "one snapshot as a futures curve by years to expiry, with price or basis as height, roll sign as colour, the spot reference plane and annualized roll between contracts; snapshot sequences replay as contract by date",
+        "graphics": {
+            "mark": "fc-futures-curve3d",
+            "encoding": {"x": {"field": "years"}, "z": {"field": "time"},
+                          "y": {"field": {"x-eas:slot": "measure"}}, "color": {"field": "roll_sign"}},
+            "replay": "time",
+            "colors": {"contango": "#26a69a", "backwardation": "#ef5350", "flat": "#eeca3b"},
+            "extent": [12, 12], "height": 8,
+            "camera": {"yaw": 10, "pitch": 18, "zoom": 1.35},
+            "timeline": replay_timeline(6),
+        },
+    },
     "diverging-bars": {
         "source": "templates/diverging-bars.json",
         "example": "examples/diverging-bars.data.json",

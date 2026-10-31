@@ -686,7 +686,8 @@ what its adapters read; this package still fetches nothing.
 | `fi.nss_fit`, `fi.curve_regime` | `yield-curve` |
 | `fi.spread_suite`, `fi.spread_pctile` | `credit-spreads` |
 | `fi.krd` | `key-rate-durations` |
-| `credit.cds_isda_implied_hazard_pd` | `cds-term-structure` |
+| `credit.cds_isda_implied_hazard_pd`, `credit.cds_term_structure` | `cds-term-structure` |
+| `bond_corp.cds_implied_ladder` | `cds-bond-ladder` |
 | `ta.rel_strength` | `rrg` |
 | `market.breadth_pct_above_200d` | `sector-breadth` |
 | `eq.dcf` (`--grid`) | `dcf-sensitivity` |

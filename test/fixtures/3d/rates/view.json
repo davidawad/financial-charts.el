@@ -1,0 +1,1483 @@
+{
+ "schema": "invest.cds.view/1",
+ "ticker": "NVDA",
+ "reference_entity": {
+  "name": "NVIDIA CORPORATION",
+  "red": "6D76CM",
+  "lei": "549300S4KLFTLO7GSQ80",
+  "seniority": "SNRFOR",
+  "currency": "USD",
+  "doc_clause": "XR14"
+ },
+ "as_of": "2026-10-30",
+ "usage": "internal_only",
+ "sources": [
+  {
+   "id": "dtcc_ppd_sec",
+   "url": "https://pddata.dtcc.com/ppd/api/report",
+   "license": "internal/personal use; no redistribution"
+  }
+ ],
+ "spread_5y": {
+  "usage": "internal_only",
+  "par_spread_bp": 134.21365116388264,
+  "quote_convention": "spread",
+  "coupon_bp": 100.0,
+  "upfront_points": 1.6821720000000002,
+  "last_trade_date": "2026-10-30",
+  "days_since_trade": 0,
+  "stale": false,
+  "trades_30d": 277,
+  "capped_notional_usd_30d": 1289198500.0,
+  "validated": false,
+  "off_scale_excluded_30d": 0,
+  "source": "dtcc_ppd_sec"
+ },
+ "curve": [
+  {
+   "usage": "internal_only",
+   "tenor_years": 1.0,
+   "par_spread_bp": null,
+   "last_trade_date": "2026-08-26",
+   "stale": true,
+   "trades_30d": 0
+  },
+  {
+   "usage": "internal_only",
+   "tenor_years": 2.0,
+   "par_spread_bp": 142.6226149354434,
+   "last_trade_date": "2026-10-28",
+   "stale": false,
+   "trades_30d": 5
+  },
+  {
+   "usage": "internal_only",
+   "tenor_years": 3.0,
+   "par_spread_bp": 114.74169006047353,
+   "last_trade_date": "2026-10-29",
+   "stale": false,
+   "trades_30d": 21
+  },
+  {
+   "usage": "internal_only",
+   "tenor_years": 5.0,
+   "par_spread_bp": 134.21365116388264,
+   "last_trade_date": "2026-10-30",
+   "stale": false,
+   "trades_30d": 277
+  },
+  {
+   "usage": "internal_only",
+   "tenor_years": 7.0,
+   "par_spread_bp": 138.0,
+   "last_trade_date": "2026-10-22",
+   "stale": false,
+   "trades_30d": 2
+  },
+  {
+   "usage": "internal_only",
+   "tenor_years": 10.0,
+   "par_spread_bp": 138.77832029296403,
+   "last_trade_date": "2026-10-30",
+   "stale": false,
+   "trades_30d": 6
+  }
+ ],
+ "implied": {
+  "model": "isda_standard",
+  "recovery": 0.4,
+  "hazard_rate_5y": 0.02266860195757863,
+  "pd_1y": 0.022413599682978846,
+  "pd_5y": 0.10715564676633493,
+  "cumulative_pd": [
+   {
+    "tenor_years": 1,
+    "pd": 0.022413599682978846
+   },
+   {
+    "tenor_years": 2,
+    "pd": 0.04432482991520892
+   },
+   {
+    "tenor_years": 3,
+    "pd": 0.06574495060445218
+   },
+   {
+    "tenor_years": 5,
+    "pd": 0.10715564676633493
+   }
+  ],
+  "computed_by": "finance-rs cds"
+ },
+ "history": [
+  {
+   "usage": "internal_only",
+   "date": "2026-06-03",
+   "par_spread_bp_5y": 162.5424244482139,
+   "trades": 2,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-04",
+   "par_spread_bp_5y": 162.5424244482139,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-05",
+   "par_spread_bp_5y": 162.5424244482139,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-06",
+   "par_spread_bp_5y": 162.5424244482139,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-07",
+   "par_spread_bp_5y": 162.5424244482139,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-08",
+   "par_spread_bp_5y": 162.5424244482139,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-09",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 4,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-10",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-11",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-12",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-13",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-14",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-15",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-16",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-17",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-18",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-19",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-20",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-21",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-22",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-23",
+   "par_spread_bp_5y": 165.61276871777858,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-24",
+   "par_spread_bp_5y": 43.0,
+   "trades": 9,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-25",
+   "par_spread_bp_5y": 45.0,
+   "trades": 5,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-26",
+   "par_spread_bp_5y": 45.0,
+   "trades": 2,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-27",
+   "par_spread_bp_5y": 45.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-28",
+   "par_spread_bp_5y": 45.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-29",
+   "par_spread_bp_5y": 47.99999999999999,
+   "trades": 14,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-06-30",
+   "par_spread_bp_5y": 47.99999999999999,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-01",
+   "par_spread_bp_5y": 47.99999999999999,
+   "trades": 1,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-02",
+   "par_spread_bp_5y": 47.99999999999999,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-03",
+   "par_spread_bp_5y": 47.99999999999999,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-04",
+   "par_spread_bp_5y": 47.99999999999999,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-05",
+   "par_spread_bp_5y": 47.99999999999999,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-06",
+   "par_spread_bp_5y": 47.99999999999999,
+   "trades": 1,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-07",
+   "par_spread_bp_5y": 47.99999999999999,
+   "trades": 7,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-08",
+   "par_spread_bp_5y": 47.99999999999999,
+   "trades": 1,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-09",
+   "par_spread_bp_5y": 146.1789236507804,
+   "trades": 10,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-10",
+   "par_spread_bp_5y": 56.49999999999999,
+   "trades": 9,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-11",
+   "par_spread_bp_5y": 56.49999999999999,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-12",
+   "par_spread_bp_5y": 56.49999999999999,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-13",
+   "par_spread_bp_5y": 57.0,
+   "trades": 4,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-14",
+   "par_spread_bp_5y": 57.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-15",
+   "par_spread_bp_5y": 57.99999999999999,
+   "trades": 5,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-16",
+   "par_spread_bp_5y": 143.76153498707572,
+   "trades": 5,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-17",
+   "par_spread_bp_5y": 143.76153498707572,
+   "trades": 1,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-18",
+   "par_spread_bp_5y": 143.76153498707572,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-19",
+   "par_spread_bp_5y": 143.76153498707572,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-20",
+   "par_spread_bp_5y": 143.76153498707572,
+   "trades": 1,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-21",
+   "par_spread_bp_5y": 58.5,
+   "trades": 2,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-22",
+   "par_spread_bp_5y": 58.5,
+   "trades": 5,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-23",
+   "par_spread_bp_5y": 66.0,
+   "trades": 18,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-24",
+   "par_spread_bp_5y": 66.0,
+   "trades": 5,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-25",
+   "par_spread_bp_5y": 66.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-26",
+   "par_spread_bp_5y": 66.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-27",
+   "par_spread_bp_5y": 78.0,
+   "trades": 24,
+   "validated": true,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-28",
+   "par_spread_bp_5y": 79.00000000000001,
+   "trades": 37,
+   "validated": true,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-29",
+   "par_spread_bp_5y": 82.0,
+   "trades": 19,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-30",
+   "par_spread_bp_5y": 76.5,
+   "trades": 10,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-07-31",
+   "par_spread_bp_5y": 76.5,
+   "trades": 5,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-01",
+   "par_spread_bp_5y": 76.5,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-02",
+   "par_spread_bp_5y": 76.5,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-03",
+   "par_spread_bp_5y": 70.5,
+   "trades": 6,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-04",
+   "par_spread_bp_5y": 66.5,
+   "trades": 12,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-05",
+   "par_spread_bp_5y": 130.52200949789687,
+   "trades": 6,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-06",
+   "par_spread_bp_5y": 71.0,
+   "trades": 10,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-07",
+   "par_spread_bp_5y": 71.5,
+   "trades": 6,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-08",
+   "par_spread_bp_5y": 71.5,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-09",
+   "par_spread_bp_5y": 71.5,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-10",
+   "par_spread_bp_5y": 80.0,
+   "trades": 16,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-11",
+   "par_spread_bp_5y": 72.0,
+   "trades": 10,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-12",
+   "par_spread_bp_5y": 240.08212631736066,
+   "trades": 4,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-13",
+   "par_spread_bp_5y": 73.0,
+   "trades": 12,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-14",
+   "par_spread_bp_5y": 75.0,
+   "trades": 9,
+   "validated": true,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-15",
+   "par_spread_bp_5y": 75.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-16",
+   "par_spread_bp_5y": 75.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-17",
+   "par_spread_bp_5y": 122.7514561800635,
+   "trades": 11,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-18",
+   "par_spread_bp_5y": 83.5,
+   "trades": 18,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-19",
+   "par_spread_bp_5y": 119.14652071386057,
+   "trades": 11,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-20",
+   "par_spread_bp_5y": 86.0,
+   "trades": 10,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-21",
+   "par_spread_bp_5y": 85.5,
+   "trades": 7,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-22",
+   "par_spread_bp_5y": 85.5,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-23",
+   "par_spread_bp_5y": 85.5,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-24",
+   "par_spread_bp_5y": 85.5,
+   "trades": 3,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-25",
+   "par_spread_bp_5y": 85.5,
+   "trades": 5,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-26",
+   "par_spread_bp_5y": 85.5,
+   "trades": 6,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-27",
+   "par_spread_bp_5y": 120.10778158753375,
+   "trades": 9,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-28",
+   "par_spread_bp_5y": 120.10778158753375,
+   "trades": 1,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-29",
+   "par_spread_bp_5y": 120.10778158753375,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-30",
+   "par_spread_bp_5y": 120.10778158753375,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-08-31",
+   "par_spread_bp_5y": 120.10778158753375,
+   "trades": 9,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-01",
+   "par_spread_bp_5y": 83.0,
+   "trades": 10,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-02",
+   "par_spread_bp_5y": 83.0,
+   "trades": 15,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-03",
+   "par_spread_bp_5y": 122.3421839900649,
+   "trades": 35,
+   "validated": true,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-04",
+   "par_spread_bp_5y": 121.95969332126978,
+   "trades": 3,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-05",
+   "par_spread_bp_5y": 121.95969332126978,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-06",
+   "par_spread_bp_5y": 121.95969332126978,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-07",
+   "par_spread_bp_5y": 121.95969332126978,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-08",
+   "par_spread_bp_5y": 81.49999999999999,
+   "trades": 6,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-09",
+   "par_spread_bp_5y": 81.49999999999999,
+   "trades": 10,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-10",
+   "par_spread_bp_5y": 81.49999999999999,
+   "trades": 7,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-11",
+   "par_spread_bp_5y": 81.49999999999999,
+   "trades": 3,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-12",
+   "par_spread_bp_5y": 81.49999999999999,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-13",
+   "par_spread_bp_5y": 81.49999999999999,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-14",
+   "par_spread_bp_5y": 81.49999999999999,
+   "trades": 1,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-15",
+   "par_spread_bp_5y": 81.49999999999999,
+   "trades": 5,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-16",
+   "par_spread_bp_5y": 76.0,
+   "trades": 22,
+   "validated": true,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-17",
+   "par_spread_bp_5y": 76.0,
+   "trades": 24,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-18",
+   "par_spread_bp_5y": 77.0,
+   "trades": 24,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-19",
+   "par_spread_bp_5y": 77.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-20",
+   "par_spread_bp_5y": 77.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-21",
+   "par_spread_bp_5y": 122.89461875023389,
+   "trades": 26,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-22",
+   "par_spread_bp_5y": 82.5,
+   "trades": 15,
+   "validated": true,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-23",
+   "par_spread_bp_5y": 79.00000000000001,
+   "trades": 20,
+   "validated": true,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-24",
+   "par_spread_bp_5y": 87.0,
+   "trades": 9,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-25",
+   "par_spread_bp_5y": 87.0,
+   "trades": 17,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-26",
+   "par_spread_bp_5y": 87.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-27",
+   "par_spread_bp_5y": 87.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-28",
+   "par_spread_bp_5y": 135.74582341320001,
+   "trades": 10,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-29",
+   "par_spread_bp_5y": 136.92958972046586,
+   "trades": 4,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-09-30",
+   "par_spread_bp_5y": 114.88745690788579,
+   "trades": 7,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-01",
+   "par_spread_bp_5y": 86.0,
+   "trades": 10,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-02",
+   "par_spread_bp_5y": 114.58411519440575,
+   "trades": 18,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-03",
+   "par_spread_bp_5y": 114.58411519440575,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-04",
+   "par_spread_bp_5y": 114.58411519440575,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-05",
+   "par_spread_bp_5y": 76.0,
+   "trades": 2,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-06",
+   "par_spread_bp_5y": 76.0,
+   "trades": 1,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-07",
+   "par_spread_bp_5y": 136.80899006367,
+   "trades": 5,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-08",
+   "par_spread_bp_5y": 87.50000000000001,
+   "trades": 11,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-09",
+   "par_spread_bp_5y": 87.50000000000001,
+   "trades": 3,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-10",
+   "par_spread_bp_5y": 87.50000000000001,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-11",
+   "par_spread_bp_5y": 87.50000000000001,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-12",
+   "par_spread_bp_5y": 87.50000000000001,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-13",
+   "par_spread_bp_5y": 136.53811822622268,
+   "trades": 5,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-14",
+   "par_spread_bp_5y": 107.57412134665503,
+   "trades": 10,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-15",
+   "par_spread_bp_5y": 87.125,
+   "trades": 14,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-16",
+   "par_spread_bp_5y": 89.0,
+   "trades": 11,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-17",
+   "par_spread_bp_5y": 89.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-18",
+   "par_spread_bp_5y": 89.0,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-19",
+   "par_spread_bp_5y": 101.77228837560062,
+   "trades": 8,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-20",
+   "par_spread_bp_5y": 110.0,
+   "trades": 16,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-21",
+   "par_spread_bp_5y": 107.10306380785363,
+   "trades": 10,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-22",
+   "par_spread_bp_5y": 134.89416055505623,
+   "trades": 15,
+   "validated": true,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-23",
+   "par_spread_bp_5y": 122.62275248870846,
+   "trades": 39,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-24",
+   "par_spread_bp_5y": 122.62275248870846,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-25",
+   "par_spread_bp_5y": 122.62275248870846,
+   "trades": 0,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-26",
+   "par_spread_bp_5y": 121.98987214958488,
+   "trades": 16,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-27",
+   "par_spread_bp_5y": 117.48818445444634,
+   "trades": 10,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-28",
+   "par_spread_bp_5y": 125.0,
+   "trades": 17,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-29",
+   "par_spread_bp_5y": 126.0,
+   "trades": 15,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 0
+  },
+  {
+   "usage": "internal_only",
+   "date": "2026-10-30",
+   "par_spread_bp_5y": 134.21365116388264,
+   "trades": 34,
+   "validated": false,
+   "off_scale_excluded": 0,
+   "late_reported": 1
+  }
+ ],
+ "index_context": {
+  "cdx_ig_5y_bp": 62.040000000000006,
+  "cdx_hy_5y_price": 105.8519,
+  "as_of": "2026-10-30"
+ },
+ "validation": {
+  "ice_settlement_5y_bp": null,
+  "lch_settlement_5y_bp": null,
+  "as_of": null
+ },
+ "proxy": {
+  "bond_spread_proxy_bp": null,
+  "source": "fred_ice_bofa_oas",
+  "label": "bond-derived proxy, not CDS"
+ },
+ "warnings": [
+  "latest archive day 2026-10-30",
+  "unvalidated: fewer than six comparable same-day prints"
+ ]
+}

@@ -245,12 +245,12 @@ rating, tenor and spread_bps) pass through."
 
 ;;; CDS term structure: credit.cds_isda_implied_hazard_pd by date
 
-(defconst financial-chart-3d-rates-cds-measures '("value" "spread_bp" "hazard_bps" "pd_pct")
+(defconst financial-chart-3d-rates-cds-measures
+  '("value" "spread_bp" "hazard_bps" "pd_pct" "hazard_rate" "survival"
+    "cumulative_pd" "forward_hazard")
   "The fields a CDS chart draws, the cds-term-structure template's measure enum.
-value is the par spread when every row has one, else the hazard rate
-\(bps); spread_bp, hazard_bps and pd_pct (cumulative PD, %) the rows'
-fields.  \"auto\", which `financial-chart-3d-rates-cds-measure' also
-takes, resolves to spread_bp or hazard_bps as value does.")
+The names are shared by the adapter and 2D/3D templates; \"auto\"
+resolves to a concrete field present on all applicable rows.")
 
 (defun financial-chart-3d-rates-cds-measure (rows measure)
   "The field of `financial-chart-3d-rates-cds-measures' MEASURE draws in ROWS.
@@ -262,6 +262,7 @@ the set."
   (cond ((member measure '(nil "auto"))
          (cond ((and rows (seq-every-p (lambda (r) (numberp (plist-get r :spread_bp))) rows)) "spread_bp")
                ((seq-every-p (lambda (r) (numberp (plist-get r :hazard_bps))) rows) "hazard_bps")
+               ((seq-every-p (lambda (r) (numberp (plist-get r :hazard_rate))) rows) "hazard_rate")
                (t "value")))
         ((member measure financial-chart-3d-rates-cds-measures) measure)
         (t (financial-chart-3d-rates--invalid
@@ -317,8 +318,99 @@ as_of, tenor and value) pass through."
                                             :pd_pct (financial-chart-3d-rates--round (* 100 pd) 3))))))))
              (field (financial-chart-3d--key
                      (financial-chart-3d-rates-cds-measure rows (if (equal measure "value") nil measure)))))
-        (mapcar (lambda (r) (append r (list :value (let ((v (plist-get r field))) (if (numberp v) v :null)))))
+        (mapcar (lambda (r)
+                  (append r (list :hazard_rate (/ (plist-get r :hazard_bps) 10000.0)
+                                  :survival (- 1.0 (/ (plist-get r :pd_pct) 100.0))
+                                  :cumulative_pd (/ (plist-get r :pd_pct) 100.0)
+                                  :forward_hazard :null
+                                  :value (let ((v (plist-get r field))) (if (numberp v) v :null)))))
                 rows)))))
+
+(defun financial-chart-3d-rates-cds-term-rows (output &optional measure)
+  "Adapt credit.cds_term_structure OUTPUT to rows for the existing template.
+Top-level metadata is copied onto each row for complete element tooltips."
+  (let* ((tenors (financial-chart-3d-rates--list (financial-chart-3d--value output :tenors)))
+         (buckets (financial-chart-3d-rates--list (financial-chart-3d--value output :buckets)))
+         (context (cl-loop for (k v) on output by #'cddr
+                           unless (memq k '(:tenors :buckets)) append (list k v)))
+         rows)
+    (unless (and (stringp (financial-chart-3d--value output :as_of))
+                 (or tenors (equal (financial-chart-3d--value output :shape) "insufficient")))
+      (financial-chart-3d-rates--invalid "cds_term_structure needs as_of and tenors (or insufficient shape)"
+                                         "bad_cds_term_structure" 0 "tenors"))
+    (dolist (node tenors)
+      (let* ((years (financial-chart-3d--value node :tenor_years))
+             (row (append (copy-sequence context) (copy-sequence node)
+                          (list :row_kind "tenor" :tenor years
+                                :tenor_label (and (numberp years) (financial-chart-3d-rates-tenor-label years))
+                                :spread_bp (let ((s (financial-chart-3d--value node :par_spread_bp)))
+                                             (if (numberp s) s :null))
+                                :hazard_bps (let ((h (financial-chart-3d--value node :hazard_rate)))
+                                              (if (numberp h) (* h 10000) :null))
+                                :pd_pct (let ((pd (financial-chart-3d--value node :cumulative_pd)))
+                                          (if (numberp pd) (* pd 100) :null)
+                                          )
+                                :value (let ((s (financial-chart-3d--value node :par_spread_bp))
+                                             (h (financial-chart-3d--value node :hazard_rate)))
+                                         (or (and (numberp s) s) (and (numberp h) (* h 10000)) :null))))))
+        (unless (and (numberp years) (numberp (financial-chart-3d--value node :hazard_rate))
+                     (numberp (financial-chart-3d--value node :survival))
+                     (numberp (financial-chart-3d--value node :cumulative_pd)))
+          (financial-chart-3d-rates--invalid "tenor needs tenor_years, hazard_rate, survival and cumulative_pd"
+                                             "bad_tenor" 0 "tenors"))
+        (push row rows)))
+    (dolist (bucket buckets)
+      (let* ((h (financial-chart-3d--value bucket :forward_hazard))
+             (pd (financial-chart-3d--value bucket :conditional_pd))
+             (row (append (copy-sequence context) (copy-sequence bucket)
+                          (list :row_kind "bucket" :tenor (financial-chart-3d--value bucket :from_years)
+                                :tenor_label (financial-chart-3d--value bucket :label)
+                                :par_spread_bp :null :spread_bp :null :hazard_rate :null :survival :null
+                                :cumulative_pd :null :hazard_bps :null :pd_pct :null
+                                :value (if (numberp h) (* h 10000) :null)))))
+        (unless (and (numberp h) (numberp pd)
+                     (numberp (financial-chart-3d--value bucket :from_years))
+                     (numberp (financial-chart-3d--value bucket :to_years)))
+          (financial-chart-3d-rates--invalid "bucket needs from_years, to_years, forward_hazard and conditional_pd"
+                                             "bad_bucket" 0 "buckets"))
+        (push row rows)))
+    (setq rows (nreverse rows))
+    (let ((field (financial-chart-3d--key (financial-chart-3d-rates-cds-measure rows measure))))
+      (mapcar (lambda (row)
+                (let ((v (plist-get row field)))
+                  (plist-put row :value (if (numberp v) v :null)))) rows))))
+
+(defconst financial-chart-3d-rates-cds-ladder-measures
+  '("model_yield" "model_price" "cds_spread_bp" "expected_loss_per_100" "dv01_usd"))
+
+(defun financial-chart-3d-rates-cds-bond-rows (output &optional measure)
+  "Rows from credit.cds_implied_ladder OUTPUT, retaining its full bond detail."
+  (let* ((source (if (and (not (keywordp (car-safe output))) (= (length output) 1)
+                          (keywordp (car-safe (aref (vconcat output) 0)))
+                          (plist-member (aref (vconcat output) 0) :rows))
+                     (aref (vconcat output) 0) output))
+         (raw (and (keywordp (car-safe source)) (plist-member source :rows)
+                   (or (plist-member source :as_of) (plist-member source :basis))))
+         (flat (financial-chart-3d--rows source))
+         (rows (if raw (financial-chart-3d-rates--list (financial-chart-3d--value source :rows)) flat))
+         (summary (financial-chart-3d--value source :summary))
+         (context (and raw (list :as_of (financial-chart-3d--value source :as_of)
+                                 :basis (financial-chart-3d--value source :basis)
+                                 :recovery (financial-chart-3d--value source :recovery)
+                                 :discount_rate (financial-chart-3d--value source :discount_rate)
+                                 :summary summary))))
+    (unless rows (financial-chart-3d-rates--invalid "CDS implied ladder needs rows"
+                                                    "bad_cds_ladder" 0 "rows"))
+    (unless (or (member measure '(nil "auto"))
+                (member measure financial-chart-3d-rates-cds-ladder-measures))
+      (financial-chart-3d-rates--invalid (format "unknown CDS ladder measure %S" measure)
+                                         "bad_measure" nil "measure"))
+    (mapcar (lambda (row)
+              (unless (and (stringp (financial-chart-3d--value row :name))
+                           (numberp (financial-chart-3d--value row :years)))
+                (financial-chart-3d-rates--invalid "bond row needs name and years"
+                                                   "bad_bond" nil "rows"))
+              (append (copy-sequence context) (copy-sequence row))) rows)))
 
 ;;; Key-rate durations: fi.krd (+ fi.dv01) by holding
 
@@ -396,8 +488,21 @@ ADAPTER becomes eas's SHAPE_INVALID, naming the entry and field."
 (financial-chart-3d-rates--shape
  "invest/cds-term"
  "credit.cds_isda_implied_hazard_pd outputs (or {input, output}) by date as rows {as_of, tenor, spread_bp, hazard_bps, pd_pct, value} (docs/3d-rates.md)."
- #'financial-chart-3d-rates-cds-rows
+ (lambda (value)
+   (let ((first (car (financial-chart-3d--rows value))))
+     (cond ((and (keywordp (car-safe value)) (plist-member value :tenors))
+            (financial-chart-3d-rates-cds-term-rows value))
+           ((and first (plist-member first :tenors))
+            (financial-chart-3d-rates-cds-term-rows first))
+           (t (financial-chart-3d-rates-cds-rows value)))))
  [(:as_of "2026-10-16" :curve [(:maturity "2031-12-20" :hazard_rate 0.02 :cumulative_default_probability 0.09)])])
+
+(financial-chart-3d-rates--shape
+ "invest/cds-bond-ladder"
+ "bond_corp.cds_implied_ladder output rows with full bond valuation context (docs/3d-rates.md)."
+ #'financial-chart-3d-rates-cds-bond-rows
+ [(:as_of "2026-10-16" :basis "cds_implied_model, not traded" :rows [(:name "NVDA 2030" :years 4.0 :model_yield 0.05)]
+   :summary (:count 1))])
 
 (financial-chart-3d-rates--shape
  "invest/krd"
@@ -491,10 +596,12 @@ line just in front of their date's curve, not in the surface."
          (yk (financial-chart-3d--field graphics "y" "yield"))
          (ck (let ((spec (plist-get (financial-chart-3d--opt graphics "encoding") :color)))
                (and spec (financial-chart-3d--field graphics "color" nil))))
-         (spot (lambda (r) (not (equal (financial-chart-3d--value r :kind) "forward"))))
+         (spot (lambda (r) (and (not (equal (financial-chart-3d--value r :kind) "forward"))
+                                (not (equal (financial-chart-3d--value r :row_kind) "bucket")))))
          (dom (financial-chart-3d--domain rows))
          (xs (financial-chart-3d--categories (mapcar (lambda (r) (financial-chart-3d--value r xk))
                                                      (seq-filter spot dom))))
+         (numeric-axis (seq-some (lambda (r) (equal (financial-chart-3d--value r :row_kind) "tenor")) dom))
          (zs (financial-chart-3d--categories (mapcar (lambda (r) (financial-chart-3d--value r zk)) dom)))
          (ys (delq nil (mapcar (lambda (r) (let ((v (financial-chart-3d--value r yk))) (and (numberp v) (float v)))) dom)))
          (lo (min 0.0 (if ys (apply #'min ys) 0.0)))
@@ -503,7 +610,10 @@ line just in front of their date's curve, not in the surface."
          (scale (if (> hi lo) (/ height (- hi lo)) 1.0))
          (extent (financial-chart-3d--opt graphics "extent" [12 9]))
          (w (/ (float (elt extent 0)) 2)) (d (/ (float (elt extent 1)) 2))
-         (wx (financial-chart-3d-rates--spread (length xs) w))
+         (wx (if numeric-axis
+                 (let ((hi-x (max 1e-9 (apply #'max xs))))
+                   (mapcar (lambda (x) (- (* 2 w (/ x hi-x)) w)) xs))
+               (financial-chart-3d-rates--spread (length xs) w)))
          (wz (financial-chart-3d-rates--spread (length zs) d))
          (z-of (let ((h (make-hash-table :test #'equal)))
                  (cl-loop for z in zs for p in wz do (puthash z p h)) h))
@@ -741,17 +851,117 @@ last column, set apart, is each holding's whole duration."
        (list :id "grid" :type "segments" :color "#3b4252" :segments (vconcat grid))
        (list :id "bars" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors)))))))
 
+(defun financial-chart-3d-rates--tooltip (row)
+  "Readable complete tooltip string for ROW, keeping every supplied field."
+  (mapconcat (lambda (pair)
+               (format "%s: %s" (substring (symbol-name (car pair)) 1)
+                       (let ((v (cdr pair))) (if (eq v :null) "—" (format "%s" v)))))
+             (cl-loop for (k v) on row by #'cddr collect (cons k v)) "\n"))
+
+(defun financial-chart-3d-rates--cds-bond-mark (graphics rows)
+  "CDS implied bond ladder bars, treasury ribbon and per-bond tooltips."
+  (let* ((rows (financial-chart-3d-rates-cds-bond-rows rows))
+         (xfield (financial-chart-3d--field graphics "x" "years"))
+         (yfield (financial-chart-3d--field graphics "y" "model_yield"))
+         (zfield (financial-chart-3d--field graphics "z" "name"))
+         (colorfield (financial-chart-3d--field graphics "color" "spread_extrapolated"))
+         (names (financial-chart-3d--categories (mapcar (lambda (r) (financial-chart-3d--value r zfield)) rows)))
+         (maxx (max 1.0 (apply #'max (mapcar (lambda (r) (financial-chart-3d--value r xfield)) rows))))
+         (maxy (max 1e-9 (apply #'max (mapcar (lambda (r) (abs (financial-chart-3d--value r yfield))) rows))))
+         (height (float (financial-chart-3d--opt graphics "height" 8)))
+         (extent (financial-chart-3d--opt graphics "extent" [14 10]))
+         (w (/ (float (elt extent 0)) 2)) (d (/ (float (elt extent 1)) 2))
+         (half (/ (float (financial-chart-3d--opt graphics "band" 0.55)) 2))
+         boxes colors tips ribbon)
+    (dolist (row rows)
+      (let* ((years (float (financial-chart-3d--value row xfield)))
+             (z (- (* d (/ (or (seq-position names (financial-chart-3d--value row zfield)) 0)
+                              (float (max 1 (1- (length names)))))) d))
+             (value (float (financial-chart-3d--value row yfield)))
+             (y (* height (/ value maxy)))
+             (color (pcase (financial-chart-3d--value row colorfield)
+                      ((or "below" "null" :null) "#e6ab02")
+                      ("above" "#d95f59") (_ "#4c9f70"))))
+        (push (vector (financial-chart-3d--r3 (- (- (* 2 w (/ years maxx)) w) half)) 0
+                      (financial-chart-3d--r3 (- z half))
+                      (financial-chart-3d--r3 (+ (- (* 2 w (/ years maxx)) w) half))
+                      (financial-chart-3d--r3 y) (financial-chart-3d--r3 (+ z half))) boxes)
+        (push color colors)
+        (push (financial-chart-3d-rates--tooltip row) tips)
+        (let ((ty (financial-chart-3d--value row :treasury_yield)))
+          (when (numberp ty)
+            (push (cons (- (* 2 w (/ years maxx)) w) (* height (/ ty maxy))) ribbon)))))
+    (let ((points (nreverse ribbon)))
+      (vector
+       (financial-chart-3d--axes "axes" (- w) w height (- d) d)
+       (financial-chart-3d-rates--floor-grid (list (- w) w) (list (- d) d) "#3b4252")
+       (list :id "bars" :type "boxes" :boxes (vconcat (nreverse boxes))
+             :colors (vconcat (nreverse colors)) :tooltips (vconcat (nreverse tips)))
+       (list :id "treasury-ribbon" :type "segments" :color "#9ecae9"
+             :segments (vconcat (financial-chart-3d-rates--polyline
+                                 (mapcar #'car points) (mapcar #'cdr points) (- d))))))))
+
 ;;; Registration
 
 (defun financial-chart-3d-rates--term-replay (graphics rows)
   "The term surface replayed date by date (`financial-chart-3d--replay')."
   (financial-chart-3d--replay graphics rows nil #'financial-chart-3d-rates--term-surface))
 
+(defun financial-chart-3d-rates--cds-term-geometry (graphics rows)
+  "Existing term surface plus bucket slabs and dimmed, tooltipped tenor nodes."
+  (let* ((base (append (financial-chart-3d-rates--term-surface graphics rows) nil))
+         (buckets (seq-filter (lambda (r) (equal (financial-chart-3d--value r :row_kind) "bucket")) rows))
+         (tenors (seq-filter (lambda (r) (equal (financial-chart-3d--value r :row_kind) "tenor")) rows))
+         (dates (financial-chart-3d--categories (mapcar (lambda (r) (financial-chart-3d--value r :as_of)) rows)))
+         (max-tenor (apply #'max
+                           (cons 1.0
+                                 (append (mapcar (lambda (r) (or (financial-chart-3d--value r :tenor_years) 0)) tenors)
+                                         (mapcar (lambda (r) (or (financial-chart-3d--value r :to_years) 0)) buckets)))))
+         (extent (financial-chart-3d--opt graphics "extent" [12 12]))
+         (w (/ (float (elt extent 0)) 2)) (d (/ (float (elt extent 1)) 2))
+         (maxy (apply #'max
+                      (cons 1e-9 (mapcar (lambda (r) (abs (or (financial-chart-3d--value r :value) 0))) rows))))
+         boxes colors tips nodes node-colors node-tips)
+    (dolist (row buckets)
+      (let* ((from (financial-chart-3d--value row :from_years))
+             (to (financial-chart-3d--value row :to_years))
+             (date (seq-position dates (financial-chart-3d--value row :as_of)))
+             (z (- (* d (/ (or date 0) (float (max 1 (1- (length dates)))))) d))
+             (value (or (financial-chart-3d--value row :forward_hazard)
+                        (financial-chart-3d--value row :value) 0))
+             (height (* 8 (/ value maxy)))
+             (x0 (- (* 2 w (/ from max-tenor)) w))
+             (x1 (- (* 2 w (/ to max-tenor)) w)))
+        (push (vector (financial-chart-3d--r3 x0) 0 (financial-chart-3d--r3 (- z 0.18))
+                      (financial-chart-3d--r3 x1) (financial-chart-3d--r3 height)
+                      (financial-chart-3d--r3 (+ z 0.18))) boxes)
+        (push (if (eq (financial-chart-3d--value row :thin) t) "#657080" "#69a9d3") colors)
+        (push (financial-chart-3d-rates--tooltip row) tips)))
+    (dolist (row tenors)
+      (let* ((tenor (financial-chart-3d--value row :tenor_years))
+             (date (seq-position dates (financial-chart-3d--value row :as_of)))
+             (z (- (* d (/ (or date 0) (float (max 1 (1- (length dates)))))) d))
+             (value (or (financial-chart-3d--value row :value) 0))
+             (x (- (* 2 w (/ tenor max-tenor)) w)) (y (* 8 (/ value maxy))))
+        (push (vector (- x 0.10) (- y 0.10) (- z 0.10) (+ x 0.10) (+ y 0.10) (+ z 0.10)) nodes)
+        (push (if (eq (financial-chart-3d--value row :thin) t) "#596273" "#ffffff") node-colors)
+        (push (financial-chart-3d-rates--tooltip row) node-tips)))
+    (vconcat base
+             (list (list :id "forward-buckets" :type "boxes" :boxes (vconcat (nreverse boxes))
+                         :colors (vconcat (nreverse colors)) :tooltips (vconcat (nreverse tips)))
+                   (list :id "tenor-nodes" :type "boxes" :boxes (vconcat (nreverse nodes))
+                         :colors (vconcat (nreverse node-colors)) :tooltips (vconcat (nreverse node-tips)))))))
+
+(defun financial-chart-3d-rates--cds-term-replay (graphics rows)
+  "CDS term replay including per-node tooltips and forward hazard buckets."
+  (financial-chart-3d--replay graphics rows nil #'financial-chart-3d-rates--cds-term-geometry))
+
 (defconst financial-chart-3d-rates-marks
   '(("fc-yield-curve3d" . financial-chart-3d-rates--term-replay)
-    ("fc-cds-term3d" . financial-chart-3d-rates--term-replay)
+    ("fc-cds-term3d" . financial-chart-3d-rates--cds-term-replay)
     ("fc-credit3d" . financial-chart-3d-rates--credit-mark)
-    ("fc-krd3d" . financial-chart-3d-rates--krd-mark))
+    ("fc-krd3d" . financial-chart-3d-rates--krd-mark)
+    ("fc-cds-bond-ladder3d" . financial-chart-3d-rates--cds-bond-mark))
   "The rates and credit 3D marks: (MARK . FUNCTION).")
 
 (defun financial-chart-3d-rates--register-marks ()
@@ -835,20 +1045,74 @@ slot, in 2D and 3D, always names a field of the rows."
           :measure (if (equal measure "value") measure
                      (financial-chart-3d-rates-cds-measure rows measure)))))
 
+(defun financial-chart-3d-rates--from-cds-term (_template output args)
+  "cds-term-structure bindings from credit.cds_term_structure OUTPUT."
+  ;; The metrics test lane represents every metric as a series of stamped
+  ;; entries.  This metric returns a whole term structure in one output, so
+  ;; unwrap its one-entry series before adapting it.
+  (when (and (sequencep output) (not (keywordp (car-safe output)))
+             (= (length output) 1)
+             (financial-chart-3d--value (aref (vconcat output) 0) :output))
+    (setq output (financial-chart-3d--value (aref (vconcat output) 0) :output)))
+  (let* ((measure (or (plist-get args :measure) "auto"))
+         (rows (financial-chart-3d-rates-cds-term-rows output measure))
+         (slopes (financial-chart-3d--value output :slopes))
+         (skipped (financial-chart-3d-rates--list (financial-chart-3d--value output :skipped)))
+         (skipped-text (if skipped
+                           (mapconcat (lambda (r)
+                                        (format "%s (%s)"
+                                                (financial-chart-3d-rates-tenor-label
+                                                 (or (financial-chart-3d--value r :tenor_years) 0))
+                                                (or (financial-chart-3d--value r :reason) "skipped")))
+                                      skipped ", ")
+                         "none"))
+         (subtitle (format "Shape %s — slopes 2s5s %.1f bp, 5s10s %.1f bp — skipped %s"
+                           (or (financial-chart-3d--value output :shape) "unknown")
+                           (or (financial-chart-3d--value slopes :s2s5s_bp) 0.0)
+                           (or (financial-chart-3d--value slopes :s5s10s_bp) 0.0) skipped-text))
+         (resolved (if (member measure '(nil "auto"))
+                       (financial-chart-3d-rates-cds-measure rows measure) measure)))
+    (list :data (vconcat rows) :measure resolved :description subtitle)))
+
+(defun financial-chart-3d-rates--from-cds-ladder (_template output args)
+  "cds-bond-ladder bindings from credit.cds_implied_ladder OUTPUT."
+  ;; The metrics test lane represents every metric as a series of stamped
+  ;; entries.  This metric returns a whole ladder in one output, so unwrap
+  ;; its one-entry series before adapting it.
+  (when (and (sequencep output) (not (keywordp (car-safe output)))
+             (= (length output) 1)
+             (financial-chart-3d--value (aref (vconcat output) 0) :output))
+    (setq output (financial-chart-3d--value (aref (vconcat output) 0) :output)))
+  (let* ((measure (or (plist-get args :measure) "model_yield"))
+         (rows (financial-chart-3d-rates-cds-bond-rows output measure))
+         (s (financial-chart-3d--value output :summary))
+         (summary (format "%d bonds | principal $%.0f | yield %.2f%% | duration %.2f | DV01 $%.0f | total expected loss $%.0f"
+                          (or (financial-chart-3d--value s :count) 0)
+                          (* 1.0 (or (financial-chart-3d--value s :total_principal) 0))
+                          (* 100 (or (financial-chart-3d--value s :average_model_yield) 0))
+                          (or (financial-chart-3d--value s :average_modified_duration) 0)
+                          (or (financial-chart-3d--value s :total_dv01_usd) 0)
+                          (or (financial-chart-3d--value s :total_expected_loss_usd) 0))))
+    (list :data (vconcat rows) :measure measure
+          :title "CDS implied bond ladder — model, not traded"
+          :description summary)))
+
 (defconst financial-chart-3d-rates-metric-adapters
   '(("fi.nss_fit" "yield-curve" financial-chart-3d-rates--from-nss-fit)
     ("fi.curve_regime" "yield-curve" financial-chart-3d-rates--from-curve-regime)
     ("fi.spread_suite" "credit-spreads" financial-chart-3d-rates--from-spreads)
     ("fi.spread_pctile" "credit-spreads" financial-chart-3d-rates--from-spreads)
     ("fi.krd" "key-rate-durations" financial-chart-3d-rates--from-krd)
-    ("credit.cds_isda_implied_hazard_pd" "cds-term-structure" financial-chart-3d-rates--from-cds))
+    ("credit.cds_isda_implied_hazard_pd" "cds-term-structure" financial-chart-3d-rates--from-cds)
+    ("credit.cds_term_structure" "cds-term-structure" financial-chart-3d-rates--from-cds-term)
+    ("bond_corp.cds_implied_ladder" "cds-bond-ladder" financial-chart-3d-rates--from-cds-ladder))
   "The rates templates' metric adapters, (METRIC-ID TEMPLATE FUNCTION):
 `financial-chart-3d-bindings-from-metric' calls them.")
 
 ;;; Showing one, in 3D or 2D
 
 (defconst financial-chart-3d-rates-templates
-  '("yield-curve" "credit-spreads" "cds-term-structure" "key-rate-durations")
+  '("yield-curve" "credit-spreads" "cds-term-structure" "cds-bond-ladder" "key-rate-durations")
   "The rates and credit templates: 2D in templates/financial/, 3D in templates3d/.")
 
 ;;;###autoload

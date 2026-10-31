@@ -1,0 +1,131 @@
+{
+ "schema": "invest.cds.view/1",
+ "ticker": "NVDA",
+ "reference_entity": {
+  "name": "NVIDIA CORPORATION",
+  "red": "6D76CM",
+  "lei": "549300S4KLFTLO7GSQ80",
+  "seniority": "SNRFOR",
+  "currency": "USD",
+  "doc_clause": "XR14"
+ },
+ "as_of": "2026-10-30",
+ "usage": "internal_only",
+ "sources": [
+  {
+   "id": "dtcc_ppd_sec",
+   "url": "https://pddata.dtcc.com/ppd/api/report",
+   "license": "internal/personal use; no redistribution"
+  }
+ ],
+ "spread_5y": {
+  "usage": "internal_only",
+  "par_spread_bp": 134.21365116388264,
+  "quote_convention": "spread",
+  "coupon_bp": 100.0,
+  "upfront_points": 1.6821720000000002,
+  "last_trade_date": "2026-10-30",
+  "days_since_trade": 0,
+  "stale": false,
+  "trades_30d": 277,
+  "capped_notional_usd_30d": 1289198500.0,
+  "validated": false,
+  "off_scale_excluded_30d": 0,
+  "source": "dtcc_ppd_sec"
+ },
+ "curve": [
+  {
+   "usage": "internal_only",
+   "tenor_years": 1.0,
+   "par_spread_bp": null,
+   "last_trade_date": "2026-08-26",
+   "stale": true,
+   "trades_30d": 0
+  },
+  {
+   "usage": "internal_only",
+   "tenor_years": 2.0,
+   "par_spread_bp": 142.6226149354434,
+   "last_trade_date": "2026-10-28",
+   "stale": false,
+   "trades_30d": 5
+  },
+  {
+   "usage": "internal_only",
+   "tenor_years": 3.0,
+   "par_spread_bp": 114.74169006047353,
+   "last_trade_date": "2026-10-29",
+   "stale": false,
+   "trades_30d": 21
+  },
+  {
+   "usage": "internal_only",
+   "tenor_years": 5.0,
+   "par_spread_bp": 134.21365116388264,
+   "last_trade_date": "2026-10-30",
+   "stale": false,
+   "trades_30d": 277
+  },
+  {
+   "usage": "internal_only",
+   "tenor_years": 7.0,
+   "par_spread_bp": 138.0,
+   "last_trade_date": "2026-10-22",
+   "stale": false,
+   "trades_30d": 2
+  },
+  {
+   "usage": "internal_only",
+   "tenor_years": 10.0,
+   "par_spread_bp": 138.77832029296403,
+   "last_trade_date": "2026-10-30",
+   "stale": false,
+   "trades_30d": 6
+  }
+ ],
+ "implied": {
+  "model": "isda_standard",
+  "recovery": 0.4,
+  "hazard_rate_5y": 0.02266860195757863,
+  "pd_1y": 0.022413599682978846,
+  "pd_5y": 0.10715564676633493,
+  "cumulative_pd": [
+   {
+    "tenor_years": 1,
+    "pd": 0.022413599682978846
+   },
+   {
+    "tenor_years": 2,
+    "pd": 0.04432482991520892
+   },
+   {
+    "tenor_years": 3,
+    "pd": 0.06574495060445218
+   },
+   {
+    "tenor_years": 5,
+    "pd": 0.10715564676633493
+   }
+  ],
+  "computed_by": "finance-rs cds"
+ },
+ "index_context": {
+  "cdx_ig_5y_bp": 62.040000000000006,
+  "cdx_hy_5y_price": 105.8519,
+  "as_of": "2026-10-30"
+ },
+ "validation": {
+  "ice_settlement_5y_bp": null,
+  "lch_settlement_5y_bp": null,
+  "as_of": null
+ },
+ "proxy": {
+  "bond_spread_proxy_bp": null,
+  "source": "fred_ice_bofa_oas",
+  "label": "bond-derived proxy, not CDS"
+ },
+ "warnings": [
+  "latest archive day 2026-10-30",
+  "unvalidated: fewer than six comparable same-day prints"
+ ]
+}

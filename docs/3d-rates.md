@@ -1,6 +1,6 @@
 # Rates and credit in 3D: data contracts
 
-Four templates draw fixed-income and credit metrics from
+Five templates draw fixed-income and credit metrics from
 [invest-metrics](https://gitlab.com/davidawad/dotfiles) (`src/rust/crates/invest-metrics`,
 `invest metric run ID`). Each takes the JSON those metrics emit; this
 package never fetches it. A caller (the dotfiles `invest.el` boards)
@@ -11,7 +11,8 @@ the template's `data` slot:
 |---|---|---|---|
 | `yield-curve` | `fi.nss_fit`, `fi.curve_regime`, `fi.forward_path`, `fi.rolldown_carry` | `fc-yield-curve3d`: the curves over tenor and date, coloured by regime | one curve per frame, earlier ones left as a trail |
 | `credit-spreads` | `fi.spread_suite`, `fi.spread_pctile` | `fc-credit3d`: a spread surface over tenor and rating, coloured by percentile | |
-| `cds-term-structure` | `credit.cds_isda_implied_hazard_pd` | `fc-cds-term3d`: the term structure over tenor and date | one date per frame, with a trail |
+| `cds-term-structure` | `credit.cds_term_structure` (also accepts legacy `credit.cds_isda_implied_hazard_pd`) | `fc-cds-term3d`: tenors over date plus forward hazard buckets | one date per frame, with a trail |
+| `cds-bond-ladder` | `bond_corp.cds_implied_ladder` | `fc-cds-bond-ladder3d`: CDS implied model yield bars by maturity with Treasury ribbon | |
 | `key-rate-durations` | `fi.krd`, `fi.dv01` | `fc-krd3d`: signed bars over key rate and holding | |
 
 ```elisp
@@ -28,7 +29,7 @@ with the values printed) and its 3D variant (`templates3d/NAME.json`,
 the same body plus `x-eas.graphics`), both written by
 `scripts/templates3d-rates.py`. The `data` slot's shape
 (`invest/yield-curve`, `invest/credit-spreads`, `invest/cds-term`,
-`invest/krd`, registered by `src/financial-chart-3d-rates.el`) lowers the
+`invest/cds-bond-ladder`, `invest/krd`, registered by `src/financial-chart-3d-rates.el`) lowers the
 metric JSON to the flat rows below, so 2D and 3D draw the same rows.
 Rows already flat pass through, so a caller may also send those. A
 malformed entry is eas's `SHAPE_INVALID`, with the entry's `index`, the
@@ -59,7 +60,8 @@ pass the flat rows through), the same in 2D and 3D:
 | `fi.curve_regime` | `yield-curve` | entries `{as_of, output}`: the output's `inputs.curve_years` and `curve_rates` are the curve, its value the regime |
 | `fi.spread_suite`, `fi.spread_pctile` | `credit-spreads` | one output, a list of them (both metrics mixed) or entries `{output}` |
 | `fi.krd` | `key-rate-durations` | entries `{holding, output, dv01?, tenors?}`, or one output with `:holding` |
-| `credit.cds_isda_implied_hazard_pd` | `cds-term-structure` | entries `{input, output}` by date, or outputs; `:measure` picks the field drawn (`auto`, the default, binds the concrete one) |
+| `credit.cds_isda_implied_hazard_pd`, `credit.cds_term_structure` | `cds-term-structure` | dated entries or a term-structure output; `:measure` binds the concrete selected field |
+| `bond_corp.cds_implied_ladder` | `cds-bond-ladder` | one ladder output; `:measure` selects model yield, model price, CDS spread, expected loss or USD DV01 |
 
 A curve without its date is `missing_date`; the other errors are the
 lowerings' below.
@@ -138,9 +140,9 @@ percentile (green tight to red wide), or by spread without one.
 
 ## cds-term-structure
 
-`data`: the `credit.cds_isda_implied_hazard_pd` outputs by date, oldest
-first, each alone or with the input it was run on (which carries the
-par spreads the output does not repeat):
+`data`: `credit.cds_term_structure` output, or legacy
+`credit.cds_isda_implied_hazard_pd` outputs by date, oldest first. The
+legacy output may be paired with its input for par spreads:
 
 ```json
 [{"input": {"reference_entity": "Northwind Industrials Inc", "as_of": "2026-04-20",
@@ -160,19 +162,44 @@ par spreads the output does not repeat):
   (standard CDS maturities, 20 Jun / 20 Dec, sit within a quarter of
   a whole year).
 
-Rows: `{as_of, tenor, tenor_label, maturity, spread_bp, hazard_bps,
-pd_pct, value}`; `hazard_bps` the hazard rate in bps, `pd_pct` the
-cumulative default probability in percent, `spread_bp` null without the
-input, `value` the par spread when every row has one, else the hazard
-rate. The `measure` slot picks the field drawn: `value` (default),
-`spread_bp`, `hazard_bps` or `pd_pct` (`financial-chart-3d-rates-cds-measures`,
-the one set the adapter and both templates share). The adapter's
-`:measure` also takes `auto`, its default, and binds the field it
-resolves to (`spread_bp` when every entry has its input, else
-`hazard_bps`), so 2D and 3D draw the same field. 2D: that field by tenor across
-and date down. 3D: as yield-curve, coloured by level (blue low to red
-high), replayed date by date. These outputs are `internal_only`: the
-chart is for the analyst's own Emacs, not for publishing.
+The newer result has top-level `{as_of, basis, recovery, discount_rate,
+discount_rate_assumed, shape, shape_note, slopes, skipped, notes}` and
+`tenors` and `buckets`. A tenor carries `tenor_years`, maturity,
+`par_spread_bp`, `hazard_rate`, survival, cumulative PD, recent trades,
+last trade date and `thin`. A bucket has label, `from_years`,
+`to_years`, forward hazard, conditional PD, `thin` and `floored`.
+
+The shared measure enum is `value`, `spread_bp`, `hazard_bps`, `pd_pct`,
+`hazard_rate`, `survival`, `cumulative_pd` and `forward_hazard`.
+`auto` resolves to a concrete field in the adapter. The chart subtitle
+shows curve shape, front and long slope and skipped tenors. Thin tenors
+and buckets are dimmed; forward hazard buckets are stepped slabs across
+their actual year ranges. Tooltips retain every row and top-level field.
+Legacy rows retain their par spread and hazard fields and derive survival
+and cumulative PD from the legacy cumulative default probability.
+
+## cds-bond-ladder
+
+`bond_corp.cds_implied_ladder` output has top-level `as_of`, basis
+(`cds_implied_model, not traded`), recovery, discount rate, notes,
+skipped bonds, `rows`, and `summary`. Every row retains the bond name,
+coupon, maturity, years, principal, Treasury yield and extrapolation,
+CDS spread and extrapolation side, model yield and price, accrued
+interest, modified duration, per-100 and USD DV01, cumulative PD and
+per-100 and USD expected loss. The summary reports count, principal,
+average yield and duration, aggregate DV01 and expected loss, spread
+range, CDS tenors used and skipped, extrapolation, and principal
+completeness.
+
+The `measure` slot selects `model_yield`, `model_price`, `cds_spread_bp`,
+`expected_loss_per_100` or `dv01_usd`. 3D bars sit at maturity and are
+coloured by whether the CDS spread was extrapolated; a Treasury yield
+ribbon runs behind them. The title states “model, not traded”; the
+subtitle summarizes the ladder. Each bond bar tooltip lists its full row.
+The committed NVDA examples are the real `term.json` and `ladder.json`
+invest-metrics outputs. Their view, Treasury and EDGAR inputs and the
+`credit_curve` Rust tests and golden are retained under
+`test/fixtures/invest-metrics/` for provenance.
 
 ## key-rate-durations
 

@@ -42,6 +42,11 @@ METRICS = {
     "ta.rel_strength", "stats.kelly.growth", "fut.term_structure",
 }
 
+# These credit outputs were recorded from the dotfiles credit-curve branch.
+# They are not supported by the pinned runall binary; retain them alongside
+# the generated runs so the adapters keep exercising the real output shape.
+CREDIT_METRICS = {"credit.cds_term_structure", "bond_corp.cds_implied_ladder"}
+
 
 def lcg(seed):
     """A deterministic stream of uniforms in (0, 1)."""
@@ -305,6 +310,49 @@ def main():
             output = json.load(f)
         doc["series"].append({"metric": metric, "name": name, "args": {},
                               "entries": [{"output": output}]})
+
+    # The credit metrics landed after REVISION. Their Rust tests pin selected
+    # JSON pointers, while the dotfiles branch supplied full NVDA outputs.
+    # Keep the pointer cases (with their original inputs) and the full recorded
+    # outputs together; no synthetic runall result is presented as a run.
+    credit_golden = json.load(open(os.path.join(DIR, "golden", "credit_curve.json")))
+    for case in credit_golden["cases"]:
+        if case["metric"] not in CREDIT_METRICS:
+            continue
+        output = {}
+        for pointer, value in case["expect"].items():
+            parts = [p for p in pointer.split("/") if p]
+            target = output
+            for i, part in enumerate(parts[:-1]):
+                next_is_index = parts[i + 1].isdigit()
+                if part.isdigit():
+                    index = int(part)
+                    while len(target) <= index:
+                        target.append(None)
+                    if target[index] is None:
+                        target[index] = [] if next_is_index else {}
+                    target = target[index]
+                else:
+                    target = target.setdefault(part, [] if next_is_index else {})
+            last = parts[-1]
+            if last.isdigit():
+                index = int(last)
+                while len(target) <= index:
+                    target.append(None)
+                target[index] = value
+            else:
+                target[last] = value
+        doc["cases"].append({"metric": case["metric"], "name": case["name"],
+                             "input": case["input"], "output": output,
+                             "output_is_pointer_sample": True})
+
+    credit_dir = os.path.join(DIR, "credit")
+    for metric, name, filename in (
+            ("credit.cds_term_structure", "recorded NVDA 2026-10-30 CDS term structure", "term.json"),
+            ("bond_corp.cds_implied_ladder", "recorded NVDA 2026-10-30 CDS-implied bond ladder", "ladder.json")):
+        output = json.load(open(os.path.join(credit_dir, filename)))
+        doc["series"].append({"metric": metric, "name": name, "args": {},
+                              "entries": [{"as_of": output["as_of"], "output": output}]})
     with open(os.path.join(DIR, "runs.json"), "w") as f:
         json.dump(doc, f, separators=(",", ":"))
         f.write("\n")

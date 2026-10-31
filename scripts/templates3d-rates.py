@@ -169,10 +169,9 @@ TEMPLATES = {
             "orangered", ".0f",
             extra_slots={"measure": {
                 "type": "string", "default": "value",
-                "enum": ["value", "spread_bp", "hazard_bps", "pd_pct"],
-                "doc": "the field drawn: spread_bp (par spread, needs the input), hazard_bps, "
-                       "pd_pct (cumulative default probability), or value (the par spread "
-                       "when every row has one, else the hazard rate)"}}),
+                "enum": ["value", "spread_bp", "hazard_bps", "pd_pct", "hazard_rate", "survival",
+                         "cumulative_pd", "forward_hazard"],
+                "doc": "the field drawn; auto resolves to one concrete field shared by the adapter and chart"}}),
         "reading": "the term structures as a surface of lines over tenor and date, coloured "
                    "by level; replays date by date from its first eight, the dates to come a "
                    "dim ghost, so a stress that flattens the front end stands out",
@@ -211,6 +210,57 @@ TEMPLATES = {
     },
 }
 
+TEMPLATES["cds-term-structure"]["template"]["title"] = {
+    "text": {"x-eas:slot": "title"}, "subtitle": {"x-eas:slot": "description"}}
+
+
+def cds_bond_ladder():
+    """Write the CDS implied corporate bond ladder, 2D and 3D."""
+    name = "cds-bond-ladder"
+    tooltip = [n("name", "bond"), q("coupon", ".2%"), n("maturity"), q("years", ".2f"),
+               q("principal", ".0f"), q("treasury_yield", ".3%"), n("treasury_extrapolated"),
+               q("cds_spread_bp", ".1f"), n("spread_extrapolated"), q("model_yield", ".3%"),
+               q("model_price", ".3f"), q("accrued_interest", ".3f"),
+               q("modified_duration", ".3f"), q("dv01_per_100", ".4f"), q("dv01_usd", ".2f"),
+               q("cumulative_pd", ".3%"), q("expected_loss_per_100", ".3f"), q("expected_loss_usd", ".2f")]
+    base = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+        "x-eas": {"template": name, "version": "1.0.0",
+                   "doc": "CDS-implied corporate bond valuations; model, not traded.",
+                   "slots": {
+                       "data": {"shape": "invest/cds-bond-ladder", "required": True,
+                                "doc": "bond_corp.cds_implied_ladder output"},
+                       "title": {"type": "string", "default": "CDS implied bond ladder — model, not traded"},
+                       "description": {"type": "string", "default": "CDS implied model, not traded"},
+                       "measure": {"type": "string", "default": "model_yield",
+                                   "enum": ["model_yield", "model_price", "cds_spread_bp",
+                                            "expected_loss_per_100", "dv01_usd"]}},
+                   "example": f"../{FIXTURES}/{name}.data.json"},
+        "title": {"text": {"x-eas:slot": "title"}, "subtitle": {"x-eas:slot": "description"}},
+        "width": "container", "height": 240, "data": {"name": "data"},
+        "mark": {"type": "bar", "tooltip": True},
+        "encoding": {
+            "x": {"field": "name", "type": "nominal",
+                  "sort": {"field": "years", "order": "ascending"}, "title": "bond"},
+            "y": {"field": {"x-eas:slot": "measure"}, "type": "quantitative"},
+            "color": {"field": "spread_extrapolated", "type": "nominal",
+                      "scale": {"domain": ["null", "below", "above"],
+                                "range": ["#4c9f70", "#e6ab02", "#d95f59"]}},
+            "tooltip": tooltip},
+    }
+    graphics = {"mark": "fc-cds-bond-ladder3d",
+                "encoding": {"x": {"field": "years"}, "y": {"field": {"x-eas:slot": "measure"}},
+                             "z": {"field": "name"}, "color": {"field": "spread_extrapolated"}},
+                "ribbon": "treasury_yield", "extent": [14, 10], "height": 8,
+                "camera": {"yaw": 24, "pitch": 24, "zoom": 1.3}}
+    dump(os.path.join(ROOT, "templates/financial/cds-bond-ladder.json"), base)
+    dump(os.path.join(ROOT, "templates3d/cds-bond-ladder.json"),
+         variant(name, {"source": "templates/financial/cds-bond-ladder.json",
+                        "example": f"{FIXTURES}/{name}.data.json",
+                        "reading": "CDS implied model yields as maturity bars with treasury yields as a ribbon, "
+                                   "coloured by CDS spread extrapolation; model, not traded",
+                        "graphics": graphics}))
+
 
 def dump(path, obj):
     with open(path, "w") as f:
@@ -226,6 +276,7 @@ def main():
         dump(os.path.join(ROOT, "templates3d", name + ".json"),
              variant(name, {"source": source, "example": f"{FIXTURES}/{name}.data.json",
                             "reading": cfg["reading"], "graphics": cfg["graphics"]}))
+    cds_bond_ladder()
 
 
 if __name__ == "__main__":

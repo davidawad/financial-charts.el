@@ -26,15 +26,24 @@
           "value",
           "spread_bp",
           "hazard_bps",
-          "pd_pct"
+          "pd_pct",
+          "hazard_rate",
+          "survival",
+          "cumulative_pd",
+          "forward_hazard"
         ],
-        "doc": "the field drawn: spread_bp (par spread, needs the input), hazard_bps, pd_pct (cumulative default probability), or value (the par spread when every row has one, else the hazard rate)"
+        "doc": "the field drawn; auto resolves to one concrete field shared by the adapter and chart"
       }
     },
     "example": "../test/fixtures/3d/rates/cds-term-structure.data.json"
   },
   "title": {
-    "x-eas:slot": "title"
+    "text": {
+      "x-eas:slot": "title"
+    },
+    "subtitle": {
+      "x-eas:slot": "description"
+    }
   },
   "description": {
     "x-eas:slot": "description"

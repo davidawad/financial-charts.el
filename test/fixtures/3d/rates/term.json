@@ -1,0 +1,128 @@
+{
+ "as_of": "2026-10-30",
+ "basis": "cds_implied_model, not traded",
+ "buckets": [
+  {
+   "conditional_pd": 0.046801320266828705,
+   "floored": false,
+   "forward_hazard": 0.023933174253541085,
+   "from_years": 0.0,
+   "label": "0-2y",
+   "thin": false,
+   "to_years": 2.0
+  },
+  {
+   "conditional_pd": 0.008881943302623152,
+   "floored": false,
+   "forward_hazard": 0.008921622890337159,
+   "from_years": 2.0,
+   "label": "2-3y",
+   "thin": false,
+   "to_years": 3.0
+  },
+  {
+   "conditional_pd": 0.055154189723243374,
+   "floored": false,
+   "forward_hazard": 0.02836676426467171,
+   "from_years": 3.0,
+   "label": "3-5y",
+   "thin": false,
+   "to_years": 5.0
+  },
+  {
+   "conditional_pd": 0.04927073593402409,
+   "floored": false,
+   "forward_hazard": 0.025228411777860872,
+   "from_years": 5.0,
+   "label": "5-7y",
+   "thin": true,
+   "to_years": 7.0
+  },
+  {
+   "conditional_pd": 0.06884250915163892,
+   "floored": false,
+   "forward_hazard": 0.023753924554583493,
+   "from_years": 7.0,
+   "label": "7-10y",
+   "thin": false,
+   "to_years": 10.0
+  }
+ ],
+ "discount_rate": 0.0471,
+ "discount_rate_assumed": false,
+ "notes": [
+  "1y skipped: no_prints",
+  "7y thin: 2 trades in 30 days",
+  "non-monotone curve: spread falls 2y to 3y (often a thin print)"
+ ],
+ "recovery": 0.4,
+ "shape": "flat",
+ "shape_note": "2y 142.6 bp to 10y 138.8 bp (-3.8 bp): the market prices similar default risk across the curve",
+ "skipped": [
+  {
+   "reason": "no_prints",
+   "tenor_years": 1.0
+  }
+ ],
+ "slopes": {
+  "s2s5s_bp": -8.408963771560764,
+  "s5s10s_bp": 4.564669129081409
+ },
+ "tenors": [
+  {
+   "cumulative_pd": 0.046801320266828705,
+   "hazard_rate": 0.023933174253541085,
+   "last_trade_date": "2026-10-28",
+   "maturity": "2028-10-30",
+   "par_spread_bp": 142.6226149354434,
+   "survival": 0.9531986797331713,
+   "tenor_years": 2.0,
+   "thin": false,
+   "trades_30d": 5
+  },
+  {
+   "cumulative_pd": 0.055267576896353976,
+   "hazard_rate": 0.008921622890337159,
+   "last_trade_date": "2026-10-29",
+   "maturity": "2029-10-30",
+   "par_spread_bp": 114.74169006047352,
+   "survival": 0.944732423103646,
+   "tenor_years": 3.0,
+   "thin": false,
+   "trades_30d": 21
+  },
+  {
+   "cumulative_pd": 0.1073735281979119,
+   "hazard_rate": 0.02836676426467171,
+   "last_trade_date": "2026-10-30",
+   "maturity": "2031-10-30",
+   "par_spread_bp": 134.21365116388264,
+   "survival": 0.8926264718020881,
+   "tenor_years": 5.0,
+   "thin": false,
+   "trades_30d": 277
+  },
+  {
+   "cumulative_pd": 0.1513538913777922,
+   "hazard_rate": 0.025228411777860872,
+   "last_trade_date": "2026-10-22",
+   "maturity": "2033-10-30",
+   "par_spread_bp": 138.0,
+   "survival": 0.8486461086222078,
+   "tenor_years": 7.0,
+   "thin": true,
+   "trades_30d": 2
+  },
+  {
+   "cumulative_pd": 0.2097768188771193,
+   "hazard_rate": 0.023753924554583493,
+   "last_trade_date": "2026-10-30",
+   "maturity": "2036-10-30",
+   "par_spread_bp": 138.77832029296405,
+   "survival": 0.7902231811228807,
+   "tenor_years": 10.0,
+   "thin": false,
+   "trades_30d": 6
+  }
+ ]
+}

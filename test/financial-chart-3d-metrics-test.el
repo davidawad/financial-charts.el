@@ -233,7 +233,8 @@ value of each enum slot and each of
                          :time "2026-10-30T15:30:00"))
         (adapted 0))
     (pcase-dolist (`(,metric . ,templates) (financial-chart-3d-metric-templates))
-      (dolist (c (financial-chart-3d-metrics-test--cases metric))
+      (dolist (c (seq-remove (lambda (case) (plist-get case :output_is_pointer_sample))
+                             (financial-chart-3d-metrics-test--cases metric)))
         (dolist (template templates)
           (ert-info ((format "%s -> %s: %s" metric template (plist-get c :name)))
             ;; opt.chain_stats's golden input has no open interest to draw.

@@ -1,0 +1,326 @@
+{
+ "filings": [
+  {
+   "form": "10-K",
+   "accession": "0001045810-26-000021",
+   "report_date": "2026-01-25",
+   "facts": [
+    {
+     "concept": "us-gaap:DebtInstrumentInterestRateStatedPercentage",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2026NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "xbrli:pure",
+     "value": 0.032,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2026NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "iso4217:USD",
+     "value": 1000000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2026NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2025-01-26",
+     "unit": "iso4217:USD",
+     "value": 1000000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentInterestRateStatedPercentage",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2028NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "xbrli:pure",
+     "value": 0.015500000000000002,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2028NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "iso4217:USD",
+     "value": 1250000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2028NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2025-01-26",
+     "unit": "iso4217:USD",
+     "value": 1250000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentInterestRateStatedPercentage",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2030NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "xbrli:pure",
+     "value": 0.0285,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2030NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "iso4217:USD",
+     "value": 1500000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2030NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2025-01-26",
+     "unit": "iso4217:USD",
+     "value": 1500000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentInterestRateStatedPercentage",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2031NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "xbrli:pure",
+     "value": 0.02,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2031NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "iso4217:USD",
+     "value": 1250000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2031NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2025-01-26",
+     "unit": "iso4217:USD",
+     "value": 1250000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentInterestRateStatedPercentage",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2040NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "xbrli:pure",
+     "value": 0.035,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2040NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "iso4217:USD",
+     "value": 1000000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2040NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2025-01-26",
+     "unit": "iso4217:USD",
+     "value": 1000000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentInterestRateStatedPercentage",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2050NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "xbrli:pure",
+     "value": 0.035,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2050NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "iso4217:USD",
+     "value": 2000000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2050NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2025-01-26",
+     "unit": "iso4217:USD",
+     "value": 2000000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentInterestRateStatedPercentage",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2060NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "xbrli:pure",
+     "value": 0.037000000000000005,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2060NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2026-01-25",
+     "unit": "iso4217:USD",
+     "value": 500000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    },
+    {
+     "concept": "us-gaap:DebtInstrumentCarryingAmount",
+     "dimensions": [
+      {
+       "axis": "us-gaap:LongtermDebtTypeAxis",
+       "member": "nvda:A2060NotesMember"
+      }
+     ],
+     "start": null,
+     "end": "2025-01-26",
+     "unit": "iso4217:USD",
+     "value": 500000000.0,
+     "filed": "2026-02-25",
+     "accession": "0001045810-26-000021"
+    }
+   ]
+  }
+ ]
+}

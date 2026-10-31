@@ -183,6 +183,152 @@
                            :type 'financial-chart-invalid-data)))
     (should (equal (plist-get (cddr err) :code) "bad_cds"))))
 
+(ert-deftest financial-chart-3d-rates-cds-term-structure-measures-and-buckets ()
+  (let* ((output '(:as_of "2026-10-30" :basis "cds_implied_model" :recovery 0.4
+                   :discount_rate 0.04 :discount_rate_assumed t :shape "upward"
+                   :shape_note "widening" :slopes (:s2s5s_bp 12.0 :s5s10s_bp 8.0)
+                   :skipped [(:tenor_years 7 :reason "thin")]
+                   :notes ["example"]
+                   :tenors [(:tenor_years 2 :maturity "2028-10-20" :par_spread_bp 62.0
+                             :hazard_rate 0.0103 :survival 0.9796 :cumulative_pd 0.0204
+                             :trades_30d 8 :last_trade_date "2026-10-29" :thin nil)]
+                   :buckets [(:label "0-2y" :from_years 0 :to_years 2
+                              :forward_hazard 0.0103 :conditional_pd 0.0204 :thin t :floored nil)]))
+         (rows (financial-chart-3d-rates-cds-term-rows output "auto"))
+         (template (eas-json-read-file
+                    (expand-file-name "templates/financial/cds-term-structure.json" financial-chart-test-root))))
+    (should (equal financial-chart-3d-rates-cds-measures
+                   (append (plist-get (plist-get (plist-get (plist-get template :x-eas) :slots) :measure) :enum)
+                           nil)))
+    (should (equal (financial-chart-3d-rates-cds-measure rows "auto") "value"))
+    (dolist (measure financial-chart-3d-rates-cds-measures)
+      (let* ((selected (financial-chart-3d-rates-cds-term-rows output measure))
+             (field (financial-chart-3d--key measure)))
+        (should (equal (mapcar (lambda (row) (plist-get row :value)) selected)
+                       (mapcar (lambda (row) (if (numberp (plist-get row field))
+                                                 (plist-get row field) :null)) selected)))))
+    (should (equal (plist-get (car rows) :shape_note) "widening"))
+    (should (equal (plist-get (cadr rows) :label) "0-2y"))
+    (let* ((adapted (eas-data-from "invest/cds-term" (vector output)))
+           (data-rows (append (plist-get adapted :rows) nil)))
+      (should (equal (plist-get (car data-rows) :shape_note) "widening")))
+    (should (equal financial-chart-3d-rates-cds-ladder-measures
+                   '("model_yield" "model_price" "cds_spread_bp" "expected_loss_per_100" "dv01_usd")))))
+
+(ert-deftest financial-chart-3d-rates-cds-nvda-output-fixtures-match-source ()
+  (let* ((directory (expand-file-name "test/fixtures/invest-metrics/credit" financial-chart-test-root))
+         (term (eas-json-read-file (expand-file-name "term.json" directory)))
+         (ladder (eas-json-read-file (expand-file-name "ladder.json" directory)))
+         (golden (eas-json-read-file
+                  (expand-file-name "test/fixtures/invest-metrics/golden/credit_curve.json"
+                                    financial-chart-test-root)))
+         (cases (append (plist-get golden :cases) nil))
+         (term-case (seq-find (lambda (c) (and (equal (plist-get c :metric) "credit.cds_term_structure")
+                                               (string-match-p "NVDA" (plist-get c :name)))) cases))
+         (ladder-case (seq-find (lambda (c) (and (equal (plist-get c :metric) "bond_corp.cds_implied_ladder")
+                                                 (string-match-p "NVDA" (plist-get c :name)))) cases))
+         (term-expect (plist-get term-case :expect))
+         (ladder-expect (plist-get ladder-case :expect))
+         (term-rows (financial-chart-3d-rates-cds-term-rows term "auto"))
+         (term-bindings (financial-chart-3d-rates--from-cds-term nil term nil))
+         (term-prims (financial-chart-3d-rates--cds-term-geometry
+                      '(:encoding (:x (:field "tenor") :z (:field "as_of") :y (:field "value")))
+                      term-rows))
+         (bucket-prims (financial-chart-3d-rates-test--prim term-prims "forward-buckets"))
+         (ladder-rows (financial-chart-3d-rates-cds-bond-rows ladder "model_yield")))
+    (should (equal (plist-get term :shape) "flat"))
+    (should (= (length term-rows) 10))
+    (should (equal (plist-get (car term-rows) :par_spread_bp) 142.6226149354434))
+    (should (equal (plist-get (car term-rows) :shape_note) (plist-get term :shape_note)))
+    (should (= (length (plist-get (car term-rows) :skipped)) 1))
+    (should (equal (plist-get (car term-rows) :shape)
+                   (plist-get term-expect (intern ":/shape"))))
+    (should (financial-chart-3d-rates-test--near
+             (plist-get (nth 5 term-rows) :forward_hazard)
+             (plist-get term-expect (intern ":/buckets/0/forward_hazard"))))
+    (should (financial-chart-3d-rates-test--near
+             (plist-get (nth 1 term-rows) :survival)
+             (plist-get term-expect (intern ":/tenors/1/survival"))))
+    (should (= (length (plist-get bucket-prims :boxes)) 5))
+    (should (string-match-p "1Y (no_prints)" (plist-get term-bindings :description)))
+    (should (= (length ladder-rows) 6))
+    (should (equal (plist-get (car ladder-rows) :name) "1.55% Notes Due 2028"))
+    (should (equal (plist-get (car ladder-rows) :summary) (plist-get ladder :summary)))
+    (should (equal (plist-get (plist-get ladder :summary) :total_principal) 7500000000.0))
+    (dolist (field '("/rows/0/model_yield" "/rows/0/model_price" "/rows/0/modified_duration"
+                     "/rows/0/dv01_usd" "/rows/0/cumulative_pd" "/rows/0/expected_loss_per_100"
+                     "/summary/total_dv01_usd" "/summary/average_model_yield"))
+      (let* ((parts (split-string field "/" t))
+             (row (if (equal (car parts) "rows")
+                      (nth (string-to-number (cadr parts)) ladder-rows)
+                    (plist-get (car ladder-rows) :summary)))
+             (actual (plist-get row (intern (concat ":" (car (last parts))))))
+             (expected (plist-get ladder-expect (intern (concat ":" field)))))
+        (should (financial-chart-3d-rates-test--near actual expected))))))
+
+(ert-deftest financial-chart-3d-rates-cds-bond-ladder-adapter-tooltips-and-metrics ()
+  (let* ((file (expand-file-name "test/fixtures/3d/rates/cds-bond-ladder.data.json" financial-chart-test-root))
+         (output (plist-get (eas-json-read-file file) :data))
+         (rows (financial-chart-3d-rates-cds-bond-rows output "model_yield"))
+         (template (eas-json-read-file
+                    (expand-file-name "templates/financial/cds-bond-ladder.json" financial-chart-test-root)))
+         (shape-data (eas-data-from "invest/cds-bond-ladder" (vector output)))
+         (bindings (financial-chart-3d-rates--from-cds-ladder nil output '(:measure "dv01_usd")))
+         (prims (financial-chart-3d-rates--cds-bond-mark '(:mark "fc-cds-bond-ladder3d") rows))
+         (bars (financial-chart-3d-rates-test--prim prims "bars")))
+    (should (= (length rows) 6))
+    (should (equal financial-chart-3d-rates-cds-ladder-measures
+                   (append (plist-get (plist-get (plist-get (plist-get template :x-eas) :slots) :measure) :enum)
+                           nil)))
+    (should (equal (plist-get (car (append (plist-get shape-data :rows) nil)) :basis)
+                   "cds_implied_model, not traded"))
+    (should (equal (plist-get (car rows) :name) "1.55% Notes Due 2028"))
+    (should (equal (plist-get bindings :measure) "dv01_usd"))
+    (should (string-match-p "total expected loss" (downcase (plist-get bindings :description))))
+    (should (string-match-p "1.55% Notes Due 2028" (aref (plist-get bars :tooltips) 0)))
+    (dolist (measure financial-chart-3d-rates-cds-ladder-measures)
+      (should (stringp measure))
+      (should (numberp (plist-get (car (financial-chart-3d-rates-cds-bond-rows output measure))
+                                  (financial-chart-3d--key measure)))))
+    (should (member "cds-term-structure"
+                    (cdr (assoc "credit.cds_term_structure" (financial-chart-3d-metric-templates)))))
+    (should (member "cds-bond-ladder"
+                    (cdr (assoc "bond_corp.cds_implied_ladder" (financial-chart-3d-metric-templates)))))))
+
+(ert-deftest financial-chart-3d-rates-cds-term-geometry-has-slab-and-node-tooltips ()
+  (let* ((output '(:as_of "2026-10-30" :basis "cds_implied_model" :recovery 0.4
+                   :discount_rate 0.04 :discount_rate_assumed t :shape "upward"
+                   :slopes (:s2s5s_bp 12.0 :s5s10s_bp 8.0)
+                   :skipped [(:tenor_years 7 :reason "thin")]
+                   :tenors [(:tenor_years 2 :maturity "2028-10-20" :par_spread_bp 62.0
+                             :hazard_rate 0.0103 :survival 0.9796 :cumulative_pd 0.0204
+                             :trades_30d 8 :last_trade_date "2026-10-29" :thin t)]
+                   :buckets [(:label "0-2y" :from_years 0 :to_years 2
+                              :forward_hazard 0.0103 :conditional_pd 0.0204 :thin t :floored nil)]))
+         (rows (financial-chart-3d-rates-cds-term-rows output "auto"))
+         (graphics '(:encoding (:x (:field "tenor") :z (:field "as_of") :y (:field "value"))))
+         (prims (financial-chart-3d-rates--cds-term-geometry graphics rows))
+         (buckets (financial-chart-3d-rates-test--prim prims "forward-buckets"))
+         (nodes (financial-chart-3d-rates-test--prim prims "tenor-nodes"))
+         (bindings (financial-chart-3d-rates--from-cds-term nil output nil)))
+    (should (= (length (plist-get buckets :boxes)) 1))
+    (should (string-match-p "0-2y" (aref (plist-get buckets :tooltips) 0)))
+    (should (string-match-p "par_spread_bp" (aref (plist-get nodes :tooltips) 0)))
+    (should (string-match-p "Shape upward" (plist-get bindings :description)))
+    (should (string-match-p "7Y" (plist-get bindings :description)))))
+
+(ert-deftest financial-chart-3d-rates-cds-term-insufficient-output-is-valid ()
+  (let* ((output '(:as_of "2026-10-30" :shape "insufficient"
+                   :skipped [(:tenor_years 1 :reason "no_prints")]
+                   :tenors [] :buckets []))
+         (rows (financial-chart-3d-rates-cds-term-rows output "auto"))
+         (bindings (financial-chart-3d-rates--from-cds-term nil output nil))
+         (prims (financial-chart-3d-rates--cds-term-geometry
+                 '(:encoding (:x (:field "tenor") :z (:field "as_of") :y (:field "value"))) rows)))
+    (should-not rows)
+    (should (equal (plist-get bindings :measure) "hazard_bps"))
+    (should (equal (plist-get (financial-chart-3d-rates-test--prim prims "forward-buckets") :boxes) []))))
+
 (ert-deftest financial-chart-3d-rates-krd-rows ()
   (let ((rows (financial-chart-3d-rates-krd-rows (financial-chart-3d-rates-test--data "key-rate-durations"))))
     (should (= (length rows) (* 7 6)))

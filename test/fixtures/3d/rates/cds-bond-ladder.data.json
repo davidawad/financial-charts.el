@@ -1,0 +1,182 @@
+{
+  "title": "NVDA CDS implied corporate bond ladder \u2014 model, not traded",
+  "data": {
+    "as_of": "2026-10-30",
+    "basis": "cds_implied_model, not traded",
+    "discount_rate": 0.0471,
+    "notes": [
+      "1y skipped: no_prints",
+      "7y thin: 2 trades in 30 days",
+      "non-monotone curve: spread falls 2y to 3y (often a thin print)",
+      "1.55% Notes Due 2028 priced outside the quoted range (spread below, treasury within): flat extrapolation",
+      "3.50% Notes Due 2040 priced outside the quoted range (spread above, treasury within): flat extrapolation",
+      "3.50% Notes Due 2050 priced outside the quoted range (spread above, treasury within): flat extrapolation",
+      "3.70% Notes Due 2060 priced outside the quoted range (spread above, treasury above): flat extrapolation"
+    ],
+    "recovery": 0.4,
+    "rows": [
+      {
+        "accrued_interest": 0.580191256830601,
+        "basis": "cds_implied_model, not traded",
+        "cds_spread_bp": 142.6226149354434,
+        "coupon": 0.0155,
+        "cumulative_pd": 0.038200030846173516,
+        "dv01_per_100": 0.014608691425993687,
+        "dv01_usd": 182608.6428249211,
+        "expected_loss_per_100": 2.292001850770411,
+        "expected_loss_usd": 28650023.134630136,
+        "maturity": "2028-06-15",
+        "model_price": 93.33061541241466,
+        "model_yield": 0.05911705601409229,
+        "modified_duration": 1.555592156443255,
+        "name": "1.55% Notes Due 2028",
+        "principal": 1250000000.0,
+        "spread_extrapolated": "below",
+        "treasury_extrapolated": null,
+        "treasury_yield": 0.04485479452054795,
+        "years": 1.6273972602739726
+      },
+      {
+        "accrued_interest": 0.22706043956043956,
+        "basis": "cds_implied_model, not traded",
+        "cds_spread_bp": 118.84947363571325,
+        "coupon": 0.0285,
+        "cumulative_pd": 0.06643460750957264,
+        "dv01_per_100": 0.02890071121210733,
+        "dv01_usd": 433510.66818160994,
+        "expected_loss_per_100": 3.9860764505743584,
+        "expected_loss_usd": 59791146.75861538,
+        "maturity": "2030-04-01",
+        "model_price": 90.81500212725402,
+        "model_yield": 0.05851152270603708,
+        "modified_duration": 3.1744350245687274,
+        "name": "2.85% Notes Due 2030",
+        "principal": 1500000000.0,
+        "spread_extrapolated": null,
+        "treasury_extrapolated": null,
+        "treasury_yield": 0.046626575342465754,
+        "years": 3.421917808219178
+      },
+      {
+        "accrued_interest": 0.7486338797814207,
+        "basis": "cds_implied_model, not traded",
+        "cds_spread_bp": 130.5859981363982,
+        "coupon": 0.02,
+        "cumulative_pd": 0.09781873400184049,
+        "dv01_per_100": 0.03606477505784287,
+        "dv01_usd": 450809.68822303583,
+        "expected_loss_per_100": 5.86912404011043,
+        "expected_loss_usd": 73364050.50138037,
+        "maturity": "2031-06-15",
+        "model_price": 84.02987803484532,
+        "model_yield": 0.06004681899172201,
+        "modified_duration": 4.2539995387228124,
+        "name": "2.00% Notes Due 2031",
+        "principal": 1250000000.0,
+        "spread_extrapolated": null,
+        "treasury_extrapolated": null,
+        "treasury_yield": 0.04698821917808219,
+        "years": 4.627397260273972
+      },
+      {
+        "accrued_interest": 0.27884615384615385,
+        "basis": "cds_implied_model, not traded",
+        "cds_spread_bp": 138.77832029296405,
+        "coupon": 0.035,
+        "cumulative_pd": 0.2714680835482691,
+        "dv01_per_100": 0.0734770013784471,
+        "dv01_usd": 734770.013784471,
+        "expected_loss_per_100": 16.288085012896147,
+        "expected_loss_usd": 162880850.12896147,
+        "maturity": "2040-04-01",
+        "model_price": 73.66004994489546,
+        "model_yield": 0.06464988682381695,
+        "modified_duration": 9.937530211476554,
+        "name": "3.50% Notes Due 2040",
+        "principal": 1000000000.0,
+        "spread_extrapolated": "above",
+        "treasury_extrapolated": null,
+        "treasury_yield": 0.05077205479452055,
+        "years": 13.43013698630137
+      },
+      {
+        "accrued_interest": 0.27884615384615385,
+        "basis": "cds_implied_model, not traded",
+        "cds_spread_bp": 138.77832029296405,
+        "coupon": 0.035,
+        "cumulative_pd": 0.4255793131314597,
+        "dv01_per_100": 0.08415878573951853,
+        "dv01_usd": 1683175.7147903705,
+        "expected_loss_per_100": 25.53475878788758,
+        "expected_loss_usd": 510695175.7577516,
+        "maturity": "2050-04-01",
+        "model_price": 62.29145471267427,
+        "model_yield": 0.06717476353614572,
+        "modified_duration": 13.450276660656028,
+        "name": "3.50% Notes Due 2050",
+        "principal": 2000000000.0,
+        "spread_extrapolated": "above",
+        "treasury_extrapolated": null,
+        "treasury_yield": 0.05329693150684932,
+        "years": 23.435616438356163
+      },
+      {
+        "accrued_interest": 0.29478021978021973,
+        "basis": "cds_implied_model, not traded",
+        "cds_spread_bp": 138.77832029296405,
+        "coupon": 0.037,
+        "cumulative_pd": 0.5471198374982598,
+        "dv01_per_100": 0.08937037536962018,
+        "dv01_usd": 446851.8768481009,
+        "expected_loss_per_100": 32.82719024989558,
+        "expected_loss_usd": 164135951.24947792,
+        "maturity": "2060-04-01",
+        "model_price": 60.188699438754426,
+        "model_yield": 0.06697783202929641,
+        "modified_duration": 14.775997656578177,
+        "name": "3.70% Notes Due 2060",
+        "principal": 500000000.0,
+        "spread_extrapolated": "above",
+        "treasury_extrapolated": "above",
+        "treasury_yield": 0.0531,
+        "years": 33.443835616438356
+      }
+    ],
+    "skipped": [
+      {
+        "name": "3.20% Notes Due 2026",
+        "reason": "matured"
+      }
+    ],
+    "summary": {
+      "average_model_yield": 0.06256139436361068,
+      "average_modified_duration": 7.49996326891845,
+      "cds_tenors_skipped": [
+        {
+          "reason": "no_prints",
+          "tenor_years": 1.0
+        }
+      ],
+      "cds_tenors_used": [
+        2.0,
+        3.0,
+        5.0,
+        7.0,
+        10.0
+      ],
+      "count": 6,
+      "extrapolated": [
+        "1.55% Notes Due 2028",
+        "3.50% Notes Due 2040",
+        "3.50% Notes Due 2050",
+        "3.70% Notes Due 2060"
+      ],
+      "max_spread_bp": 142.6226149354434,
+      "min_spread_bp": 118.84947363571325,
+      "principal_complete": true,
+      "total_dv01_usd": 3931726.604652509,
+      "total_expected_loss_usd": 999517197.5308168,
+      "total_principal": 7500000000.0
+    }
+  }
+}

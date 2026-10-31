@@ -101,8 +101,14 @@
       (+ (* era 146097) doe -719468))))
 
 (defun financial-chart-3d-rates--flat-p (rows keys)
-  "Non-nil when every row of ROWS already carries every one of KEYS."
-  (and rows (seq-every-p (lambda (r) (seq-every-p (lambda (k) (plist-member r k)) keys)) rows)))
+  "Non-nil when every row of ROWS already carries every one of KEYS, as atoms.
+An entry stamped with some of KEYS but holding a metric output (a
+plist) under another is not flat (fc-jyr: {holding, tenor, krd: output})."
+  (and rows (seq-every-p (lambda (r) (seq-every-p (lambda (k) (and (plist-member r k)
+                                                                   (atom (plist-get r k))
+                                                                   (not (vectorp (plist-get r k)))))
+                                                  keys))
+                         rows)))
 
 ;;; Yield curves: fi.nss_fit per date
 

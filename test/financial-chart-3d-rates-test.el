@@ -346,6 +346,13 @@
   (should (equal (length (financial-chart-3d-rates-krd-rows
                           '((:holding "X" :krd (:value 2.0 :inputs (:key_rate_shocks [0 0 1 1 0 0]))))))
                  6))
+  ;; An entry stamped with a tenor is still an entry, not a flat row:
+  ;; its krd is the output, drawn as numbers (fc-jyr).
+  (should (equal (mapcar (lambda (r) (plist-get r :krd))
+                         (financial-chart-3d-rates-krd-rows
+                          '((:holding "X" :tenor 30 :krd (:value 6.0 :inputs (:key_rate_shocks [1 2 3]
+                                                                               :curve_years [2 5 10]))))))
+                 '(1.0 2.0 3.0)))
   (let ((err (should-error (financial-chart-3d-rates-krd-rows
                             '((:holding "X" :krd (:value 2.0 :inputs (:key_rate_shocks [1 1])))))
                            :type 'financial-chart-invalid-data)))

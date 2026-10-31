@@ -1,0 +1,20 @@
+{
+  "pack": "futures",
+  "cases": [
+    {"name":"ctd_basis_hand_checked","metric":"fut.ctd_basis","input":{"ctd_dirty_price":102.5,"futures_price":110.0,"conversion_factor":0.9},"expect":{"":3.5}},
+    {"name":"roll_yield_flat_curve","metric":"fut.roll_yield","input":{"near_price":100.0,"deferred_price":100.0,"days_to_near_expiry":30.0},"expect":{"":0.0}},
+    {"name":"basis_hand_checked","metric":"fut.basis","input":{"futures_price":103.0,"spot_price":100.0},"expect":{"":3.0}},
+    {"name":"convenience_yield_zero_net_carry","metric":"fut.convenience_yield","input":{"financing_rate":0.05,"storage_cost":0.02,"spot_price":100.0,"futures_price":100.0,"years_to_expiry":1.0},"expect":{"":0.07}},
+    {"name":"back_adjust_one_roll","metric":"fut.continuous_series","input":{"prices":[100.0,102.0,103.0,105.0],"roll_indices":[2],"adjustment":"backward_additive"},"expect":{"":[101.0,103.0,103.0,105.0]}},
+    {"name":"spread_zscore_hand_checked","metric":"fut.spread_zscore","input":{"current_spread":4.0,"history":[1.0,2.0,3.0]},"expect":{"":2.0}},
+    {"name":"hedge_ratio_perfect_linear","metric":"fut.hedge_ratio","input":{"asset_returns":[2.0,4.0,6.0],"hedge_returns":[1.0,2.0,3.0]},"expect":{"":2.0}},
+    {"name":"term_structure_contango_with_spot_and_rate","metric":"fut.term_structure","input":{"spot":100.0,"rate":0.05,"contracts":[{"years":0.5,"price":102.5},{"years":1.0,"price":105.0}]},"expect":{"/shape":"contango","/contracts/0/basis":2.5,"/contracts/1/basis":5.0,"/contracts/0/carry":0.049385225180743,"/contracts/1/carry":0.04879016416943205,"/contracts/0/implied_yield":0.000614774819257,"/contracts/1/implied_yield":0.00120983583056795,"/spreads/0/spread":2.5,"/spreads/0/roll_yield":-0.0481951031581211}},
+    {"name":"term_structure_backwardation_sorts_by_expiry","metric":"fut.term_structure","input":{"contracts":[{"years":0.75,"price":78.0},{"years":0.25,"price":80.0}]},"expect":{"/shape":"backwardation","/contracts/0/price":80.0,"/spreads/0/spread":-2.0,"/spreads/0/roll_yield":0.05063561596857957,"/contracts/0/basis":null}},
+    {"name":"term_structure_mixed_shape","metric":"fut.term_structure","input":{"contracts":[{"years":0.25,"price":100.0},{"years":0.5,"price":101.0},{"years":0.75,"price":100.5}]},"expect":{"/shape":"mixed","/spreads/0/spread":1.0,"/spreads/1/spread":-0.5}},
+    {"name":"term_structure_single_contract","metric":"fut.term_structure","input":{"contracts":[{"years":1.0,"price":100.0}]},"expect":{"/shape":"single"}},
+    {"name":"term_structure_expiry_dates_use_act_365","metric":"fut.term_structure","input":{"spot":100.0,"rate":0.05,"as_of":"2026-01-01","contracts":[{"expiry":"2027-01-01","price":105.0}]},"expect":{"/contracts/0/years":1.0,"/contracts/0/implied_yield":0.00120983583056795}},
+    {"name":"term_structure_expiry_needs_as_of","metric":"fut.term_structure","input":{"contracts":[{"expiry":"2027-01-01","price":105.0}]},"expect_error":true,"expect":{}},
+    {"name":"term_structure_rejects_expired_contract","metric":"fut.term_structure","input":{"as_of":"2026-06-01","contracts":[{"expiry":"2026-05-01","price":105.0}]},"expect_error":true,"expect":{}},
+    {"name":"term_structure_rejects_duplicate_expiries","metric":"fut.term_structure","input":{"contracts":[{"years":1.0,"price":100.0},{"years":1.0,"price":101.0}]},"expect_error":true,"expect":{}}
+  ]
+}

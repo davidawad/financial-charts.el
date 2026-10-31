@@ -16,6 +16,7 @@
 (require 'financial-chart-3d)
 (require 'graphics-eas)
 (require 'graphics-frame)
+(require 'financial-chart-3d-framing-test)
 (financial-chart-3d--ensure)
 
 (defun financial-chart-3d-vol-test--chain ()
@@ -25,6 +26,30 @@
 (defun financial-chart-3d-vol-test--prim (prims id)
   "The primitive of PRIMS whose id is ID."
   (seq-find (lambda (p) (equal (plist-get p :id) id)) prims))
+
+(defun financial-chart-3d-vol-test--holes (frame cols rows)
+  "Empty cells of FRAME (COLS by ROWS) the drawing encloses.
+A cell with no dots, or one in a guide colour (the axes), is open;
+the open cells no path of open cells joins to the frame's border are
+holes: gaps inside the surface's footprint."
+  (let* ((n (* cols rows)) (open (make-vector n nil)) (seen (make-vector n nil)) stack (holes 0))
+    (dotimes (i n)
+      (let ((cell (graphics-frame-cell frame i)))
+        (aset open i (or (= (car cell) 0) (member (cdr cell) financial-chart-3d-framing-guides)))
+        (when (and (aref open i) (or (< i cols) (>= i (- n cols)) (zerop (% i cols)) (= (% i cols) (1- cols))))
+          (aset seen i t)
+          (push i stack))))
+    (while stack
+      (let* ((i (pop stack)) (c (% i cols)))
+        (dolist (j (list (and (>= i cols) (- i cols)) (and (< (+ i cols) n) (+ i cols))
+                         (and (> c 0) (1- i)) (and (< c (1- cols)) (1+ i))))
+          (when (and j (aref open j) (not (aref seen j)))
+            (aset seen j t)
+            (push j stack)))))
+    (dotimes (i n)
+      (when (and (aref open i) (not (aref seen i)) (zerop (car (graphics-frame-cell frame i))))
+        (cl-incf holes)))
+    holes))
 
 (defconst financial-chart-3d-vol-test--grid
   '((:time "t1" :spot 100 :strike 90 :dte 7 :iv 0.30) (:time "t1" :spot 100 :strike 100 :dte 7 :iv 0.20)
@@ -145,24 +170,33 @@ strikes of the near expiries and a scatter of cells are null."
 
 (ert-deftest financial-chart-3d-vol-surface-live-size-stays-readable ()
   (let* ((rows (financial-chart-3d-vol-surface-rows (financial-chart-3d-vol-test--wide) :time "2026-10-30T16:00:00"))
-         (prims (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d") (append rows nil)))
-         (mesh (financial-chart-3d-vol-test--prim prims "surface"))
-         (atm (financial-chart-3d-vol-test--prim prims "atm")))
+         (wire (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d" :style "wire") (append rows nil)))
+         (mesh (financial-chart-3d-vol-test--prim wire "surface"))
+         (atm (financial-chart-3d-vol-test--prim wire "atm"))
+         (solid (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d") (append rows nil)))
+         (surface (financial-chart-3d-vol-test--prim solid "surface"))
+         (grid (financial-chart-3d-vol-test--prim solid "grid")))
     (should (< (length rows) (* 24 125)))
-    ;; The mesh is downsampled to 41 strikes: 24 smiles of 40 segments
-    ;; and 7 term lines of 23; the ATM line still crosses every expiry.
+    ;; The wire mesh is downsampled to 41 strikes: 24 smiles of 40
+    ;; segments and 7 term lines of 23; the ATM line still crosses every
+    ;; expiry.
     (should (= (length (plist-get mesh :segments)) (+ (* 24 40) (* 7 23))))
     (should (= (length (plist-get atm :segments)) 23))
+    ;; The solid surface keeps every strike, a tooltip per sample, and
+    ;; draws 5 smiles of 124 segments and 7 term lines of 23 on it.
+    (should (equal (plist-get surface :type) "heightfield"))
+    (should (= (length (plist-get surface :heights)) 24))
+    (should (seq-every-p (lambda (row) (= (length row) 125)) (plist-get surface :heights)))
+    (should (= (length (plist-get surface :tooltips)) (* 24 125)))
+    (should (= (length (plist-get grid :segments)) (+ (* 5 124) (* 7 23))))
     (let ((view (financial-chart-3d-vol-surface-open rows :id "fc3d-test-vol-wide")))
       (unwind-protect
-          (let* ((text (graphics-eas-braille-text (graphics-eas-frame view 60 24) 60))
-                 (lines (seq-filter (lambda (l) (string-match-p "[^⠀]" l)) (split-string text "
-" t)))
-                 (cells (with-temp-buffer (insert text) (count-matches "[^⠀
- ]" (point-min) (point-max)))))
-            ;; Drawn across most of the frame, and not a solid sheet.
+          (let* ((frame (graphics-eas-frame view 60 24))
+                 (text (graphics-eas-braille-text frame 60))
+                 (lines (seq-filter (lambda (l) (string-match-p "[^⠀]" l)) (split-string text "\n" t))))
+            ;; Drawn across most of the frame, solid.
             (should (>= (length lines) 12))
-            (should (< 200 cells (* 0.8 60 24))))
+            (should (= (financial-chart-3d-vol-test--holes frame 60 24) 0)))
         (financial-chart-3d--close view)))))
 
 (ert-deftest financial-chart-3d-vol-surface-series-replays ()
@@ -185,15 +219,23 @@ strikes of the near expiries and a scatter of cells are null."
 ;;; The mark
 
 (ert-deftest financial-chart-3d-vol-surface-mark-wire-and-surface ()
-  (let* ((wire (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d" :strike_every 1)
+  (let* ((wire (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d" :style "wire" :strike_every 1)
                                                      financial-chart-3d-vol-test--grid))
          (mesh (financial-chart-3d-vol-test--prim wire "surface"))
          (atm (financial-chart-3d-vol-test--prim wire "atm"))
-         (surface (financial-chart-3d-vol-test--prim
-                   (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d" :style "surface")
-                                                         financial-chart-3d-vol-test--grid)
-                   "surface"))
+         ;; The solid surface is the default.
+         (solid (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d") financial-chart-3d-vol-test--grid))
+         (surface (financial-chart-3d-vol-test--prim solid "surface"))
+         (grid (financial-chart-3d-vol-test--prim solid "grid"))
          (heights (plist-get surface :heights)))
+    (should-not (financial-chart-3d-vol-test--prim wire "grid"))
+    ;; Two smiles of two segments and three term lines of one, on the
+    ;; surface: the grid's vertices are the heightfield's.
+    (should (= (length (plist-get grid :segments)) 7))
+    (let ((base (plist-get surface :base)) (scale (plist-get surface :y_scale)))
+      (should (< (abs (- (aref (aref (plist-get grid :segments) 0) 1)
+                         (+ base (* (aref (aref heights 0) 0) scale))))
+                 (* 0.02 4))))
     ;; Two smiles of two segments, three strikes' term lines of one.
     (should (equal (plist-get mesh :type) "segments"))
     (should (= (length (plist-get mesh :segments)) 7))
@@ -223,6 +265,145 @@ strikes of the near expiries and a scatter of cells are null."
                                      (plist-get (financial-chart-3d-vol-test--prim prims "surface") :color_range))))
       (should (equal (range alone) '(0.13 0.25)))
       (should (equal (range spanned) '(0.13 0.3))))))
+
+;;; Contracts and tooltips
+
+(defun financial-chart-3d-vol-test--schwab ()
+  "A Schwab chain for the opt.iv_surface fixture's cells, raw: its
+callExpDateMap and putExpDateMap (the 11-day 768 strike has none)."
+  (eas-json-read-file (expand-file-name "test/fixtures/3d/vol-surface/schwab-chain.json" financial-chart-test-root)))
+
+(defun financial-chart-3d-vol-test--tooltips (prims)
+  "The tooltips of PRIMS's surface, a vector, row-major as its heights."
+  (plist-get (financial-chart-3d-vol-test--prim prims "surface") :tooltips))
+
+(ert-deftest financial-chart-3d-vol-surface-contracts-from-a-chain ()
+  (let* ((contracts (financial-chart-3d-vol-surface-contracts (financial-chart-3d-vol-test--schwab)))
+         (put (seq-find (lambda (c) (equal (plist-get c :symbol) "NVDA  261201P00768000")) contracts)))
+    (should (= (length contracts) 10))
+    (should (equal (mapcar (lambda (k) (plist-get put k)) '(:side :strike :dte :expiry :iv :bid :ask :mark :delta :oi :volume))
+                   '("PUT" 768.0 32 "2026-12-01" 0.26 23.55 23.85 23.7 -0.47 2096 528))))
+  ;; A list of contracts; IV in percent or as a fraction; Schwab's -999 is none.
+  (should (equal (mapcar (lambda (c) (list (plist-get c :side) (plist-get c :strike) (plist-get c :dte) (plist-get c :iv)))
+                         (financial-chart-3d-vol-surface-contracts
+                          [(:symbol "A" :putCall "CALL" :strike 100 :daysToExpiration 7 :volatility 18.5)
+                           (:symbol "B" :putCall "put" :strikePrice 105 :expirationDate "2026-11-06T20:00:00.000+00:00"
+                                    :volatility 0.21)
+                           (:symbol "C" :putCall "PUT" :strike 110 :daysToExpiration 7 :volatility -999.0)]))
+                 '(("CALL" 100 7 0.185) ("PUT" 105 nil 0.21) ("PUT" 110 7 nil))))
+  ;; In a map, a contract takes its side, strike and expiry from where it sits.
+  (should (equal (financial-chart-3d-vol-surface-contracts
+                  '(("putExpDateMap" . (("2026-11-06:7" . (("100.0" . [(:symbol "X" :bid 1.5)])))))))
+                 '((:symbol "X" :side "PUT" :strike 100.0 :dte 7 :expiry "2026-11-06" :bid 1.5 :ask nil :mark nil
+                            :last nil :iv nil :delta nil :gamma nil :theta nil :vega nil :oi nil :volume nil))))
+  (dolist (case '(("chain" "bad_chain" nil)
+                  ([(:putCall "CALL" :daysToExpiration 7)] "bad_contract" "strike")
+                  ([(:putCall "STRADDLE" :strike 1 :daysToExpiration 7)] "bad_contract" "putCall")
+                  ([(:putCall "CALL" :strike 1)] "bad_contract" "daysToExpiration")))
+    (let ((err (should-error (financial-chart-3d-vol-surface-contracts (car case)) :type 'financial-chart-invalid-data)))
+      (should (equal (plist-get (cddr err) :code) (nth 1 case)))
+      (should (equal (plist-get (cddr err) :field) (or (nth 2 case) "chain"))))))
+
+(ert-deftest financial-chart-3d-vol-surface-tooltips-name-the-contracts ()
+  (let* ((rows (financial-chart-3d-vol-surface-rows (financial-chart-3d-vol-test--iv-surface)
+                                                    :time "2026-10-30T16:00:00"
+                                                    :contracts (financial-chart-3d-vol-test--schwab)))
+         (tips (financial-chart-3d-vol-test--tooltips
+                (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d") (append rows nil))))
+         (at (lambda (j i) (aref tips (+ (* j 3) i)))))
+    ;; Rows take their contracts and, lacking one, the contracts' expiry.
+    (should (equal (plist-get (aref rows 2) :expiry) "2026-12-01"))
+    (should (string-prefix-p "CALL NVDA  261201C00768000" (plist-get (aref rows 2) :contracts)))
+    ;; Two expiries by three strikes, nearest expiry first.
+    (should (= (length tips) 6))
+    (should (equal (funcall at 1 0)
+                   (concat "K 768  2026-12-01 (32 DTE)\nIV 26.0%  moneyness 0.998\n"
+                           "CALL NVDA  261201C00768000  bid 25.19 ask 25.49 mark 25.34  IV 26.0%  Δ 0.53  OI 1411  vol 323\n"
+                           "PUT NVDA  261201P00768000  bid 23.55 ask 23.85 mark 23.70  IV 26.0%  Δ -0.47  OI 2096  vol 528")))
+    ;; Every quoted cell names its own call and put, and no other.
+    (cl-loop for (j i strike date) in '((0 1 769 "261110") (0 2 770 "261110") (1 1 769 "261201") (1 2 770 "261201"))
+             do (let ((tip (funcall at j i)))
+                  (should (string-match-p (format "^CALL NVDA  %sC00%d000  " date strike) tip))
+                  (should (string-match-p (format "^PUT NVDA  %sP00%d000  " date strike) tip))
+                  (should (= (cl-count ?\n tip) 3))))
+    ;; The 11-day 768 strike has no quote: interpolated, no contract.
+    (should (equal (funcall at 0 0)
+                   (concat "K 768  2026-11-10 (11 DTE)\nIV 20.0% (interpolated)  moneyness 0.998\n"
+                           "interpolated from strike 769 (the nearest): no quote here")))))
+
+(ert-deftest financial-chart-3d-vol-surface-tooltips-without-a-chain ()
+  (let ((tips (financial-chart-3d-vol-test--tooltips
+               (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d") financial-chart-3d-vol-test--grid))))
+    ;; Strike, DTE, IV and moneyness; the missing cell between its neighbours.
+    (should (equal (append tips nil)
+                   '("K 90  7 DTE\nIV 30.0%  moneyness 0.900" "K 100  7 DTE\nIV 20.0%  moneyness 1.000"
+                     "K 110  7 DTE\nIV 24.0%  moneyness 1.100" "K 90  30 DTE\nIV 22.0%  moneyness 0.900"
+                     "K 100  30 DTE\nIV 20.0% (interpolated)  moneyness 1.000\ninterpolated between strikes 90 and 110: no quote here"
+                     "K 110  30 DTE\nIV 18.0%  moneyness 1.100"))))
+  ;; An expiry with no IV at this quote time (but at others) is filled
+  ;; along each strike's term structure, and says so.
+  (let* ((now (seq-filter (lambda (r) (= (plist-get r :dte) 7)) financial-chart-3d-vol-test--grid))
+         (prims (let ((graphics-eas-domain-rows financial-chart-3d-vol-test--grid))
+                  (financial-chart-3d--vol-surface-mark '(:mark "fc-vol-surface3d") now)))
+         (surface (financial-chart-3d-vol-test--prim prims "surface")))
+    (should (equal (plist-get surface :heights) [[0.3 0.2 0.24] [0.3 0.2 0.24]]))
+    (should (equal (aref (plist-get surface :tooltips) 3)
+                   "K 90  30 DTE\nIV 30.0% (interpolated)  moneyness 0.900\ninterpolated from 7 DTE (the nearest expiry): no quote here"))))
+
+(ert-deftest financial-chart-3d-vol-surface-opens-with-a-chain ()
+  ;; Through `open' and through the metric adapter: the surface the view
+  ;; draws carries each cell's contracts in its tooltip.
+  (dolist (open (list (lambda (id) (financial-chart-3d-vol-surface-open
+                                    (financial-chart-3d-vol-test--iv-surface) :time "2026-10-30T16:00:00"
+                                    :chain (financial-chart-3d-vol-test--schwab) :id id))
+                      ;; Rows already, the chain as a list of contracts.
+                      (lambda (id) (financial-chart-3d-vol-surface-open
+                                    (financial-chart-3d-vol-surface-rows (financial-chart-3d-vol-test--iv-surface)
+                                                                         :time "2026-10-30T16:00:00")
+                                    :chain (vconcat (financial-chart-3d--vol-map-contracts
+                                                     (financial-chart-3d-vol-test--schwab)))
+                                    :id id))
+                      (lambda (id) (financial-chart-3d-open
+                                    "vol-surface"
+                                    :bindings (financial-chart-3d-bindings-from-metric
+                                               "vol-surface" "opt.iv_surface" (financial-chart-3d-vol-test--iv-surface)
+                                               :time "2026-10-30T16:00:00" :symbol "NVDA"
+                                               :chain (financial-chart-3d-vol-test--schwab))
+                                    :id id))))
+    (let ((view (funcall open "fc3d-test-vol-chain")))
+      (unwind-protect
+          (progn
+            (graphics-eas-frame view 60 24)
+            (let* ((shown (graphics-eas-anim-shown (graphics-eas-view-anim (graphics-eas-get view))))
+                   (tips (financial-chart-3d-vol-test--tooltips shown)))
+              (should (= (length tips) 6))
+              (should (string-match-p "^CALL NVDA  261201C00769000  bid 22.37 " (aref tips 4)))
+              (should (string-match-p "^PUT NVDA  261110P00770000  bid 10.36 " (aref tips 2)))
+              (should (string-match-p "interpolated" (aref tips 0)))))
+        (financial-chart-3d--close view)))))
+
+(ert-deftest financial-chart-3d-vol-surface-solid-at-every-size-and-phase ()
+  ;; The default draws a solid surface: no gap inside its footprint at
+  ;; any framing size and phase.  The wire mesh, for contrast, has them.
+  (graphics-ensure-core 'rs)
+  (let ((view (financial-chart-3d-open "vol-surface" :id "fc3d-test-vol-solid"))
+        holes)
+    (unwind-protect
+        (dolist (phase financial-chart-3d-framing-phases)
+          (graphics-eas-timeline-set view :seconds (* phase (plist-get (graphics-eas-timeline view) :duration))
+                                     :playing nil)
+          (pcase-dolist (`(,cols . ,rows) financial-chart-3d-framing-sizes)
+            (let ((n (financial-chart-3d-vol-test--holes (graphics-eas-frame view cols rows) cols rows)))
+              (unless (zerop n) (push (format "%dx%d t=%s: %d holes" cols rows phase n) holes)))))
+      (financial-chart-3d--close view))
+    (should (equal holes nil)))
+  (let* ((rows (financial-chart-3d-vol-surface-rows (financial-chart-3d-vol-test--chain)))
+         (view (financial-chart-3d-open "vol-surface" :bindings (list :data rows) :id "fc3d-test-vol-wire")))
+    (unwind-protect
+        (let ((g (graphics-eas-get view)))
+          (graphics-eas-attach view (plist-put (copy-sequence (graphics-eas-view-graphics g)) :style "wire"))
+          (should (> (financial-chart-3d-vol-test--holes (graphics-eas-frame view 100 40) 100 40) 0)))
+      (financial-chart-3d--close view))))
 
 ;;; The 3D view
 

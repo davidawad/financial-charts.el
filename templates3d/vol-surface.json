@@ -66,7 +66,7 @@
         }
       ]
     },
-    "doc": "3D variant of financial-chart's vol-surface (graphics.el, mark fc-vol-surface3d): IV surface over strike and days to expiry as a mesh of each expiry's smile and the strikes' term structures, coloured by IV, the at-the-money term structure traced across it; replays the session quote time by quote time while the camera sways.  2D: Implied-volatility surface of an option chain: strike across, days to expiry down, each cell coloured by its IV, at the latest quote time of the rows.",
+    "doc": "3D variant of financial-chart's vol-surface (graphics.el, mark fc-vol-surface3d): IV surface over strike and days to expiry as a solid lit heightfield on every strike, coloured by IV, a light grid of a few smiles and term structures on it and the at-the-money term structure traced across it, each sample's tooltip its strike, expiry, IV, moneyness and contracts; replays the session quote time by quote time while the camera sways.  2D: Implied-volatility surface of an option chain: strike across, days to expiry down, each cell coloured by its IV, at the latest quote time of the rows.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -110,7 +110,7 @@
         }
       },
       "height": 5,
-      "style": "wire",
+      "style": "surface",
       "camera": {
         "yaw": -25,
         "pitch": 30,

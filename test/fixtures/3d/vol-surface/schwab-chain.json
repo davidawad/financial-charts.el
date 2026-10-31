@@ -1,0 +1,239 @@
+{
+ "symbol": "NVDA",
+ "status": "SUCCESS",
+ "underlyingPrice": 769.64,
+ "isDelayed": false,
+ "numberOfContracts": 10,
+ "callExpDateMap": {
+  "2026-11-10:11": {
+   "769.0": [
+    {
+     "putCall": "CALL",
+     "symbol": "NVDA  261110C00769000",
+     "description": "NVDA 2026-11-10 769.0 Call",
+     "bid": 11.18,
+     "ask": 11.48,
+     "last": 11.38,
+     "mark": 11.33,
+     "volatility": 20.0,
+     "delta": 0.52,
+     "gamma": 0.004,
+     "theta": -0.9,
+     "vega": 0.38,
+     "openInterest": 1137,
+     "totalVolume": 241,
+     "strikePrice": 769.0,
+     "expirationDate": "2026-11-10T20:00:00.000+00:00",
+     "daysToExpiration": 11,
+     "inTheMoney": true
+    }
+   ],
+   "770.0": [
+    {
+     "putCall": "CALL",
+     "symbol": "NVDA  261110C00770000",
+     "description": "NVDA 2026-11-10 770.0 Call",
+     "bid": 10.0,
+     "ask": 10.3,
+     "last": 10.2,
+     "mark": 10.15,
+     "volatility": 19.0,
+     "delta": 0.51,
+     "gamma": 0.004,
+     "theta": -0.9,
+     "vega": 0.38,
+     "openInterest": 1274,
+     "totalVolume": 282,
+     "strikePrice": 770.0,
+     "expirationDate": "2026-11-10T20:00:00.000+00:00",
+     "daysToExpiration": 11,
+     "inTheMoney": false
+    }
+   ]
+  },
+  "2026-12-01:32": {
+   "768.0": [
+    {
+     "putCall": "CALL",
+     "symbol": "NVDA  261201C00768000",
+     "description": "NVDA 2026-12-01 768.0 Call",
+     "bid": 25.19,
+     "ask": 25.49,
+     "last": 25.39,
+     "mark": 25.34,
+     "volatility": 26.0,
+     "delta": 0.53,
+     "gamma": 0.004,
+     "theta": -0.45,
+     "vega": 0.71,
+     "openInterest": 1411,
+     "totalVolume": 323,
+     "strikePrice": 768.0,
+     "expirationDate": "2026-12-01T20:00:00.000+00:00",
+     "daysToExpiration": 32,
+     "inTheMoney": true
+    }
+   ],
+   "769.0": [
+    {
+     "putCall": "CALL",
+     "symbol": "NVDA  261201C00769000",
+     "description": "NVDA 2026-12-01 769.0 Call",
+     "bid": 22.37,
+     "ask": 22.67,
+     "last": 22.57,
+     "mark": 22.52,
+     "volatility": 24.0,
+     "delta": 0.52,
+     "gamma": 0.004,
+     "theta": -0.45,
+     "vega": 0.71,
+     "openInterest": 1548,
+     "totalVolume": 364,
+     "strikePrice": 769.0,
+     "expirationDate": "2026-12-01T20:00:00.000+00:00",
+     "daysToExpiration": 32,
+     "inTheMoney": true
+    }
+   ],
+   "770.0": [
+    {
+     "putCall": "CALL",
+     "symbol": "NVDA  261201C00770000",
+     "description": "NVDA 2026-12-01 770.0 Call",
+     "bid": 19.9,
+     "ask": 20.2,
+     "last": 20.1,
+     "mark": 20.05,
+     "volatility": 22.0,
+     "delta": 0.51,
+     "gamma": 0.004,
+     "theta": -0.45,
+     "vega": 0.71,
+     "openInterest": 1685,
+     "totalVolume": 405,
+     "strikePrice": 770.0,
+     "expirationDate": "2026-12-01T20:00:00.000+00:00",
+     "daysToExpiration": 32,
+     "inTheMoney": false
+    }
+   ]
+  }
+ },
+ "putExpDateMap": {
+  "2026-11-10:11": {
+   "769.0": [
+    {
+     "putCall": "PUT",
+     "symbol": "NVDA  261110P00769000",
+     "description": "NVDA 2026-11-10 769.0 Put",
+     "bid": 10.54,
+     "ask": 10.84,
+     "last": 10.74,
+     "mark": 10.69,
+     "volatility": 20.0,
+     "delta": -0.48,
+     "gamma": 0.004,
+     "theta": -0.9,
+     "vega": 0.38,
+     "openInterest": 1822,
+     "totalVolume": 446,
+     "strikePrice": 769.0,
+     "expirationDate": "2026-11-10T20:00:00.000+00:00",
+     "daysToExpiration": 11,
+     "inTheMoney": false
+    }
+   ],
+   "770.0": [
+    {
+     "putCall": "PUT",
+     "symbol": "NVDA  261110P00770000",
+     "description": "NVDA 2026-11-10 770.0 Put",
+     "bid": 10.36,
+     "ask": 10.66,
+     "last": 10.56,
+     "mark": 10.51,
+     "volatility": 19.0,
+     "delta": -0.49,
+     "gamma": 0.004,
+     "theta": -0.9,
+     "vega": 0.38,
+     "openInterest": 1959,
+     "totalVolume": 487,
+     "strikePrice": 770.0,
+     "expirationDate": "2026-11-10T20:00:00.000+00:00",
+     "daysToExpiration": 11,
+     "inTheMoney": true
+    }
+   ]
+  },
+  "2026-12-01:32": {
+   "768.0": [
+    {
+     "putCall": "PUT",
+     "symbol": "NVDA  261201P00768000",
+     "description": "NVDA 2026-12-01 768.0 Put",
+     "bid": 23.55,
+     "ask": 23.85,
+     "last": 23.75,
+     "mark": 23.7,
+     "volatility": 26.0,
+     "delta": -0.47,
+     "gamma": 0.004,
+     "theta": -0.45,
+     "vega": 0.71,
+     "openInterest": 2096,
+     "totalVolume": 528,
+     "strikePrice": 768.0,
+     "expirationDate": "2026-12-01T20:00:00.000+00:00",
+     "daysToExpiration": 32,
+     "inTheMoney": false
+    }
+   ],
+   "769.0": [
+    {
+     "putCall": "PUT",
+     "symbol": "NVDA  261201P00769000",
+     "description": "NVDA 2026-12-01 769.0 Put",
+     "bid": 21.73,
+     "ask": 22.03,
+     "last": 21.93,
+     "mark": 21.88,
+     "volatility": 24.0,
+     "delta": -0.48,
+     "gamma": 0.004,
+     "theta": -0.45,
+     "vega": 0.71,
+     "openInterest": 2233,
+     "totalVolume": 569,
+     "strikePrice": 769.0,
+     "expirationDate": "2026-12-01T20:00:00.000+00:00",
+     "daysToExpiration": 32,
+     "inTheMoney": false
+    }
+   ],
+   "770.0": [
+    {
+     "putCall": "PUT",
+     "symbol": "NVDA  261201P00770000",
+     "description": "NVDA 2026-12-01 770.0 Put",
+     "bid": 20.26,
+     "ask": 20.56,
+     "last": 20.46,
+     "mark": 20.41,
+     "volatility": 22.0,
+     "delta": -0.49,
+     "gamma": 0.004,
+     "theta": -0.45,
+     "vega": 0.71,
+     "openInterest": 2370,
+     "totalVolume": 610,
+     "strikePrice": 770.0,
+     "expirationDate": "2026-12-01T20:00:00.000+00:00",
+     "daysToExpiration": 32,
+     "inTheMoney": true
+    }
+   ]
+  }
+ }
+}

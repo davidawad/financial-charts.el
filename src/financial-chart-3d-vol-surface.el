@@ -19,14 +19,19 @@
 ;; sways.  docs/3d-vol-surface.md has the data contract.
 ;;
 ;;   (financial-chart-3d-vol-surface-rows CHAIN)   ; snapshots -> rows
-;;   (financial-chart-3d-vol-surface-open CHAIN :show t)
+;;   (financial-chart-3d-vol-surface-open CHAIN :chain CONTRACTS :show t)
 ;;
 ;; The mark, registered with `graphics-eas-define-mark' when graphics.el
 ;; loads:
 ;;
 ;;   fc-vol-surface3d  the IV heightfield on the whole session's strike,
-;;                     expiry and IV scales, coloured low to high, the
-;;                     at-the-money term structure traced across it
+;;                     expiry and IV scales, solid and coloured low to
+;;                     high with a light grid of smiles and term
+;;                     structures on it (or a wire mesh), the
+;;                     at-the-money term structure traced across it;
+;;                     each sample's tooltip names its strike, expiry,
+;;                     IV, moneyness and, given the chain (:chain), its
+;;                     contracts
 ;;
 ;; financial-chart-3d.el loads this file; it needs nothing of graphics.el
 ;; to load, and its rows and 2D template need none at all.
@@ -139,7 +144,7 @@ sequence of {time, surface} pairs."
              collect (financial-chart-3d--vol-surface-snapshot surface at i)))
    (t (financial-chart-3d--vol-snapshots chain))))
 
-(cl-defun financial-chart-3d-vol-surface-rows (chain &key time)
+(cl-defun financial-chart-3d-vol-surface-rows (chain &key time contracts)
   "Rows {time, spot, strike, dte, expiry, iv} of option CHAIN, a vector.
 CHAIN is any of:
 
@@ -158,7 +163,12 @@ CHAIN is any of:
 Quotes without an IV (null) are left out: a chain's far strikes often
 have none.  IV is a fraction (0.18 is 18%).  Rows are by quote time,
 then days to expiry, then strike.  Signals `financial-chart-invalid-data'
-naming the snapshot and field of the first malformed one."
+naming the snapshot and field of the first malformed one.
+
+CONTRACTS, optional, are the option contracts behind the quotes (see
+`financial-chart-3d-vol-surface-contracts'): each row then carries
+`contracts', a line per contract at its strike and expiry (call, then
+put), and its `expiry' date if it had none."
   (let ((rows nil))
     (cl-loop
      for snap in (financial-chart-3d--vol-normalize chain time) for i from 0 do
@@ -186,12 +196,194 @@ naming the snapshot and field of the first malformed one."
                    rows))))))
     (unless rows
       (financial-chart--invalid nil "snapshots" "empty_chain" "the chain has no quotes with an IV"))
+    (when contracts
+      (setq rows (financial-chart-3d-vol-surface-attach rows contracts)))
     (vconcat (sort (nreverse rows)
                    (lambda (a b)
                      (let ((ta (plist-get a :time)) (tb (plist-get b :time)))
                        (cond ((not (equal ta tb)) (string< ta tb))
                              ((/= (plist-get a :dte) (plist-get b :dte)) (< (plist-get a :dte) (plist-get b :dte)))
                              (t (< (plist-get a :strike) (plist-get b :strike))))))))))
+
+;;; Contracts behind the quotes
+
+(defun financial-chart-3d--vol-pairs (object)
+  "OBJECT's entries as (KEY . VALUE), KEY a string.
+OBJECT is a plist with keyword keys (as eas parses JSON), an alist or a
+hash table."
+  (cond ((hash-table-p object)
+         (let (pairs)
+           (maphash (lambda (k v) (push (cons (format "%s" k) v) pairs)) object)
+           (nreverse pairs)))
+        ((keywordp (car-safe object))
+         (cl-loop for (k v) on object by #'cddr collect (cons (substring (symbol-name k) 1) v)))
+        ((consp (car-safe object))
+         (mapcar (lambda (p) (cons (format "%s" (car p)) (cdr p))) object))))
+
+(defun financial-chart-3d--vol-field (contract &rest keys)
+  "CONTRACT's value at the first of KEYS it has, nil for null or missing.
+CONTRACT is a plist, an alist or a hash table; KEYS are keywords."
+  (cl-loop for k in keys
+           for v = (cond ((hash-table-p contract)
+                          (or (gethash k contract) (gethash (substring (symbol-name k) 1) contract)))
+                         ((keywordp (car-safe contract)) (plist-get contract k))
+                         (t (cdr (or (assq (intern (substring (symbol-name k) 1)) contract)
+                                     (assoc (substring (symbol-name k) 1) contract)))))
+           unless (or (null v) (memq v '(:null :false))) return v))
+
+(defun financial-chart-3d--vol-number (v)
+  "V as a number: a number, or a string that reads as one; else nil."
+  (cond ((numberp v) v)
+        ((and (stringp v) (string-match-p "\\`[-+]?[0-9.]+\\(?:[eE][-+]?[0-9]+\\)?\\'" v))
+         (string-to-number v))))
+
+(defun financial-chart-3d--vol-map-p (object)
+  "Non-nil if OBJECT is a raw Schwab chain.
+It has callExpDateMap or putExpDateMap."
+  (and (or (hash-table-p object) (consp object))
+       (not (keywordp (car-safe (car-safe object))))
+       (or (financial-chart-3d--vol-field object :callExpDateMap)
+           (financial-chart-3d--vol-field object :putExpDateMap))))
+
+(defun financial-chart-3d--vol-map-contracts (chain)
+  "The contracts of CHAIN's callExpDateMap and putExpDateMap, as a list.
+Each map is {\"EXPIRY:DTE\": {\"STRIKE\": [contract ...]}}; a contract
+missing putCall, strike, expiry or days to expiry takes them from where
+it sits in the map."
+  (cl-loop
+   for (key . side) in '((:callExpDateMap . "CALL") (:putExpDateMap . "PUT"))
+   nconc (cl-loop
+          for (expiry-key . strikes) in (financial-chart-3d--vol-pairs (financial-chart-3d--vol-field chain key))
+          for parts = (split-string expiry-key ":")
+          nconc (cl-loop
+                 for (strike-key . contracts) in (financial-chart-3d--vol-pairs strikes)
+                 nconc (cl-loop
+                        for c in (append contracts nil)
+                        collect (append (list :putCall (or (financial-chart-3d--vol-field c :putCall) side)
+                                              :strike (or (financial-chart-3d--vol-number
+                                                           (financial-chart-3d--vol-field c :strikePrice :strike))
+                                                          (financial-chart-3d--vol-number strike-key))
+                                              :expirationDate (or (financial-chart-3d--vol-field c :expirationDate)
+                                                                  (car parts))
+                                              :daysToExpiration (or (financial-chart-3d--vol-field c :daysToExpiration)
+                                                                    (financial-chart-3d--vol-number (cadr parts))))
+                                        (if (keywordp (car-safe c)) c
+                                          (cl-loop for (k . v) in (financial-chart-3d--vol-pairs c)
+                                                   nconc (list (intern (concat ":" k)) v)))))))))
+
+(defun financial-chart-3d-vol-surface-contracts (chain)
+  "CHAIN's option contracts, a list of plists, each checked.
+CHAIN is a list or vector of contracts, or a raw Schwab chain (its
+callExpDateMap and putExpDateMap, see `financial-chart-3d--vol-map-contracts').
+A contract has Schwab's fields: symbol, putCall (CALL or PUT), strike
+(or strikePrice), daysToExpiration and/or expirationDate, bid, ask,
+mark, last, volatility (IV in percent, as Schwab gives it; a value
+under 3 is taken as a fraction), delta, gamma, theta, vega, openInterest
+and totalVolume; the first five identify it, the rest are shown when
+present.  Each comes back as (:symbol :side :strike :dte :expiry
+:bid :ask :mark :last :iv :delta :gamma :theta :vega :oi :volume), :side
+\"CALL\" or \"PUT\", :expiry a YYYY-MM-DD date or nil, :iv a fraction or
+nil.  Signals `financial-chart-invalid-data' (code bad_chain or
+bad_contract, naming the contract and field) for a malformed one."
+  (let ((contracts (cond ((financial-chart-3d--vol-map-p chain) (financial-chart-3d--vol-map-contracts chain))
+                         ((and (sequencep chain) (not (stringp chain)) (not (keywordp (car-safe chain))))
+                          (append chain nil))
+                         (t (financial-chart--invalid nil "chain" "bad_chain"
+                                                      "the chain must be a list of contracts or a Schwab chain with callExpDateMap/putExpDateMap")))))
+    (cl-loop
+     for c in contracts for i from 0
+     collect
+     (let* ((get (lambda (&rest keys) (apply #'financial-chart-3d--vol-field c keys)))
+            (num (lambda (&rest keys) (financial-chart-3d--vol-number (apply get keys))))
+            (side (upcase (format "%s" (or (funcall get :putCall :put_call) ""))))
+            (strike (funcall num :strike :strikePrice))
+            (date (funcall get :expirationDate :expiry))
+            (expiry (and (stringp date) (string-match "\\`[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" date)
+                         (match-string 0 date)))
+            (dte (funcall num :daysToExpiration :dte))
+            (iv (let ((v (funcall num :volatility :iv)))
+                  ;; Schwab sends -999 or NaN for no IV.
+                  (and v (> v 0) (if (< v 3) v (/ v 100.0))))))
+       (unless (member side '("CALL" "PUT"))
+         (financial-chart--invalid i "putCall" "bad_contract" "putCall must be CALL or PUT, got %S"
+                                   (funcall get :putCall :put_call)))
+       (unless strike
+         (financial-chart--invalid i "strike" "bad_contract" "every contract needs a numeric strike"))
+       (unless (or dte expiry)
+         (financial-chart--invalid i "daysToExpiration" "bad_contract"
+                                   "every contract needs daysToExpiration or an expirationDate"))
+       (list :symbol (funcall get :symbol) :side side :strike strike
+             :dte (and dte (round dte)) :expiry expiry
+             :bid (funcall num :bid) :ask (funcall num :ask) :mark (funcall num :mark)
+             :last (funcall num :last) :iv iv
+             :delta (funcall num :delta) :gamma (funcall num :gamma)
+             :theta (funcall num :theta) :vega (funcall num :vega)
+             :oi (funcall num :openInterest) :volume (funcall num :totalVolume))))))
+
+(defun financial-chart-3d--vol-num (v)
+  "Number V as text: an integer without decimals, else as short as reads."
+  (if (or (integerp v) (and (= v (ffloor v)) (< (abs v) 1e15))) (format "%d" (truncate v)) (format "%g" v)))
+
+(defun financial-chart-3d--vol-contract-line (contract)
+  "One tooltip line for CONTRACT.
+CONTRACT is a plist of `financial-chart-3d-vol-surface-contracts'."
+  (let ((g (lambda (k) (plist-get contract k)))
+        (price (lambda (v) (if v (format "%.2f" v) "-"))))
+    (string-join
+     (delq nil
+           (list (format "%s %s" (funcall g :side) (or (funcall g :symbol) ""))
+                 (format "bid %s ask %s mark %s" (funcall price (funcall g :bid))
+                         (funcall price (funcall g :ask)) (funcall price (funcall g :mark)))
+                 (and (funcall g :iv) (format "IV %.1f%%" (* 100 (funcall g :iv))))
+                 (and (funcall g :delta) (format "Δ %.2f" (funcall g :delta)))
+                 (and (funcall g :oi) (format "OI %s" (financial-chart-3d--vol-num (funcall g :oi))))
+                 (and (funcall g :volume) (format "vol %s" (financial-chart-3d--vol-num (funcall g :volume))))))
+     "  ")))
+
+(defun financial-chart-3d--vol-date-plus (time days)
+  "The date DAYS after quote TIME (ISO 8601), as YYYY-MM-DD.
+Nil if TIME is not a date."
+  (when (and (stringp time) (numberp days)
+             (string-match-p "\\`[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" time))
+    (format-time-string "%Y-%m-%d"
+                        (encode-time (list 0 0 12 (+ (string-to-number (substring time 8 10)) (round days))
+                                           (string-to-number (substring time 5 7))
+                                           (string-to-number (substring time 0 4))
+                                           nil -1 t))
+                        t)))
+
+(defun financial-chart-3d-vol-surface-attach (rows chain)
+  "ROWS (a list of vol-surface rows) with the contracts of CHAIN attached.
+CHAIN is what `financial-chart-3d-vol-surface-contracts' takes.  A
+row's contracts are those at its strike and expiry, matched by days to
+expiry, else by expiry date (the row's, or its quote time plus its
+days to expiry): `contracts' holds a line per contract, call first; a
+row without an `expiry' takes the contracts'.  Rows no contract
+matches are unchanged.  Returns new rows, as a list."
+  (let ((by-dte (make-hash-table :test #'equal))
+        (by-date (make-hash-table :test #'equal)))
+    (dolist (c (financial-chart-3d-vol-surface-contracts chain))
+      (let ((k (float (plist-get c :strike))))
+        (when (plist-get c :dte) (push c (gethash (list k (plist-get c :dte)) by-dte)))
+        (when (plist-get c :expiry) (push c (gethash (list k (plist-get c :expiry)) by-date)))))
+    (mapcar
+     (lambda (row)
+       (let* ((k (float (plist-get row :strike)))
+              (dte (plist-get row :dte))
+              (expiry (financial-chart-3d--vol-get row :expiry))
+              (date (or expiry (financial-chart-3d--vol-date-plus (plist-get row :time) dte)))
+              (found (or (gethash (list k (round dte)) by-dte)
+                         (and date (gethash (list k date) by-date))))
+              (found (sort (copy-sequence found)
+                           (lambda (a b) (string< (plist-get a :side) (plist-get b :side))))))
+         (if (not found) row
+           (let ((row (copy-sequence row)))
+             (unless expiry
+               (when-let* ((d (seq-some (lambda (c) (plist-get c :expiry)) found)))
+                 (setq row (plist-put row :expiry d))))
+             (plist-put row :contracts
+                        (mapconcat #'financial-chart-3d--vol-contract-line found "\n"))))))
+     rows)))
 
 ;;; The mark
 
@@ -204,25 +396,38 @@ naming the snapshot and field of the first malformed one."
 (defconst financial-chart-3d-vol-surface-high-color "#fde725"
   "Colour of the surface's highest IV (viridis' yellow).")
 
-(defun financial-chart-3d--vol-fill (values)
+(defconst financial-chart-3d-vol-surface-grid-color "#c4ccd4"
+  "Colour of the smiles and term structures drawn on the solid surface.")
+
+(defun financial-chart-3d--vol-gaps (values)
+  "Where each gap of VALUES (a vector, nil where missing) is filled from.
+A vector: nil at a known value; (BEFORE . AFTER), the known indices on
+either side, at a gap between two; (K . K) at an end, K the nearest
+known index.  All nil when nothing is known."
+  (let* ((n (length values))
+         (before (make-vector n nil)) (after (make-vector n nil)) (out (make-vector n nil)) k)
+    (dotimes (i n) (if (aref values i) (setq k i) (aset before i k)))
+    (setq k nil)
+    (cl-loop for i downfrom (1- n) to 0 do (if (aref values i) (setq k i) (aset after i k)))
+    (dotimes (i n)
+      (let ((b (aref before i)) (a (aref after i)))
+        (when (and (null (aref values i)) (or a b))
+          (aset out i (cons (or b a) (or a b))))))
+    out))
+
+(defun financial-chart-3d--vol-fill (values &optional gaps)
   "VALUES (a vector, nil where missing) with the gaps filled.
 Each gap is linear between its neighbours, or the nearest value at an
-end; all missing stays all nil."
-  (let* ((n (length values))
-         (known (cl-loop for i below n when (aref values i) collect i))
-         (out (copy-sequence values)))
-    (when known
-      (dotimes (i n)
-        (unless (aref out i)
-          (let ((before (seq-filter (lambda (k) (< k i)) known))
-                (after (seq-find (lambda (k) (> k i)) known)))
-            (setq before (car (last before)))
-            (aset out i (cond ((and before after)
-                               (+ (aref values before)
-                                  (* (/ (- i before) (float (- after before)))
-                                     (- (aref values after) (aref values before)))))
-                              (before (aref values before))
-                              (t (aref values after))))))))
+end; all missing stays all nil.  GAPS is `financial-chart-3d--vol-gaps'
+of VALUES, if known."
+  (let ((gaps (or gaps (financial-chart-3d--vol-gaps values)))
+        (out (copy-sequence values)))
+    (dotimes (i (length values))
+      (when-let* ((g (aref gaps i)))
+        (let ((b (car g)) (a (cdr g)))
+          (aset out i (if (= a b) (aref values b)
+                        (+ (aref values b) (* (/ (- i b) (float (- a b)))
+                                              (- (aref values a) (aref values b)))))))))
     out))
 
 (defconst financial-chart-3d-vol-surface-max-strikes 41
@@ -247,12 +452,72 @@ strikes, clamped to their range."
                       return (let ((u (/ (- spot (aref v i)) (float (- (aref v (1+ i)) (aref v i))))))
                                (cons (+ i u) (+ (aref ivs i) (* u (- (aref ivs (1+ i)) (aref ivs i)))))))))))
 
+(defun financial-chart-3d--vol-grid (smiles dtes strikes)
+  "SMILES (a vector per expiry of IVs per strike, nil where missing) filled.
+DTES and STRIKES (vectors) name the expiries and strikes.  Each smile's
+gaps are filled along its strikes, then an expiry with no IV at all
+along each strike's term structure.  A cons (FILLED . SOURCES): FILLED
+the vector of filled smiles; SOURCES, as deep, nil at a quoted IV and
+\"between strikes 95 and 105\" (or \"from strike 95\", the nearest at an
+end; or the same by DTE) where filled."
+  (let* ((nz (length smiles)) (nx (length strikes))
+         (filled (make-vector nz nil)) (sources (make-vector nz nil))
+         (say (lambda (gap names unit)
+                (if (= (car gap) (cdr gap))
+                    (format "from %s %s (the nearest)" unit
+                            (financial-chart-3d--vol-num (aref names (car gap))))
+                  (format "between %ss %s and %s" unit
+                          (financial-chart-3d--vol-num (aref names (car gap)))
+                          (financial-chart-3d--vol-num (aref names (cdr gap))))))))
+    (dotimes (j nz)
+      (let ((gaps (financial-chart-3d--vol-gaps (aref smiles j))))
+        (aset filled j (financial-chart-3d--vol-fill (aref smiles j) gaps))
+        (aset sources j (vconcat (mapcar (lambda (g) (and g (funcall say g strikes "strike"))) gaps)))))
+    (when (and (> nx 0) (seq-some (lambda (s) (null (aref s 0))) filled))
+      (dotimes (i nx)
+        (let* ((column (vconcat (mapcar (lambda (s) (aref s i)) filled)))
+               (gaps (financial-chart-3d--vol-gaps column))
+               (column (financial-chart-3d--vol-fill column gaps)))
+          (dotimes (j nz)
+            (when-let* ((g (aref gaps j)))
+              (aset (aref filled j) i (aref column j))
+              (aset (aref sources j) i
+                    (if (= (car g) (cdr g))
+                        (format "from %s DTE (the nearest expiry)"
+                                (financial-chart-3d--vol-num (aref dtes (car g))))
+                      (format "between %s and %s DTE"
+                              (financial-chart-3d--vol-num (aref dtes (car g)))
+                              (financial-chart-3d--vol-num (aref dtes (cdr g)))))))))))
+    (cons filled sources)))
+
+(defun financial-chart-3d--vol-tooltip (strike dte expiry iv spot contracts source)
+  "The tooltip text of the surface sample at STRIKE and DTE.
+EXPIRY is its date (or nil), IV its IV (a fraction), SPOT the
+underlying's price (or nil), CONTRACTS its quote row's `contracts' (or
+nil) and SOURCE, where the IV was filled in, what from
+(`financial-chart-3d--vol-grid')."
+  (concat (format (if expiry "K %s  %s (%s DTE)" "K %s  %s%s DTE") (financial-chart-3d--vol-num strike)
+                  (or expiry "") (financial-chart-3d--vol-num dte))
+          (format "\nIV %.1f%%%s" (* 100 iv) (if source " (interpolated)" ""))
+          (if (and spot (> spot 0)) (format "  moneyness %.3f" (/ strike (float spot))) "")
+          (cond (source (format "\ninterpolated %s: no quote here" source))
+                (contracts (concat "\n" contracts))
+                (t ""))))
+
 (defun financial-chart-3d--vol-surface-mark (graphics rows)
   "Primitives of the fc-vol-surface3d mark: GRAPHICS over chain ROWS.
 Channels x (strike), z (days to expiry) and y (IV).  Columns are the
 distinct strikes, rows the distinct expiries, nearest at the back; the
 height is the IV, coloured `low_color' to `high_color' over the whole
-IV range.  A strike an expiry lacks is interpolated along its smile.
+IV range.  A strike an expiry lacks is interpolated along its smile, an
+expiry with none along the strikes' term structures.
+
+`style' \"surface\" (the default) draws a solid lit heightfield on
+every strike, a light grid of a few smiles (`grid_expiries', default 5)
+and term structures (`grid_strikes', default 7) on it; its `tooltips'
+are a tooltip per sample, row-major as its `heights' (strike, expiry,
+IV, moneyness, the row's `contracts' or where an interpolated IV came
+from).  \"wire\" draws a mesh of smiles and term structures instead.
 The at-the-money IV of each expiry (at the rows' `spot') is traced
 across the surface: the term structure.  Under a time encoding the
 grid and scales span every snapshot (`graphics-eas-domain-rows'), so
@@ -285,15 +550,27 @@ the surface moves in place from one quote time to the next."
                       (financial-chart-3d--opt graphics "high_color" financial-chart-3d-vol-surface-high-color)))
          (color (lambda (iv) (graphics-eas--ramp stops (if (> hi lo) (/ (- iv lo) (- hi lo)) 0.5))))
          (cells (make-hash-table :test #'equal))
-         (spots (make-hash-table :test #'eql)))
+         (spots (make-hash-table :test #'eql))
+         (expiries (make-hash-table :test #'eql))
+         (spot nil))
     (dolist (r rows)
-      (puthash (cons (funcall num r xk) (funcall num r zk)) (float (funcall num r yk)) cells)
+      (puthash (cons (funcall num r xk) (funcall num r zk)) r cells)
+      (unless (gethash (funcall num r zk) expiries)
+        (when-let* ((e (or (financial-chart-3d--value r :expiry)
+                           (financial-chart-3d--vol-date-plus (financial-chart-3d--value r :time)
+                                                              (funcall num r zk)))))
+          (puthash (funcall num r zk) e expiries)))
       (when-let* ((s (funcall num r :spot)))
+        (setq spot (float s))
         (puthash (funcall num r zk) (float s) spots)))
-    (let* ((smiles (mapcar (lambda (dte)
-                             (financial-chart-3d--vol-fill
-                              (vconcat (mapcar (lambda (k) (gethash (cons k dte) cells)) strikes))))
-                           dtes))
+    (let* ((grid (financial-chart-3d--vol-grid
+                  (vconcat (mapcar (lambda (dte)
+                                     (vconcat (mapcar (lambda (k) (when-let* ((r (gethash (cons k dte) cells)))
+                                                                    (float (funcall num r yk))))
+                                                      strikes)))
+                                   dtes))
+                  (vconcat dtes) (vconcat strikes)))
+           (smiles (append (car grid) nil))
            (complete (and (>= nx 2) (>= nz 2) (seq-every-p (lambda (s) (aref s 0)) smiles)))
            (atm (and complete
                      (cl-loop for dte in dtes for smile in smiles for j from 0
@@ -303,20 +580,54 @@ the surface moves in place from one quote time to the next."
                                                            (+ (- w) (* 2 w (/ (car p) (float (1- nx))))))
                                                           ;; Lifted a hair so it shows on the surface.
                                                           (financial-chart-3d--r3 (+ (funcall y-at (cdr p)) (* 0.03 height)))
-                                                          (funcall z-at j)))))))
-      (vector
-       (financial-chart-3d--axes "axes" (- w) w height (- d) d)
+                                                          (funcall z-at j))))))
+           (solid (not (equal (financial-chart-3d--opt graphics "style" "surface") "wire"))))
+      (vconcat
+       (list (financial-chart-3d--axes "axes" (- w) w height (- d) d))
        (cond
-        ((not complete) (list :id "surface" :type "segments" :segments []))
-        ((equal (financial-chart-3d--opt graphics "style" "wire") "surface")
-         (list :id "surface" :type "heightfield" :x (vector (- w) w)
-               ;; Heightfield rows run from z[0] to z[1]: nearest first.
-               :z (vector (- d) d)
-               :base base :y_scale (financial-chart-3d--r3 scale)
-               :heights (vconcat (mapcar (lambda (smile) (vconcat (mapcar #'financial-chart-3d--r3 smile)))
-                                         smiles))
-               :low_color (car stops) :high_color (car (last stops))
-               :color_range (vector lo hi)))
+        ((not complete) (list (list :id "surface" :type "segments" :segments [])))
+        (solid
+         (let* ((heights (vconcat (mapcar (lambda (smile) (vconcat (mapcar #'financial-chart-3d--r3 smile)))
+                                          smiles)))
+                (y-scale (financial-chart-3d--r3 scale))
+                ;; The grid's vertices where the core puts the surface's,
+                ;; lifted a hair: segments win depth ties (scene.md).
+                (on (lambda (i j) (financial-chart-3d--r3 (+ base (* (aref (aref heights j) i) y-scale)
+                                                              (* 0.01 height)))))
+                (grid-rows (financial-chart-3d--vol-columns
+                            nz (financial-chart-3d--opt graphics "grid_expiries" 5)))
+                (grid-cols (financial-chart-3d--vol-columns
+                            nx (financial-chart-3d--opt graphics "grid_strikes" 7)))
+                segments)
+           (dolist (j grid-rows)
+             (dotimes (i (1- nx))
+               (push (vector (funcall x-at i) (funcall on i j) (funcall z-at j)
+                             (funcall x-at (1+ i)) (funcall on (1+ i) j) (funcall z-at j))
+                     segments)))
+           (dolist (i grid-cols)
+             (dotimes (j (1- nz))
+               (push (vector (funcall x-at i) (funcall on i j) (funcall z-at j)
+                             (funcall x-at i) (funcall on i (1+ j)) (funcall z-at (1+ j)))
+                     segments)))
+           (list (list :id "surface" :type "heightfield" :x (vector (- w) w)
+                       ;; Heightfield rows run from z[0] to z[1]: nearest first.
+                       :z (vector (- d) d)
+                       :base base :y_scale y-scale :heights heights
+                       :low_color (car stops) :high_color (car (last stops))
+                       :color_range (vector lo hi)
+                       :tooltips
+                       (vconcat
+                        (cl-loop for dte in dtes for smile in smiles for j from 0
+                                 nconc (cl-loop for k in strikes for i from 0
+                                                collect (financial-chart-3d--vol-tooltip
+                                                         k dte (gethash dte expiries) (aref smile i)
+                                                         (or (gethash dte spots) spot)
+                                                         (when-let* ((r (gethash (cons k dte) cells)))
+                                                           (financial-chart-3d--value r :contracts))
+                                                         (aref (aref (cdr grid) j) i))))))
+                 (list :id "grid" :type "segments"
+                       :color (financial-chart-3d--opt graphics "grid_color" financial-chart-3d-vol-surface-grid-color)
+                       :segments (vconcat (nreverse segments))))))
         (t
          ;; A wire mesh: each expiry's smile and each strike's term
          ;; structure, every segment coloured by its mean IV.
@@ -341,10 +652,10 @@ the surface moves in place from one quote time to the next."
                                     (funcall x-at i) (funcall y-at (aref b i)) (funcall z-at (1+ j)))
                             segments)
                       (push (funcall color (/ (+ (aref a i) (aref b i)) 2)) colors))))
-           (list :id "surface" :type "segments" :segments (vconcat (nreverse segments))
-                 :colors (vconcat (nreverse colors))))))
-       (list :id "atm" :type "segments" :color (financial-chart-3d--opt graphics "atm_color" "#ffffff")
-             :segments (vconcat (cl-loop for (a b) on atm while b collect (vconcat a b))))))))
+           (list (list :id "surface" :type "segments" :segments (vconcat (nreverse segments))
+                       :colors (vconcat (nreverse colors)))))))
+       (list (list :id "atm" :type "segments" :color (financial-chart-3d--opt graphics "atm_color" "#ffffff")
+                   :segments (vconcat (cl-loop for (a b) on atm while b collect (vconcat a b)))))))))
 
 (defconst financial-chart-3d-vol-surface-marks
   '(("fc-vol-surface3d" . financial-chart-3d--vol-surface-mark))
@@ -364,7 +675,10 @@ the surface moves in place from one quote time to the next."
   "vol-surface bindings from opt.iv_surface OUTPUT, verbatim.
 One output (at ARGS's :time, else its own, else now) or entries {time,
 output}, the snapshots of a replay: `financial-chart-3d-vol-surface-rows'.
-ARGS's :symbol titles it (\"NVDA implied volatility\")."
+ARGS's :symbol titles it (\"NVDA implied volatility\"); its :chain, the
+option contracts behind the surface (a list of Schwab contracts or a
+raw Schwab chain, `financial-chart-3d-vol-surface-contracts'), puts
+each sample's contracts in its tooltip."
   (let* ((entries (financial-chart-3d-metric-entries output))
          (chain (if (and (= (length entries) 1) (not (financial-chart-3d-metric-stamp (car entries) nil '(:time))))
                     (plist-get (car entries) :output)
@@ -376,7 +690,7 @@ ARGS's :symbol titles it (\"NVDA implied volatility\")."
          (symbol (plist-get args :symbol)))
     (append (list :data (financial-chart-3d-vol-surface-rows
                          (if (keywordp (car-safe chain)) chain (vconcat chain))
-                         :time (plist-get args :time)))
+                         :time (plist-get args :time) :contracts (plist-get args :chain)))
             (and symbol (list :title (format "%s implied volatility" symbol))))))
 
 (defconst financial-chart-3d-vol-surface-metric-adapters
@@ -386,20 +700,26 @@ ARGS's :symbol titles it (\"NVDA implied volatility\")."
 
 ;;; Opening
 
-(cl-defun financial-chart-3d-vol-surface-open (surface-or-series &key symbol title time id show)
+(cl-defun financial-chart-3d-vol-surface-open (surface-or-series &key chain symbol title time id show)
   "Open the 3D IV surface of SURFACE-OR-SERIES and return its eas view.
 SURFACE-OR-SERIES is anything `financial-chart-3d-vol-surface-rows'
 takes: one `opt.iv_surface' result verbatim (one keyframe at TIME,
 default now), a sequence of {time, surface} pairs (a replay), chain
-snapshots, or their rows already.  SYMBOL names the underlying in the
+snapshots, or their rows already.  CHAIN, optional, is the option
+contracts behind it: a list or vector of Schwab contract plists, or a
+raw Schwab chain with callExpDateMap/putExpDateMap
+(`financial-chart-3d-vol-surface-contracts'); each sample's tooltip
+then names its call and put, their bid/ask/mark, IV, delta, open
+interest and volume.  SYMBOL names the underlying in the
 title (\"NVDA implied volatility\"); TITLE overrides it.  ID names the
 view (default \"fc3d/vol-surface\"); SHOW draws it in a graphics.el
 buffer, where SPC plays the replay.  Signals
 `financial-chart-3d-unavailable' without graphics.el."
   (let ((rows (if (and (sequencep surface-or-series) (not (keywordp (car-safe surface-or-series)))
                        (> (length surface-or-series) 0) (plist-get (elt surface-or-series 0) :strike))
-                  (vconcat surface-or-series)
-                (financial-chart-3d-vol-surface-rows surface-or-series :time time))))
+                  (vconcat (if chain (financial-chart-3d-vol-surface-attach (append surface-or-series nil) chain)
+                             surface-or-series))
+                (financial-chart-3d-vol-surface-rows surface-or-series :time time :contracts chain))))
     (financial-chart-3d-open "vol-surface"
                              :bindings (list :data rows
                                              :title (or title (if symbol (format "%s implied volatility" symbol) "")))

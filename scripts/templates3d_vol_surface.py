@@ -19,10 +19,12 @@ from templates3d import ROOT, TIMELINE, variant  # noqa: E402
 VOL_SURFACE = {
     "source": "templates/financial/vol-surface.json",
     "example": "examples/vol-surface.data.json",
-    "reading": "IV surface over strike and days to expiry as a mesh of each "
-               "expiry's smile and the strikes' term structures, coloured by IV, "
-               "the at-the-money term structure traced across it; replays the "
-               "session quote time by quote time while the camera sways",
+    "reading": "IV surface over strike and days to expiry as a solid lit "
+               "heightfield on every strike, coloured by IV, a light grid of a few "
+               "smiles and term structures on it and the at-the-money term "
+               "structure traced across it, each sample's tooltip its strike, "
+               "expiry, IV, moneyness and contracts; replays the session quote "
+               "time by quote time while the camera sways",
     "graphics": {
         "mark": "fc-vol-surface3d",
         "encoding": {"x": {"field": "strike"}, "z": {"field": "dte"},
@@ -30,7 +32,8 @@ VOL_SURFACE = {
                      "time": {"field": "time", "mode": "frame", "step": 1.0,
                               "easing": "linear"}},
         "height": 5,
-        "style": "wire",
+        # "wire" draws a mesh of smiles and term structures instead.
+        "style": "surface",
         # The nearest expiry's skew stands at the back left; the target
         # sits left of and below the box's centre so the mesh fills 60x24.
         "camera": {"yaw": -25, "pitch": 30, "zoom": 1.3, "target": [-1.0, 1.0, 0.5]},

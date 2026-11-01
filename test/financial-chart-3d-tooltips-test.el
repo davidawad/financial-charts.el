@@ -5,8 +5,11 @@
 ;; Each 3D variant's mark gives its elements short tooltips (at most
 ;; `financial-chart-3d-tooltip-lines' lines, never a whole row), one per
 ;; element of the primitive that carries them.  The mark-level tests
-;; lower each variant's mark over its example and need graphics.el only
-;; for the marks graphics.el itself draws (bar3d, area3d); the hover test
+;; lower each variant's mark over its example: with graphics.el, through
+;; its `graphics-eas-primitives', reading each element's pick back as the
+;; text a hover shows (the mark's own, else the variant's
+;; `encoding.tooltip' over its datum); without it, this package's marks
+;; but those built on graphics.el's (bar3d, area3d).  The hover test
 ;; draws each example at 60x24 and reads the tooltips graphics.el's pick
 ;; gives its cells, skipped when graphics.el or its pick is absent.
 
@@ -21,6 +24,10 @@
 
 (declare-function graphics-eas-primitives "graphics-eas-marks" (graphics rows &optional params domain-rows))
 (declare-function graphics-eas-show "graphics-eas" (view &optional cols rows window))
+(declare-function graphics-eas-picks-create "graphics-eas-marks")
+(declare-function graphics-eas-pick-entry "graphics-eas-marks" (picks id))
+(declare-function graphics-eas-tooltip "graphics-eas-marks" (tooltip entry))
+(defvar graphics-eas-picks)
 
 (defconst financial-chart-3d-tooltips-test--marks
   (append financial-chart-3d-marks financial-chart-3d-rates-marks financial-chart-3d-risk-marks
@@ -40,6 +47,16 @@
         ((vectorp x) (vconcat (mapcar (lambda (e) (financial-chart-3d-tooltips-test--fill e bindings slots)) x)))
         (t x)))
 
+(defun financial-chart-3d-tooltips-test--texts (p picks tooltip)
+  "Primitive P with its pick `:ids' read back from PICKS as `:tooltips',
+each the text a hover shows under `encoding.tooltip' TOOLTIP."
+  (let ((ids (plist-get p :ids)))
+    (if (not (seq-some #'integerp ids)) p
+      (append p (list :tooltips (cl-map 'vector (lambda (id)
+                                                 (let ((entry (graphics-eas-pick-entry picks id)))
+                                                   (and entry (graphics-eas-tooltip tooltip entry))))
+                                        ids))))))
+
 (defun financial-chart-3d-tooltips-test--primitives (name)
   "The primitives of 3D variant NAME's mark over its example, at its replay's end.
 Nil when the mark is graphics.el's and graphics.el is not loaded."
@@ -54,19 +71,25 @@ Nil when the mark is graphics.el's and graphics.el is not loaded."
          (graphics (financial-chart-3d-tooltips-test--fill (plist-get meta :graphics) bindings
                                                            (plist-get meta :slots)))
          (fn (cdr (assoc (plist-get graphics :mark) financial-chart-3d-tooltips-test--marks))))
-    (cond ((fboundp 'graphics-eas-primitives) (append (graphics-eas-primitives graphics rows) nil))
+    (cond ((financial-chart-3d-available-p) ; registers this package's marks with graphics.el
+           ;; graphics.el turns each element's tooltip into a pick id; read them back.
+           (let ((picks (graphics-eas-picks-create)))
+             (mapcar (lambda (p) (financial-chart-3d-tooltips-test--texts
+                                  p picks (plist-get (plist-get graphics :encoding) :tooltip)))
+                     (let ((graphics-eas-picks picks)) (graphics-eas-primitives graphics rows)))))
           ;; Without graphics.el: this package's marks, but those built on graphics.el's.
           ((and fn (not (memq fn '(financial-chart-3d--drawdown-mark financial-chart-3d--depth-mark
                                                                      financial-chart-3d--diverging-mark))))
            (append (funcall fn graphics rows) nil)))))
 
 (defun financial-chart-3d-tooltips-test--elements (p)
-  "How many elements primitive P has: boxes, segments, points or samples."
+  "How many elements primitive P has: boxes, segments, points, samples or triangles."
   (pcase (plist-get p :type)
     ("boxes" (length (plist-get p :boxes)))
     ("segments" (length (plist-get p :segments)))
     ("points" (length (plist-get p :points)))
-    ("heightfield" (seq-reduce #'+ (mapcar #'length (plist-get p :heights)) 0))))
+    ("heightfield" (seq-reduce #'+ (mapcar #'length (plist-get p :heights)) 0))
+    ("mesh" (length (plist-get p :triangles)))))
 
 (defun financial-chart-3d-tooltips-test--compact-p (tip)
   "Non-nil when TIP is a non-empty tooltip of at most the allowed lines."

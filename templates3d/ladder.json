@@ -93,7 +93,22 @@
         },
         "color": {
           "field": "side"
-        }
+        },
+        "tooltip": [
+          {
+            "field": "side"
+          },
+          {
+            "field": "price_label",
+            "title": "price"
+          },
+          {
+            "field": "size"
+          },
+          {
+            "field": "cumulative"
+          }
+        ]
       },
       "colors": {
         "bid": "#26a69a",

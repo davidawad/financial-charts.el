@@ -204,7 +204,24 @@ the cells present, the rest of the grid empty.  Options:
                  :high_color (financial-chart-3d--opt graphics "high_color" financial-chart-3d-up-color)
                  :color_range (if (and spread (> spread 0))
                                   (vector (- level spread) (+ level spread))
-                                (vector lo hi)))
+                                (vector lo hi))
+                 :tooltips
+                 (vconcat
+                  (cl-loop for j from j0 to j1
+                           nconc (cl-loop for x in cols
+                                          for z = (nth j zs)
+                                          for v = (gethash (cons x z) cells)
+                                          collect (financial-chart-3d-tip
+                                                   (format "%s %s  %s %s"
+                                                           (substring (symbol-name xk) 1) (financial-chart-3d-num x 4)
+                                                           (substring (symbol-name zk) 1) (financial-chart-3d-num z 4))
+                                                   (if v (format "%s %s" (substring (symbol-name yk) 1)
+                                                                 (financial-chart-3d-num v 4))
+                                                     "no value here")
+                                                   (and v level
+                                                        (format "%s %s level %s" (financial-chart-3d-num (abs (- v level)) 4)
+                                                                (if (>= v level) "above" "below")
+                                                                (financial-chart-3d-num level 4))))))))
          (list :id "surface" :type "segments" :segments []))
        ;; The reference plane, a wire grid over the whole extent.
        (list :id "plane" :type "segments" :color (financial-chart-3d--opt graphics "plane_color" "#ffb74d")

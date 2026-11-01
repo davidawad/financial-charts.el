@@ -178,6 +178,48 @@ Loading it registers this package's marks (`financial-chart-3d-marks')."
   "V rounded to 3 decimals, as graphics.el's marks round."
   (/ (fround (* v 1000.0)) 1000.0))
 
+;;; Tooltips: a few short lines per element
+
+;; A mark's primitive may carry :tooltips, one string per element
+;; (a box, segment, point or heightfield sample, row-major as its
+;; :heights), which graphics.el shows on hover.  Each is at most
+;; `financial-chart-3d-tooltip-lines' lines: what the element is and
+;; the few numbers it stands for, never the whole row.
+
+(defconst financial-chart-3d-tooltip-lines 4
+  "Most lines a 3D element's tooltip has.")
+
+(defun financial-chart-3d-num (v &optional digits)
+  "V as text: a number to DIGITS decimals (default 2), else V, \"-\" for none."
+  (cond ((integerp v) (number-to-string v))
+        ((numberp v) (format (format "%%.%df" (or digits 2)) v))
+        ((or (null v) (memq v '(:null :false))) "-")
+        ((stringp v) v)
+        (t (format "%s" v))))
+
+(defun financial-chart-3d-tip (&rest lines)
+  "A tooltip of LINES: the non-empty ones.
+At most `financial-chart-3d-tooltip-lines' of them."
+  (string-join (seq-take (seq-filter (lambda (l) (and (stringp l) (not (string-empty-p l)))) lines)
+                         financial-chart-3d-tooltip-lines)
+               "\n"))
+
+(defun financial-chart-3d-row-tip (title row fields &optional per-line)
+  "A tooltip for ROW: TITLE, then FIELDS of it, PER-LINE (default 3) a line.
+Each field is KEY or (KEY LABEL DIGITS); a missing or null value is
+left out.  At most `financial-chart-3d-tooltip-lines' lines."
+  (let ((pairs (delq nil (mapcar (lambda (f)
+                                   (let* ((key (if (consp f) (car f) f))
+                                          (label (or (and (consp f) (nth 1 f)) (substring (symbol-name key) 1)))
+                                          (v (financial-chart-3d--value row key)))
+                                     (and v (format "%s %s" label (financial-chart-3d-num v (and (consp f) (nth 2 f)))))))
+                                 fields)))
+        lines)
+    (while pairs
+      (push (string-join (seq-take pairs (or per-line 3)) "  ") lines)
+      (setq pairs (nthcdr (or per-line 3) pairs)))
+    (apply #'financial-chart-3d-tip title (nreverse lines))))
+
 (defun financial-chart-3d--domain (rows)
   "ROWS and the rows a time encoding's scales span (`graphics-eas-domain-rows')."
   (if (and (boundp 'graphics-eas-domain-rows) graphics-eas-domain-rows)
@@ -374,11 +416,26 @@ the first SHOWN are ghosts (`financial-chart-3d-ghost-color')."
                                (t down))
                          colors)
                    (push r data)))))
-    (let ((colors (vconcat (nreverse colors)))
-          (data (vconcat (nreverse data))))
+    (let* ((colors (vconcat (nreverse colors)))
+           (data (vconcat (nreverse data)))
+           (tips (vconcat (mapcar (lambda (r) (financial-chart-3d--bar-tip layout r)) data))))
       (list (financial-chart-3d--axes "axes" (- -0.5 x0) (+ 0.5 x0) height 0 dmax)
-            (list :id "wicks" :type "segments" :segments (vconcat (nreverse wicks)) :colors colors :data data)
-            (list :id "bodies" :type "boxes" :boxes (vconcat (nreverse bodies)) :colors colors :data data)))))
+            (list :id "wicks" :type "segments" :segments (vconcat (nreverse wicks)) :colors colors :data data
+                  :tooltips tips)
+            (list :id "bodies" :type "boxes" :boxes (vconcat (nreverse bodies)) :colors colors :data data
+                  :tooltips tips)))))
+
+(defun financial-chart-3d--bar-tip (layout r)
+  "The tooltip of bar R in candle LAYOUT: its time, OHLC and volume."
+  (financial-chart-3d-tip
+   (financial-chart-3d-num (financial-chart-3d--value r (plist-get layout :xk)))
+   (format "O %s  H %s" (financial-chart-3d-num (financial-chart-3d--value r :open))
+           (financial-chart-3d-num (financial-chart-3d--value r :high)))
+   (format "L %s  C %s" (financial-chart-3d-num (financial-chart-3d--value r :low))
+           (financial-chart-3d-num (financial-chart-3d--value r :close)))
+   (let ((v (financial-chart-3d--value r (plist-get layout :dk))))
+     (and (numberp v) (format "%s %s" (substring (symbol-name (plist-get layout :dk)) 1)
+                              (financial-chart-3d-num v 0))))))
 
 (defun financial-chart-3d--candle-mark (graphics rows)
   "Primitives of the fc-candle3d mark: GRAPHICS over bar ROWS.
@@ -404,7 +461,7 @@ and their RSI."
          (rsi (financial-chart-rsi rows period))
          (shown (financial-chart-3d--replayed graphics (length rows)))
          (left (- -0.5 x0)) (right (+ 0.5 x0))
-         volume volume-colors line ghost bands)
+         volume volume-colors volume-tips line ghost bands)
     (cl-loop for r in rows for i from 0 do
       (when-let* ((x (financial-chart-3d--bar-x layout r)))
         (let ((v (financial-chart-3d--value r (plist-get layout :dk))))
@@ -417,7 +474,8 @@ and their RSI."
                         ((>= (financial-chart-3d--value r :close) (financial-chart-3d--value r :open))
                          financial-chart-3d-up-color)
                         (t financial-chart-3d-down-color))
-                  volume-colors)))))
+                  volume-colors)
+            (push (financial-chart-3d--bar-tip layout r) volume-tips)))))
     (cl-loop for (a b) on (cl-mapcar #'cons rows rsi) while b for i from 1
              when (and (cdr a) (cdr b))
              do (push (vector (financial-chart-3d--r3 (financial-chart-3d--bar-x layout (car a)))
@@ -437,7 +495,7 @@ and their RSI."
      (financial-chart-3d--shift
       (list (financial-chart-3d--axes "axes" left right panel 0 half)
             (list :id "bars" :type "boxes" :boxes (vconcat (nreverse volume))
-                  :colors (vconcat (nreverse volume-colors))))
+                  :colors (vconcat (nreverse volume-colors)) :tooltips (vconcat (nreverse volume-tips))))
       (+ panel gap) "volume-")
      (financial-chart-3d--shift (financial-chart-3d--candles graphics layout rows shown)
                                 (* 2 (+ panel gap)) "price-"))))
@@ -487,10 +545,16 @@ profile."
          (half (plist-get layout :half))
          (step (/ (- hi lo) bins))
          (last-close (financial-chart-3d--value (car (last rows)) :close))
-         boxes colors)
+         boxes colors tips)
     (dotimes (i bins)
       (let ((v (aref volumes i)))
         (when (> v 0)
+          (push (financial-chart-3d-tip
+                 (format "price %s to %s" (financial-chart-3d-num (+ lo (* i step)))
+                         (financial-chart-3d-num (+ lo (* (1+ i) step))))
+                 (format "volume %s (%.1f%% of the most)%s" (financial-chart-3d-num v 0) (* 100 (/ v vmax))
+                         (if (eql i poc) "  point of control" "")))
+                tips)
           (push (vector (financial-chart-3d--r3 start)
                         (financial-chart-3d--price-y layout (+ lo (* i step)))
                         (financial-chart-3d--r3 (- half))
@@ -502,13 +566,32 @@ profile."
           (push (if (eql i poc) "#ffb74d" "#4c78a8") colors))))
     (vconcat
      (financial-chart-3d--candles graphics layout all shown)
-     (list (list :id "profile" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors)))
+     (list (list :id "profile" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors))
+                 :tooltips (vconcat (nreverse tips)))
            (list :id "profile-close" :type "segments" :color "#d2ddeb"
                  :segments (if (numberp last-close)
                                (let ((y (financial-chart-3d--price-y layout last-close)))
                                  (vector (vector (financial-chart-3d--r3 start) y 0
                                                  (financial-chart-3d--r3 (+ start width)) y 0)))
                              []))))))
+
+(defun financial-chart-3d--tip-built-in (primitives rows tip)
+  "PRIMITIVES of a graphics.el mark over ROWS, with tooltips (TIP of a row).
+Added to each primitive but an axis that has none and whose elements
+match ROWS one to one (a box, segment or point a row) or a segment each
+between consecutive ROWS (tipped with the row it ends at)."
+  (let ((n (length rows)) (rows (vconcat rows)))
+    (mapcar (lambda (p)
+              (let* ((key (pcase (plist-get p :type) ("boxes" :boxes) ("segments" :segments) ("points" :points)))
+                     (count (and key (length (plist-get p key)))))
+                (if (or (null key) (plist-get p :tooltips) (zerop n)
+                        (string-suffix-p "axes" (or (plist-get p :id) ""))
+                        (not (memql count (list n (1- n)))))
+                    p
+                  (plist-put (copy-sequence p) :tooltips
+                             (vconcat (cl-loop for i from (- n count) below n
+                                               collect (funcall tip (aref rows i))))))))
+            (append primitives nil))))
 
 ;;; Drawdown: the underwater curve
 
@@ -539,8 +622,12 @@ points so far; the rest of the curve is a ghost."
                       :extent (financial-chart-3d--opt graphics "extent" [12 0]) :color color)))
          (all (financial-chart-3d-drawdown-rows rows xk yk))
          (shown (financial-chart-3d--replayed graphics (length all)))
-         (prims (append (graphics-eas-primitives (funcall sub (financial-chart-3d--opt graphics "color" "#4c78a8"))
-                                                 (seq-take all shown) (financial-chart-3d--mark-params) all)
+         (tip (lambda (r) (financial-chart-3d-tip (financial-chart-3d-num (plist-get r :x))
+                                                  (format "drawdown %.2f%% below the high" (plist-get r :depth)))))
+         (prims (append (financial-chart-3d--tip-built-in
+                         (graphics-eas-primitives (funcall sub (financial-chart-3d--opt graphics "color" "#4c78a8"))
+                                                  (seq-take all shown) (financial-chart-3d--mark-params) all)
+                         (seq-take all shown) tip)
                         (and (< shown (length all))
                              (financial-chart-3d--shift
                               (seq-remove (lambda (p) (equal (plist-get p :id) "axes"))
@@ -692,7 +779,17 @@ surface itself."
                                            (if (= nz 1) (list (aref heights 0) (aref heights 0)) heights)))
                  :low_color (financial-chart-3d--opt graphics "low_color" financial-chart-3d-down-color)
                  :high_color (financial-chart-3d--opt graphics "high_color" financial-chart-3d-up-color)
-                 :color_range (vector lo hi))
+                 :color_range (vector lo hi)
+                 :tooltips (vconcat
+                            (cl-loop for z in (if (= nz 1) (list (car zs) (car zs)) zs)
+                                     nconc (cl-loop for x in xs
+                                                    collect (financial-chart-3d-tip
+                                                             (format "%s %s  %s %s"
+                                                                     (substring (symbol-name xk) 1) (financial-chart-3d-num x)
+                                                                     (substring (symbol-name zk) 1) (financial-chart-3d-num z))
+                                                             (let ((v (gethash (cons x z) cells)))
+                                                               (format "%s %s" (substring (symbol-name yk) 1)
+                                                                       (financial-chart-3d-num v))))))))
          (list :id "surface" :type "segments" :segments []))
        (list :id "front" :type "segments" :color "#ffffff"
              :segments (if (and (>= nx 2) (>= nz 1))
@@ -736,31 +833,42 @@ YK and SK name the price, size and side fields."
   "Primitives of the fc-depth3d mark: GRAPHICS over order-book ROWS.
 An area3d slab per side over price, bids in front and asks behind,
 each rising away from the mid."
-  (graphics-eas-primitives
-   (list :mark "area3d" :encoding (list :x "price" :y "cumulative" :z "side")
-         :zero t :height (financial-chart-3d--opt graphics "height" 4)
-         :extent (financial-chart-3d--opt graphics "extent" [12 0])
-         :colors (financial-chart-3d--opt graphics "colors" '(:bid "#26a69a" :ask "#ef5350")))
-   (financial-chart-3d-cumulative-depth rows (financial-chart-3d--field graphics "x" "price")
-                                        (financial-chart-3d--field graphics "y" "size")
-                                        (financial-chart-3d--field graphics "color" "side"))
-   (financial-chart-3d--mark-params)))
+  (let ((depth (financial-chart-3d-cumulative-depth rows (financial-chart-3d--field graphics "x" "price")
+                                                    (financial-chart-3d--field graphics "y" "size")
+                                                    (financial-chart-3d--field graphics "color" "side"))))
+    (financial-chart-3d--tip-built-in
+     (graphics-eas-primitives
+      (list :mark "area3d" :encoding (list :x "price" :y "cumulative" :z "side")
+            :zero t :height (financial-chart-3d--opt graphics "height" 4)
+            :extent (financial-chart-3d--opt graphics "extent" [12 0])
+            :colors (financial-chart-3d--opt graphics "colors" '(:bid "#26a69a" :ask "#ef5350")))
+      depth
+      (financial-chart-3d--mark-params))
+     depth
+     (lambda (r) (financial-chart-3d-tip (format "%s %s" (plist-get r :side) (financial-chart-3d-num (plist-get r :price)))
+                                         (format "cumulative size %s" (financial-chart-3d-num (plist-get r :cumulative))))))))
 
 (defun financial-chart-3d--diverging-mark (graphics rows)
   "Primitives of the fc-diverging3d mark: GRAPHICS over ROWS {label, value}.
 graphics.el's bar3d, gains green and losses red."
-  (let ((yk (financial-chart-3d--field graphics "y" "value")))
-    (graphics-eas-primitives
-     (list :mark "bar3d"
-           :encoding (list :x (substring (symbol-name (financial-chart-3d--field graphics "x" "label")) 1)
-                           :y (substring (symbol-name yk) 1) :color "sign")
-           :colors (list :gain (financial-chart-3d--opt graphics "up_color" financial-chart-3d-up-color)
-                         :loss (financial-chart-3d--opt graphics "down_color" financial-chart-3d-down-color)))
-     (mapcar (lambda (r)
-               (let ((v (financial-chart-3d--value r yk)))
-                 (append (list :sign (if (and (numberp v) (< v 0)) "loss" "gain")) r)))
-             rows)
-     (financial-chart-3d--mark-params))))
+  (let* ((yk (financial-chart-3d--field graphics "y" "value"))
+         (xk (financial-chart-3d--field graphics "x" "label"))
+         (tip (lambda (r) (financial-chart-3d-tip (financial-chart-3d-num (financial-chart-3d--value r xk))
+                                                  (format "%s %s" (substring (symbol-name yk) 1)
+                                                          (financial-chart-3d-num (financial-chart-3d--value r yk)))))))
+    (financial-chart-3d--tip-built-in
+     (graphics-eas-primitives
+      (list :mark "bar3d"
+            :encoding (list :x (substring (symbol-name xk) 1)
+                            :y (substring (symbol-name yk) 1) :color "sign")
+            :colors (list :gain (financial-chart-3d--opt graphics "up_color" financial-chart-3d-up-color)
+                          :loss (financial-chart-3d--opt graphics "down_color" financial-chart-3d-down-color)))
+      (mapcar (lambda (r)
+                (let ((v (financial-chart-3d--value r yk)))
+                  (append (list :sign (if (and (numberp v) (< v 0)) "loss" "gain")) r)))
+              rows)
+      (financial-chart-3d--mark-params))
+     rows tip)))
 
 (defconst financial-chart-3d-marks
   '(("fc-candle3d" . financial-chart-3d--candle-mark)

@@ -316,12 +316,16 @@ as_of, tenor and value) pass through."
                                        (format "curve node %d of entry %d needs maturity, hazard_rate and cumulative_default_probability" j i)
                                        "bad_node" i "curve"))
                                     (let ((tenor (float (max 1 (round (/ (- end start) 365.25))))))
-                                      (list :as_of as-of :tenor tenor
-                                            :tenor_label (financial-chart-3d-rates-tenor-label tenor)
-                                            :maturity maturity
-                                            :spread_bp (if (numberp s) (float s) :null)
-                                            :hazard_bps (financial-chart-3d-rates--round (* 10000 h) 2)
-                                            :pd_pct (financial-chart-3d-rates--round (* 100 pd) 3))))))))
+                                      (append
+                                       (cl-loop for k in '(:reference_entity :source)
+                                                for v = (financial-chart-3d--value output k)
+                                                when (stringp v) append (list k v))
+                                       (list :as_of as-of :tenor tenor
+                                             :tenor_label (financial-chart-3d-rates-tenor-label tenor)
+                                             :maturity maturity
+                                             :spread_bp (if (numberp s) (float s) :null)
+                                             :hazard_bps (financial-chart-3d-rates--round (* 10000 h) 2)
+                                             :pd_pct (financial-chart-3d-rates--round (* 100 pd) 3)))))))))
              (field (financial-chart-3d--key
                      (financial-chart-3d-rates-cds-measure rows (if (equal measure "value") nil measure)))))
         (mapcar (lambda (r)
@@ -588,7 +592,19 @@ corner is left out."
 
 ;;; 3D: curves over date (yield curves, CDS term structures)
 
-(defun financial-chart-3d-rates--term-surface (graphics rows)
+(defun financial-chart-3d-rates--curve-tip (z a b yk)
+  "Tooltip of the curve of date Z from row A to row B, YK the level drawn."
+  (financial-chart-3d-tip
+   (format "%s  %s to %s" z
+           (or (financial-chart-3d--value a :tenor_label) (financial-chart-3d-num (financial-chart-3d--value a :tenor)))
+           (or (financial-chart-3d--value b :tenor_label) (financial-chart-3d-num (financial-chart-3d--value b :tenor))))
+   (format "%s %s to %s" (substring (symbol-name yk) 1)
+           (financial-chart-3d-num (financial-chart-3d--value a yk) 3)
+           (financial-chart-3d-num (financial-chart-3d--value b yk) 3))
+   (let ((regime (financial-chart-3d--value b :regime)))
+     (and regime (format "regime %s" regime)))))
+
+(defun financial-chart-3d-rates--term-surface (graphics rows &optional tip)
   "Primitives of a surface of curves: GRAPHICS over flat ROWS.
 Channels x (tenor, evenly spaced by rank), z (the curve's date, oldest
 at the back) and y (the level, from 0 up); `color' a field naming each
@@ -596,8 +612,11 @@ curve's regime (colours `colors'), else the surface is coloured by
 level.  Under a time encoding the scales span every row, the curves
 so far are drawn and the newest is traced bright; each earlier curve
 stays as a trail.  Rows whose `kind' is \"forward\" are drawn as a
-line just in front of their date's curve, not in the surface."
-  (let* ((xk (financial-chart-3d--field graphics "x" "tenor"))
+line just in front of their date's curve, not in the surface.
+Each segment of a curve has a tooltip: TIP of its date and the rows it
+joins, and of the level field (default `financial-chart-3d-rates--curve-tip')."
+  (let* ((tip (or tip #'financial-chart-3d-rates--curve-tip))
+         (xk (financial-chart-3d--field graphics "x" "tenor"))
          (zk (financial-chart-3d--field graphics "z" "date"))
          (yk (financial-chart-3d--field graphics "y" "yield"))
          (ck (let ((spec (plist-get (financial-chart-3d--opt graphics "encoding") :color)))
@@ -625,6 +644,7 @@ line just in front of their date's curve, not in the surface."
                  (cl-loop for z in zs for p in wz do (puthash z p h)) h))
          (y-of (lambda (v) (* scale (- v lo))))
          (cells (make-hash-table :test #'equal))
+         (cell-rows (make-hash-table :test #'equal))
          (forward (make-hash-table :test #'equal))
          (regime (make-hash-table :test #'equal))
          (colors (financial-chart-3d--opt graphics "colors"))
@@ -637,6 +657,7 @@ line just in front of their date's curve, not in the surface."
         (when (and x z (numberp y))
           (if (funcall spot r)
               (progn (puthash (cons x z) (float y) cells)
+                     (puthash (cons x z) r cell-rows)
                      (when ck (puthash z (financial-chart-3d--value r ck) regime))
                      (cl-pushnew z present :test #'equal))
             (push (cons x (float y)) (gethash z forward))))))
@@ -663,12 +684,18 @@ line just in front of their date's curve, not in the surface."
                                     (m (if vs (/ (apply #'+ vs) (length vs)) lo)))
                                (financial-chart-3d-rates--ramp financial-chart-3d-rates-level-colors
                                                                (if (> hi lo) (/ (- m lo) (- hi lo)) 0.5)))))))
-           (trail nil) (trail-colors nil))
+           ;; One per segment `financial-chart-3d-rates--polyline' draws.
+           (tips (lambda (z) (cl-loop for (x0 x1) on xs while x1
+                                      for a = (gethash (cons x0 z) cell-rows)
+                                      for b = (gethash (cons x1 z) cell-rows)
+                                      when (and a b) collect (funcall tip z a b yk))))
+           (trail nil) (trail-colors nil) (trail-tips nil))
       (dolist (z shown)
         (unless (equal z newest)
           (dolist (s (financial-chart-3d-rates--polyline wx (funcall heights z) (gethash z z-of)))
             (push s trail)
-            (push (funcall curve-color z) trail-colors))))
+            (push (funcall curve-color z) trail-colors))
+          (setq trail-tips (append (reverse (funcall tips z)) trail-tips))))
       (vector
        (financial-chart-3d--axes "axes" (- w) w height (- d) d)
        (financial-chart-3d-rates--floor-grid wx wz "#3b4252")
@@ -688,12 +715,13 @@ line just in front of their date's curve, not in the surface."
                                                                      xw (financial-chart-3d--r3 (funcall y-of y1)) (gethash z1 z-of)))))
                          []))
        (list :id "trail" :type "segments" :segments (vconcat (nreverse trail))
-             :colors (vconcat (nreverse trail-colors)))
+             :colors (vconcat (nreverse trail-colors)) :tooltips (vconcat (nreverse trail-tips)))
        (list :id "front" :type "segments" :color "#ffffff"
              :segments (if newest
                            (vconcat (financial-chart-3d-rates--polyline wx (funcall heights newest)
                                                                         (gethash newest z-of)))
-                         []))
+                         [])
+             :tooltips (if newest (vconcat (funcall tips newest)) []))
        (list :id "forward" :type "segments"
              :color (financial-chart-3d--opt graphics "forward_color" "#ffb74d")
              :segments (let ((pts (and newest (sort (copy-sequence (gethash newest forward))
@@ -753,12 +781,14 @@ carry pctile, else by spread."
          (pct (make-hash-table :test #'equal))
          (fill (eq (financial-chart-3d--opt graphics "fill" :false) t))
          (ribs (not (eq (financial-chart-3d--opt graphics "ribs" t) :false)))
+         (cell-rows (make-hash-table :test #'equal))
          (any-pct nil))
     (dolist (r rows)
       (let ((x (financial-chart-3d--value r xk)) (z (financial-chart-3d--value r zk))
             (y (financial-chart-3d--value r yk)) (p (financial-chart-3d--value r ck)))
         (when (and x z (numberp y))
           (puthash (cons x z) (* scale (- (funcall f y) lo)) cells)
+          (puthash (cons x z) r cell-rows)
           (when (numberp p) (setq any-pct t) (puthash (cons x z) p pct)))))
     (let* ((heights (mapcar (lambda (z) (mapcar (lambda (x) (gethash (cons x z) cells)) xs)) zs))
            (ramp '("#1a9850" "#a6d96a" "#fee08b" "#f46d43" "#d73027"))
@@ -776,10 +806,21 @@ carry pctile, else by spread."
            (lines (cl-loop for z in zs for zw in wz for row in heights
                            append (cl-loop for (x0 x1) on wx for (y0 y1) on row for i from 0 while x1
                                            when (and (numberp y0) (numberp y1))
-                                           collect (cons (vector x0 (financial-chart-3d--r3 y0) zw
+                                           collect (list (vector x0 (financial-chart-3d--r3 y0) zw
                                                                  x1 (financial-chart-3d--r3 y1) zw)
                                                          (funcall color-of (list (cons (nth i xs) z)
-                                                                                 (cons (nth (1+ i) xs) z)))))))
+                                                                                 (cons (nth (1+ i) xs) z)))
+                                                         (let ((a (gethash (cons (nth i xs) z) cell-rows))
+                                                               (b (gethash (cons (nth (1+ i) xs) z) cell-rows))
+                                                               (label (lambda (r) (or (financial-chart-3d--value r :tenor_label)
+                                                                                      (financial-chart-3d-num (financial-chart-3d--value r xk))))))
+                                                           (financial-chart-3d-tip
+                                                            (format "%s  %s to %s" z (funcall label a) (funcall label b))
+                                                            (format "spread %s to %s bp" (financial-chart-3d-num (financial-chart-3d--value a yk) 1)
+                                                                    (financial-chart-3d-num (financial-chart-3d--value b yk) 1))
+                                                            (and (financial-chart-3d--value b ck)
+                                                                 (format "percentile %s to %s" (financial-chart-3d-num (financial-chart-3d--value a ck) 0)
+                                                                         (financial-chart-3d-num (financial-chart-3d--value b ck) 0)))))))))
            (ribs-segments (cl-loop for x in xs for xw in wx
                                    append (cl-loop for (z0 z1) on zs for (w0 w1) on wz while z1
                                                    for y0 = (gethash (cons x z0) cells)
@@ -794,7 +835,7 @@ carry pctile, else by spread."
            (financial-chart-3d-rates--mesh "surface" wx wz heights cell-color)
          (list :id "surface" :type "segments" :segments []))
        (list :id "curves" :type "segments" :segments (vconcat (mapcar #'car lines))
-             :colors (vconcat (mapcar #'cdr lines)))
+             :colors (vconcat (mapcar #'cadr lines)) :tooltips (vconcat (mapcar #'caddr lines)))
        (list :id "ribs" :type "segments" :color (financial-chart-3d--opt graphics "rib_color" "#5b6b86")
              :segments (if ribs (vconcat ribs-segments) []))))))
 
@@ -832,19 +873,31 @@ last column, set apart, is each holding's whole duration."
                 (let ((y (financial-chart-3d--r3 (* scale v))))
                   (vector (financial-chart-3d--r3 (- x band)) (min 0 y) (financial-chart-3d--r3 (- z band))
                           (financial-chart-3d--r3 (+ x band)) (max 0 y) (financial-chart-3d--r3 (+ z band))))))
-         boxes colors)
+         boxes colors tips)
     (dolist (r rows)
       (let ((i (seq-position xs (financial-chart-3d--value r xk)))
             (j (seq-position zs (financial-chart-3d--value r zk)))
             (v (financial-chart-3d--value r yk)))
         (when (and i j (numberp v) (/= v 0))
           (push (funcall box (- i x0) (- j z0) v) boxes)
-          (push (funcall color-of (financial-chart-3d--value r zk)) colors))))
+          (push (funcall color-of (financial-chart-3d--value r zk)) colors)
+          (push (financial-chart-3d-tip
+                 (format "%s  %s" (financial-chart-3d-num (financial-chart-3d--value r zk))
+                         (or (financial-chart-3d--value r :tenor_label) (financial-chart-3d-num (financial-chart-3d--value r xk))))
+                 (format "key-rate duration %s" (financial-chart-3d-num v 3))
+                 (let ((dv01 (financial-chart-3d--value r :dv01)))
+                   (and (numberp dv01) (format "DV01 %s" (financial-chart-3d-num dv01 2))))
+                 (let ((dur (financial-chart-3d--value r :duration)))
+                   (and (numberp dur) (format "holding duration %s" (financial-chart-3d-num dur 3)))))
+                tips))))
     (when total
       (cl-loop for (z . dur) in durations for j from 0
                when (/= dur 0)
                do (push (funcall box (- (+ (length xs) 0.5) x0) (- j z0) dur) boxes)
-               (push (financial-chart-3d-rates--ramp (list (funcall color-of z) "#ffffff") 0.45) colors)))
+               (push (financial-chart-3d-rates--ramp (list (funcall color-of z) "#ffffff") 0.45) colors)
+               (push (financial-chart-3d-tip (format "%s  total" z)
+                                             (format "duration %s (sum of key rates)" (financial-chart-3d-num dur 3)))
+                     tips)))
     (let* ((left (- -0.5 x0)) (right (+ 0.5 x0)) (back (- -0.5 z0)) (front (+ 0.5 z0))
            (grid (append (cl-loop for i from 0 below (length xs)
                                   collect (vector (financial-chart-3d--r3 (- i x0)) 0 back
@@ -855,14 +908,80 @@ last column, set apart, is each holding's whole duration."
       (vector
        (financial-chart-3d--axes "axes" left right height back front)
        (list :id "grid" :type "segments" :color "#3b4252" :segments (vconcat grid))
-       (list :id "bars" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors)))))))
+       (list :id "bars" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors))
+             :tooltips (vconcat (nreverse tips)))))))
 
-(defun financial-chart-3d-rates--tooltip (row)
-  "Readable complete tooltip string for ROW, keeping every supplied field."
-  (mapconcat (lambda (pair)
-               (format "%s: %s" (substring (symbol-name (car pair)) 1)
-                       (let ((v (cdr pair))) (if (eq v :null) "—" (format "%s" v)))))
-             (cl-loop for (k v) on row by #'cddr collect (cons k v)) "\n"))
+(defun financial-chart-3d-rates--pct (v &optional digits)
+  "Decimal V as a percent, to DIGITS decimals (default 2); \"-\" for none."
+  (if (numberp v) (format (format "%%.%df%%%%" (or digits 2)) (* 100 v)) "-"))
+
+(defun financial-chart-3d-rates--bond-tip (row)
+  "Tooltip of a CDS implied ladder bond ROW: never its run's summary."
+  (let ((flags (delq nil (mapcar (lambda (k)
+                                   (let ((v (financial-chart-3d--value row k)))
+                                     (and v (format "%s %s" (if (eq k :spread_extrapolated) "spread" "treasury") v))))
+                                 '(:spread_extrapolated :treasury_extrapolated)))))
+    (financial-chart-3d-tip
+     (format "%s  matures %s  coupon %s" (financial-chart-3d--value row :name)
+             (financial-chart-3d-num (financial-chart-3d--value row :maturity))
+             (financial-chart-3d-rates--pct (financial-chart-3d--value row :coupon)))
+     (format "model price %s  yield %s  CDS %s bp"
+             (financial-chart-3d-num (financial-chart-3d--value row :model_price) 3)
+             (financial-chart-3d-rates--pct (financial-chart-3d--value row :model_yield) 3)
+             (financial-chart-3d-num (financial-chart-3d--value row :cds_spread_bp) 1))
+     (format "mod. duration %s  DV01 $%s  expected loss $%s"
+             (financial-chart-3d-num (financial-chart-3d--value row :modified_duration) 3)
+             (financial-chart-3d-num (financial-chart-3d--value row :dv01_usd) 0)
+             (financial-chart-3d-num (financial-chart-3d--value row :expected_loss_usd) 0))
+     (if flags (concat "extrapolated: " (string-join flags ", ")) "extrapolated: none"))))
+
+(defun financial-chart-3d-rates--cds-source (row)
+  "The source line of CDS ROW: where its numbers come from and its last print."
+  (let ((source (or (financial-chart-3d--value row :source) (financial-chart-3d--value row :basis)))
+        (date (financial-chart-3d--value row :last_trade_date))
+        (trades (financial-chart-3d--value row :trades_30d)))
+    (string-join (delq nil (list (and source (format "source %s" source))
+                                 (and date (format "last print %s" date))
+                                 (and (numberp trades) (format "%s trades/30d" trades))
+                                 (and (eq (financial-chart-3d--value row :thin) t) "thin")))
+                 ", ")))
+
+(defun financial-chart-3d-rates--cds-node-tip (row)
+  "Tooltip of a CDS tenor or forward bucket ROW."
+  (if (equal (financial-chart-3d--value row :row_kind) "bucket")
+      (financial-chart-3d-tip
+       (format "%s  forward %s" (financial-chart-3d-num (financial-chart-3d--value row :as_of))
+               (financial-chart-3d-num (financial-chart-3d--value row :label)))
+       (format "forward hazard %s bp" (let ((h (financial-chart-3d--value row :forward_hazard)))
+                                        (financial-chart-3d-num (and (numberp h) (* 10000 h)) 1)))
+       (format "conditional PD %s" (financial-chart-3d-rates--pct (financial-chart-3d--value row :conditional_pd)))
+       (string-join (delq nil (list (and (eq (financial-chart-3d--value row :thin) t) "thin")
+                                    (and (eq (financial-chart-3d--value row :floored) t) "floored")))
+                    ", "))
+    (financial-chart-3d-tip
+     (string-join (delq nil (list (financial-chart-3d--value row :reference_entity)
+                                  (financial-chart-3d-num (financial-chart-3d--value row :as_of))
+                                  (financial-chart-3d--value row :tenor_label)
+                                  (let ((m (financial-chart-3d--value row :maturity))) (and m (format "(%s)" m)))))
+                  "  ")
+     (format "spread %s bp  hazard %s bp"
+             (financial-chart-3d-num (financial-chart-3d--value row :spread_bp) 1)
+             (financial-chart-3d-num (financial-chart-3d--value row :hazard_bps) 1))
+     (format "PD %s%%" (financial-chart-3d-num (financial-chart-3d--value row :pd_pct)))
+     (financial-chart-3d-rates--cds-source row))))
+
+(defun financial-chart-3d-rates--cds-curve-tip (z a b _yk)
+  "Tooltip of the CDS curve of date Z from tenor row A to tenor row B."
+  (financial-chart-3d-tip
+   (string-join (delq nil (list (financial-chart-3d--value b :reference_entity)
+                                (format "%s  %s to %s" z (financial-chart-3d--value a :tenor_label)
+                                        (financial-chart-3d--value b :tenor_label))))
+                "  ")
+   (format "spread %s to %s bp" (financial-chart-3d-num (financial-chart-3d--value a :spread_bp) 1)
+           (financial-chart-3d-num (financial-chart-3d--value b :spread_bp) 1))
+   (format "PD %s%% to %s%%" (financial-chart-3d-num (financial-chart-3d--value a :pd_pct))
+           (financial-chart-3d-num (financial-chart-3d--value b :pd_pct)))
+   (financial-chart-3d-rates--cds-source b)))
 
 (defun financial-chart-3d-rates--cds-bond-mark (graphics rows)
   "CDS implied bond ladder bars, treasury ribbon and per-bond tooltips."
@@ -893,7 +1012,7 @@ last column, set apart, is each holding's whole duration."
                       (financial-chart-3d--r3 (+ (- (* 2 w (/ years maxx)) w) half))
                       (financial-chart-3d--r3 y) (financial-chart-3d--r3 (+ z half))) boxes)
         (push color colors)
-        (push (financial-chart-3d-rates--tooltip row) tips)
+        (push (financial-chart-3d-rates--bond-tip row) tips)
         (let ((ty (financial-chart-3d--value row :treasury_yield)))
           (when (numberp ty)
             (push (cons (- (* 2 w (/ years maxx)) w) (* height (/ ty maxy))) ribbon)))))
@@ -914,44 +1033,59 @@ last column, set apart, is each holding's whole duration."
   (financial-chart-3d--replay graphics rows nil #'financial-chart-3d-rates--term-surface))
 
 (defun financial-chart-3d-rates--cds-term-geometry (graphics rows)
-  "Existing term surface plus bucket slabs and dimmed, tooltipped tenor nodes."
-  (let* ((base (append (financial-chart-3d-rates--term-surface graphics rows) nil))
+  "Existing term surface plus bucket slabs and dimmed, tooltipped tenor nodes.
+Every segment of the curves has a tooltip too
+\(`financial-chart-3d-rates--cds-curve-tip'), so a history of ISDA
+outputs, which has no tenor nodes, hovers as well.  The nodes and slabs
+sit on the surface's dates and tenors."
+  (let* ((base (append (financial-chart-3d-rates--term-surface graphics rows
+                                                               #'financial-chart-3d-rates--cds-curve-tip)
+                       nil))
          (buckets (seq-filter (lambda (r) (equal (financial-chart-3d--value r :row_kind) "bucket")) rows))
          (tenors (seq-filter (lambda (r) (equal (financial-chart-3d--value r :row_kind) "tenor")) rows))
-         (dates (financial-chart-3d--categories (mapcar (lambda (r) (financial-chart-3d--value r :as_of)) rows)))
+         (dom (financial-chart-3d--domain rows))
+         (zk (financial-chart-3d--field graphics "z" "as_of"))
+         (dates (financial-chart-3d--categories (mapcar (lambda (r) (financial-chart-3d--value r zk)) dom)))
+         (z-of (let ((h (make-hash-table :test #'equal)))
+                 (cl-loop for date in dates
+                          for z in (financial-chart-3d-rates--spread (length dates) (/ (float (elt (financial-chart-3d--opt graphics "extent" [12 12]) 1)) 2))
+                          do (puthash date z h))
+                 h))
          (max-tenor (apply #'max
-                           (cons 1.0
-                                 (append (mapcar (lambda (r) (or (financial-chart-3d--value r :tenor_years) 0)) tenors)
-                                         (mapcar (lambda (r) (or (financial-chart-3d--value r :to_years) 0)) buckets)))))
+                           (cons 1e-9
+                                 (delq nil (mapcar (lambda (r) (and (equal (financial-chart-3d--value r :row_kind) "tenor")
+                                                                    (financial-chart-3d--value r :tenor_years)))
+                                                   dom)))))
          (extent (financial-chart-3d--opt graphics "extent" [12 12]))
-         (w (/ (float (elt extent 0)) 2)) (d (/ (float (elt extent 1)) 2))
+         (w (/ (float (elt extent 0)) 2))
+         (height (float (financial-chart-3d--opt graphics "height" 4)))
          (maxy (apply #'max
-                      (cons 1e-9 (mapcar (lambda (r) (abs (or (financial-chart-3d--value r :value) 0))) rows))))
+                      (cons 1e-9 (mapcar (lambda (r) (abs (or (financial-chart-3d--value r :value) 0))) dom))))
          boxes colors tips nodes node-colors node-tips)
     (dolist (row buckets)
       (let* ((from (financial-chart-3d--value row :from_years))
              (to (financial-chart-3d--value row :to_years))
-             (date (seq-position dates (financial-chart-3d--value row :as_of)))
-             (z (- (* d (/ (or date 0) (float (max 1 (1- (length dates)))))) d))
+             (z (gethash (financial-chart-3d--value row zk) z-of 0.0))
              (value (or (financial-chart-3d--value row :forward_hazard)
                         (financial-chart-3d--value row :value) 0))
-             (height (* 8 (/ value maxy)))
+             (top (* height (/ value maxy)))
              (x0 (- (* 2 w (/ from max-tenor)) w))
              (x1 (- (* 2 w (/ to max-tenor)) w)))
         (push (vector (financial-chart-3d--r3 x0) 0 (financial-chart-3d--r3 (- z 0.18))
-                      (financial-chart-3d--r3 x1) (financial-chart-3d--r3 height)
+                      (financial-chart-3d--r3 x1) (financial-chart-3d--r3 top)
                       (financial-chart-3d--r3 (+ z 0.18))) boxes)
         (push (if (eq (financial-chart-3d--value row :thin) t) "#657080" "#69a9d3") colors)
-        (push (financial-chart-3d-rates--tooltip row) tips)))
+        (push (financial-chart-3d-rates--cds-node-tip row) tips)))
     (dolist (row tenors)
       (let* ((tenor (financial-chart-3d--value row :tenor_years))
-             (date (seq-position dates (financial-chart-3d--value row :as_of)))
-             (z (- (* d (/ (or date 0) (float (max 1 (1- (length dates)))))) d))
+             (z (gethash (financial-chart-3d--value row zk) z-of 0.0))
              (value (or (financial-chart-3d--value row :value) 0))
-             (x (- (* 2 w (/ tenor max-tenor)) w)) (y (* 8 (/ value maxy))))
-        (push (vector (- x 0.10) (- y 0.10) (- z 0.10) (+ x 0.10) (+ y 0.10) (+ z 0.10)) nodes)
+             (x (- (* 2 w (/ tenor max-tenor)) w)) (y (* height (/ value maxy))))
+        (push (vector (financial-chart-3d--r3 (- x 0.10)) (financial-chart-3d--r3 (- y 0.10)) (financial-chart-3d--r3 (- z 0.10))
+                      (financial-chart-3d--r3 (+ x 0.10)) (financial-chart-3d--r3 (+ y 0.10)) (financial-chart-3d--r3 (+ z 0.10)))
+              nodes)
         (push (if (eq (financial-chart-3d--value row :thin) t) "#596273" "#ffffff") node-colors)
-        (push (financial-chart-3d-rates--tooltip row) node-tips)))
+        (push (financial-chart-3d-rates--cds-node-tip row) node-tips)))
     (vconcat base
              (list (list :id "forward-buckets" :type "boxes" :boxes (vconcat (nreverse boxes))
                          :colors (vconcat (nreverse colors)) :tooltips (vconcat (nreverse tips)))

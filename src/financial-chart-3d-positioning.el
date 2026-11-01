@@ -163,6 +163,10 @@ The rectangle is in a plane of constant x (X0 = X1) or of constant y
 
 ;;; Strikes by expiry: OI and GEX
 
+(defun financial-chart-3d-positioning--amount (v)
+  "V as tooltip text: whole above 100 (open interest), else 2 decimals."
+  (financial-chart-3d-num v (if (and (numberp v) (< (abs v) 100)) 2 0)))
+
 (defun financial-chart-3d-positioning--strikes-mark (graphics rows)
   "Primitives of the fc-strikes3d mark: GRAPHICS over strike ROWS.
 Channels x (strike), z (expiry), up (calls: call_oi, call_gex) and
@@ -205,7 +209,7 @@ depth, a fraction of the spacing, default 0.3)."
                      (cond ((and given (financial-chart-3d--rows given)))
                            ((eq (financial-chart-3d--opt graphics "max_pain_auto") t)
                             (financial-chart-3d-positioning-max-pain dom xk zk uk dk)))))
-         boxes colors grid posts tops path)
+         boxes colors tips grid posts tops path)
     (dolist (row rows)
       (let ((k (financial-chart-3d-positioning--number row xk)) (e (financial-chart-3d--value row zk)))
         (when (and k e)
@@ -218,7 +222,17 @@ depth, a fraction of the spacing, default 0.3)."
                           (push (vector (funcall r (- x half)) (funcall r (min 0 y)) (funcall r (- z zhalf))
                                         (funcall r (+ x half)) (funcall r (max 0 y)) (funcall r (+ z zhalf)))
                                 boxes)
-                          (push color colors)))))))
+                          (push color colors)
+                          (push (financial-chart-3d-tip
+                                 (format "%s  strike %s" e (financial-chart-3d-num k))
+                                 (format "%s %s  %s %s"
+                                         (substring (symbol-name uk) 1)
+                                         (financial-chart-3d-positioning--amount (financial-chart-3d-positioning--number row uk))
+                                         (substring (symbol-name dk) 1)
+                                         (financial-chart-3d-positioning--amount (financial-chart-3d-positioning--number row dk)))
+                                 (let ((net (financial-chart-3d-positioning--number row :net_gex)))
+                                   (and net (format "net_gex %s" (financial-chart-3d-positioning--amount net)))))
+                                tips)))))))
     ;; The floor: its outline and a line under each expiry's lane.
     (dolist (e expiries)
       (let ((z (funcall r (funcall z-at e))))
@@ -243,7 +257,8 @@ depth, a fraction of the spacing, default 0.3)."
                                                 financial-chart-3d-positioning-grid-color)
              (list :id "lanes" :type "segments" :color financial-chart-3d-positioning-grid-color
                    :segments (vconcat (nreverse grid)))
-             (list :id "bars" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors))))
+             (list :id "bars" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors))
+                   :tooltips (vconcat (nreverse tips))))
        (when spot
          (let ((x (funcall r (financial-chart-3d-positioning--place strikes spot))))
            (list (financial-chart-3d-positioning--frame "spot" x (- height) back x height front
@@ -310,13 +325,13 @@ width in lane steps, default 0.4)."
                (y-at (lambda (v) (funcall r (+ base (* height (/ (- v lo) span))))))
                (zero (funcall y-at 0.0))
                (name (substring (symbol-name field) 1))
-               verts tris tri-colors lines line-colors front (n 0))
+               verts tris tri-colors lines line-colors line-tips front (n 0))
           (dolist (tenor tenors)
             (let* ((points (sort (delq nil (mapcar (lambda (row)
                                                      (when-let* (((equal (financial-chart-3d--value row zk) tenor))
                                                                  (v (financial-chart-3d-positioning--number row field))
                                                                  (date (financial-chart-3d--value row xk)))
-                                                       (list (funcall x-at date) (funcall y-at v) date)))
+                                                       (list (funcall x-at date) (funcall y-at v) date v)))
                                                    rows))
                                  (lambda (a b) (< (car a) (car b)))))
                    (z (funcall z-at tenor))
@@ -336,7 +351,12 @@ width in lane steps, default 0.4)."
               (cl-loop for (a b) on points while b do
                        (push (vector (funcall r (car a)) (nth 1 a) (funcall r z) (funcall r (car b)) (nth 1 b) (funcall r z))
                              lines)
-                       (push color line-colors))))
+                       (push color line-colors)
+                       (push (financial-chart-3d-tip
+                              (format "tenor %s  %s to %s" tenor (nth 2 a) (nth 2 b))
+                              (format "%s %s to %s" name (financial-chart-3d-num (nth 3 a) 3)
+                                      (financial-chart-3d-num (nth 3 b) 3)))
+                             line-tips))))
           (setq front (nreverse front))
           (setq out
                 (append out
@@ -350,7 +370,7 @@ width in lane steps, default 0.4)."
                               (list :id (concat name "-ribbons") :type "mesh" :vertices (vconcat (nreverse verts))
                                     :triangles (vconcat (nreverse tris)) :colors (vconcat (nreverse tri-colors)))
                               (list :id (concat name "-lines") :type "segments" :segments (vconcat (nreverse lines))
-                                    :colors (vconcat (nreverse line-colors)))
+                                    :colors (vconcat (nreverse line-colors)) :tooltips (vconcat (nreverse line-tips)))
                               (list :id (concat name "-newest") :type "segments" :color "#ffffff"
                                     :segments (vconcat (cl-loop for (a b) on front while b collect (vconcat a b)))))))))
     (vconcat out)))
@@ -410,10 +430,11 @@ default [12 4.5]) and `height' (default 4)."
                            rows))
          (points (sort (mapcar (lambda (row) (list (funcall x-at (financial-chart-3d--value row xk))
                                                    (financial-chart-3d-positioning--number row ik)
-                                                   (financial-chart-3d-positioning--number row rk)))
+                                                   (financial-chart-3d-positioning--number row rk)
+                                                   (financial-chart-3d--value row xk)))
                                rows)
                        (lambda (a b) (< (car a) (car b)))))
-         verts tris tri-colors (nv 0) iv-line rv-line rank-boxes rank-colors ratio-line ratio-colors)
+         verts tris tri-colors (nv 0) iv-line rv-line line-tips rank-boxes rank-colors rank-tips ratio-line ratio-colors)
     ;; The slab, a segment at a time, split where IV crosses RV.
     (let ((add (lambda (pts color)
                  ;; PTS: a polygon of (X . Y), drawn front and back.
@@ -446,7 +467,13 @@ default [12 4.5]) and `height' (default 4)."
                      iv-line)
                (push (vector (funcall r (car a)) (funcall y-at (nth 2 a)) (funcall r (+ z-main half))
                              (funcall r (car b)) (funcall y-at (nth 2 b)) (funcall r (+ z-main half)))
-                     rv-line)))
+                     rv-line)
+               (push (financial-chart-3d-tip
+                      (format "%s to %s" (financial-chart-3d-num (nth 3 a)) (financial-chart-3d-num (nth 3 b)))
+                      (format "IV %s to %s" (financial-chart-3d-num (nth 1 a)) (financial-chart-3d-num (nth 1 b)))
+                      (format "RV %s to %s" (financial-chart-3d-num (nth 2 a)) (financial-chart-3d-num (nth 2 b)))
+                      (format "IV - RV %s" (financial-chart-3d-num (- (nth 1 b) (nth 2 b)))))
+                     line-tips)))
     ;; IV rank behind: a bar per day, up to half the height at rank 100.
     (when has-rank
       (dolist (row rows)
@@ -456,7 +483,13 @@ default [12 4.5]) and `height' (default 4)."
                           (funcall r (+ x bh)) (funcall r (max 0.01 (* 0.5 height (/ (min 100 (max 0 rank)) 100.0))))
                           (funcall r (+ z-rank half)))
                   rank-boxes)
-            (push (financial-chart-3d-positioning--ramp "#2c3e7a" "#ffb74d" (/ rank 100.0)) rank-colors)))))
+            (push (financial-chart-3d-positioning--ramp "#2c3e7a" "#ffb74d" (/ rank 100.0)) rank-colors)
+            (push (financial-chart-3d-tip (financial-chart-3d-num (financial-chart-3d--value row xk))
+                                          (format "IV rank %s" (financial-chart-3d-num rank 0))
+                                          (format "IV %s  RV %s"
+                                                  (financial-chart-3d-num (financial-chart-3d-positioning--number row ik))
+                                                  (financial-chart-3d-num (financial-chart-3d-positioning--number row rk))))
+                  rank-tips)))))
     ;; The front/back ratio in front, on its own scale: 1.0 ruled.
     (when ratios
       (let* ((lo (min 1.0 (apply #'min ratios))) (hi (max 1.0 (apply #'max ratios)))
@@ -483,11 +516,13 @@ default [12 4.5]) and `height' (default 4)."
                                      (vector (funcall r (- w)) 0 back (funcall r (- w)) (funcall r height) back)))
              (list :id "premium" :type "mesh" :vertices (vconcat (nreverse verts))
                    :triangles (vconcat (nreverse tris)) :colors (vconcat (nreverse tri-colors)))
-             (list :id "iv" :type "segments" :color "#ffffff" :segments (vconcat (nreverse iv-line)))
-             (list :id "rv" :type "segments" :color "#9ecae9" :segments (vconcat (nreverse rv-line))))
+             (list :id "iv" :type "segments" :color "#ffffff" :segments (vconcat (nreverse iv-line))
+                   :tooltips (vconcat (reverse line-tips)))
+             (list :id "rv" :type "segments" :color "#9ecae9" :segments (vconcat (nreverse rv-line))
+                   :tooltips (vconcat (nreverse line-tips))))
        (when has-rank
          (list (list :id "iv-rank" :type "boxes" :boxes (vconcat (nreverse rank-boxes))
-                     :colors (vconcat (nreverse rank-colors)))))
+                     :colors (vconcat (nreverse rank-colors)) :tooltips (vconcat (nreverse rank-tips)))))
        (when ratios
          (list (list :id "iv-ratio" :type "segments" :segments (vconcat (nreverse ratio-line))
                      :colors (vconcat (nreverse ratio-colors)))))))))

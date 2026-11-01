@@ -58,6 +58,8 @@
 (declare-function financial-chart-3d--domain "financial-chart-3d" (rows))
 (declare-function financial-chart-3d--replay "financial-chart-3d" (graphics rows field mark))
 (declare-function financial-chart-3d--axes "financial-chart-3d" (id x0 x1 y1 z0 z1 &optional color))
+(declare-function financial-chart-3d-tip "financial-chart-3d" (&rest lines))
+(declare-function financial-chart-3d-num "financial-chart-3d" (v &optional digits))
 (declare-function financial-chart-3d--lcg "financial-chart-3d" (seed))
 (declare-function financial-chart-3d--close "financial-chart-3d" (view))
 (declare-function financial-chart-3d--ensure "financial-chart-3d" ())
@@ -204,17 +206,27 @@ on the RRG today."
                         (* height (+ 0.1 (* 0.9 (- 1 (/ age (float (1- tail)))))))
                         (- (* sz (- (financial-chart-3d--value r zk) centre)))))))
          (r (financial-chart-3d--r3 (* 0.035 (min w d))))
-         trails trail-colors stems heads head-colors floor)
+         (tip (lambda (row)
+                (let ((x (financial-chart-3d--value row xk)) (z (financial-chart-3d--value row zk)))
+                  (financial-chart-3d-tip
+                   (format "%s  %s" (financial-chart-3d--value row sk) (financial-chart-3d-num (financial-chart-3d--value row tk)))
+                   (format "RS-Ratio %s  RS-Momentum %s" (financial-chart-3d-num x) (financial-chart-3d-num z))
+                   (if (>= x centre) (if (>= z centre) "leading" "weakening")
+                     (if (>= z centre) "improving" "lagging"))))))
+         trails trail-colors trail-tips stems heads head-colors head-tips floor)
     (dolist (symbol symbols)
       (let* ((color (cdr (assoc symbol colors)))
-             (points (mapcar pos (sort (seq-filter (lambda (row) (and (equal (financial-chart-3d--value row sk) symbol)
-                                                                      (gethash (financial-chart-3d--value row tk) index)))
-                                                   rows)
-                                       (lambda (a b) (< (gethash (financial-chart-3d--value a tk) index)
-                                                        (gethash (financial-chart-3d--value b tk) index)))))))
-        (cl-loop for (a b) on points while b
+             (trail (sort (seq-filter (lambda (row) (and (equal (financial-chart-3d--value row sk) symbol)
+                                                         (gethash (financial-chart-3d--value row tk) index)))
+                                      rows)
+                          (lambda (a b) (< (gethash (financial-chart-3d--value a tk) index)
+                                           (gethash (financial-chart-3d--value b tk) index)))))
+             (points (mapcar pos trail)))
+        (cl-loop for (a b) on points while b for row in (cdr trail)
                  do (push (apply #'financial-chart-3d-market--seg (append a b)) trails)
-                 (push color trail-colors))
+                 (push color trail-colors)
+                 (push (funcall tip row) trail-tips))
+        (when trail (push (funcall tip (car (last trail))) head-tips))
         (when-let* ((head (car (last points))))
           (pcase-let ((`(,x ,y ,z) head))
             (push (financial-chart-3d-market--seg x y z x 0 z) stems)
@@ -224,6 +236,7 @@ on the RRG today."
             (push (vector (financial-chart-3d--r3 x) 0 (financial-chart-3d--r3 z)) floor)
             (push color head-colors)))))
     (let ((head-colors (vconcat (nreverse head-colors)))
+          (head-tips (vconcat (nreverse head-tips)))
           (leading (financial-chart-3d--opt graphics "leading_color" "#26a69a"))
           (weakening (financial-chart-3d--opt graphics "weakening_color" "#eeca3b"))
           (lagging (financial-chart-3d--opt graphics "lagging_color" "#ef5350"))
@@ -240,10 +253,11 @@ on the RRG today."
              :segments (vector (financial-chart-3d-market--seg (- w) 0 0 w 0 0) (financial-chart-3d-market--seg 0 0 (- d) 0 0 d)
                                (financial-chart-3d-market--seg (- w) 0 (- d) (- w) height (- d))))
        (list :id "trails" :type "segments" :segments (vconcat (nreverse trails))
-             :colors (vconcat (nreverse trail-colors)))
-       (list :id "stems" :type "segments" :segments (vconcat (nreverse stems)) :colors head-colors)
-       (list :id "heads" :type "boxes" :boxes (vconcat (nreverse heads)) :colors head-colors)
-       (list :id "now" :type "points" :points (vconcat (nreverse floor)) :size 2 :colors head-colors)))))
+             :colors (vconcat (nreverse trail-colors)) :tooltips (vconcat (nreverse trail-tips)))
+       (list :id "stems" :type "segments" :segments (vconcat (nreverse stems)) :colors head-colors :tooltips head-tips)
+       (list :id "heads" :type "boxes" :boxes (vconcat (nreverse heads)) :colors head-colors :tooltips head-tips)
+       (list :id "now" :type "points" :points (vconcat (nreverse floor)) :size 2 :colors head-colors
+             :tooltips head-tips)))))
 
 ;;; Surfaces: a lit heightfield, or ridges that read in Braille
 
@@ -253,7 +267,8 @@ on the RRG today."
 it as lines, one along each of its columns (with ACROSS, each of its
 rows), every segment coloured on the heightfield's low to high
 gradient: a wire surface whose lines stay apart in Braille, where a lit
-surface fills in."
+surface fills in.  The heightfield's :tooltips (row-major) tip each
+line segment by the sample it runs to."
   (if (equal (financial-chart-3d--opt graphics "style" "ridges") "surface") surface
     (let* ((heights (plist-get surface :heights))
            (nr (length heights)) (nc (if (> nr 0) (length (aref heights 0)) 0))
@@ -266,7 +281,8 @@ surface fills in."
            (point (lambda (r c) (list (funcall at (aref x 0) (aref x 1) c nc)
                                       (+ base (* scale (aref (aref heights r) c)))
                                       (funcall at (aref z 0) (aref z 1) r nr))))
-           segments colors)
+           (tips (plist-get surface :tooltips))
+           segments colors seg-tips)
       (cl-loop for (r0 c0 r1 c1) in (if across
                                         (cl-loop for r below nr append (cl-loop for c below (1- nc) collect (list r c r (1+ c))))
                                       (cl-loop for c below nc append (cl-loop for r below (1- nr) collect (list r c (1+ r) c))))
@@ -275,9 +291,11 @@ surface fills in."
                           segments)
                     (push (financial-chart-3d-market--mix
                            low high (if (> hi lo) (max 0.0 (min 1.0 (/ (- (/ (+ a b) 2.0) lo) (- hi lo)))) 1.0))
-                          colors)))
-      (list :id (plist-get surface :id) :type "segments"
-            :segments (vconcat (nreverse segments)) :colors (vconcat (nreverse colors))))))
+                          colors)
+                    (when tips (push (aref tips (+ (* r1 nc) c1)) seg-tips))))
+      (append (list :id (plist-get surface :id) :type "segments"
+                    :segments (vconcat (nreverse segments)) :colors (vconcat (nreverse colors)))
+              (and tips (list :tooltips (vconcat (nreverse seg-tips))))))))
 
 ;;; Sector breadth over time
 
@@ -327,7 +345,12 @@ the surface grows date by date toward the front."
       (push last-row grid))
     (setq grid (nreverse grid))
     (let* ((newest (car (last grid)))
-           (z-new (and newest (funcall z-at (1- k)))))
+           (z-new (and newest (funcall z-at (1- k))))
+           (tip (lambda (sector date)
+                  (let ((v (gethash (cons sector date) cells)))
+                    (financial-chart-3d-tip (format "%s  %s" sector date)
+                                            (if v (format "%s %s" (substring (symbol-name yk) 1) (financial-chart-3d-num v 1))
+                                              "no reading: last date's carried"))))))
       (vector
        (financial-chart-3d--axes "axes" (- w) w height (- d) d)
        (if (and (>= nx 2) (>= k 2))
@@ -337,7 +360,10 @@ the surface grows date by date toward the front."
                   :base base :y_scale (financial-chart-3d--r3 scale) :heights (vconcat grid)
                   :low_color (financial-chart-3d--opt graphics "low_color" financial-chart-3d-down-color)
                   :high_color (financial-chart-3d--opt graphics "high_color" financial-chart-3d-up-color)
-                  :color_range (vector lo hi)))
+                  :color_range (vector lo hi)
+                  :tooltips (vconcat (cl-loop for date in shown
+                                              nconc (cl-loop for sector in sectors
+                                                             collect (funcall tip sector date))))))
          (list :id "surface" :type "segments" :segments []))
        (list :id "front" :type "segments" :color "#ffffff"
              :segments (if newest
@@ -345,6 +371,10 @@ the surface grows date by date toward the front."
                                              collect (financial-chart-3d-market--seg
                                                       (funcall x-at i) (funcall y-of (aref newest i)) z-new
                                                       (funcall x-at (1+ i)) (funcall y-of (aref newest (1+ i))) z-new)))
+                         [])
+             :tooltips (if newest
+                           (vconcat (cl-loop for sector in (cdr sectors)
+                                             collect (funcall tip sector (car (last shown)))))
                          []))
        (list :id "mid" :type "segments" :color "#8a94a6"
              :segments (vconcat (financial-chart-3d-market--rect (funcall y-of mid) (- w) (- d) w d)))))))
@@ -411,10 +441,13 @@ traced over it, \"ridges\" one line per price."
                    (lambda (step) (gethash step index (- nx k)))))
          (z-of (lambda (p) (if (and p-hi (> p-hi p-lo)) (- (* 2 d (/ (- p-hi p) (- p-hi p-lo))) d) 0.0)))
          (cells (make-hash-table :test #'equal))
+         (sides (make-hash-table :test #'equal))
          (mids (make-hash-table :test #'equal)))
     (dolist (r book)
       (puthash (cons (financial-chart-3d--value r xk) (funcall price-of r))
-               (float (financial-chart-3d--value r yk)) cells))
+               (float (financial-chart-3d--value r yk)) cells)
+      (puthash (cons (financial-chart-3d--value r xk) (funcall price-of r))
+               (financial-chart-3d--value r sk) sides))
     (dolist (r rows)
       (let ((m (financial-chart-3d--value r (financial-chart-3d--field graphics "mid" "mid")))
             (s (financial-chart-3d--value r xk)))
@@ -430,6 +463,12 @@ traced over it, \"ridges\" one line per price."
                                (i0 (max 0 (min (1- n) (floor u)))) (i1 (min (1- n) (1+ i0)))
                                (f (- u i0)))
                           (* scale (+ (* (- 1 f) (aref (aref heights i0) j)) (* f (aref (aref heights i1) j)))))))
+           (tip (lambda (step p)
+                  (let ((v (gethash (cons step p) cells)) (m (gethash step mids)))
+                    (financial-chart-3d-tip
+                     (format "%s %s  price %s" (substring (symbol-name xk) 1) (financial-chart-3d-num step) (financial-chart-3d-num p))
+                     (if v (format "%s %s" (or (gethash (cons step p) sides) "") (financial-chart-3d-num v 0)) "no resting size")
+                     (and m (format "mid %s" (financial-chart-3d-num m)))))))
            (style (financial-chart-3d--opt graphics "style" "walls"))
            (low (financial-chart-3d--opt graphics "low_color" "#1a2a6c"))
            (high (financial-chart-3d--opt graphics "high_color" "#ffca28"))
@@ -452,7 +491,7 @@ traced over it, \"ridges\" one line per price."
                      (sizes (sort (cl-loop for row across heights append (seq-filter #'cl-plusp row)) #'<))
                      (least (* (financial-chart-3d--opt graphics "wall" 3)
                                (if sizes (nth (/ (length sizes) 2) sizes) 0)))
-                     boxes colors)
+                     boxes colors tips)
                 (cl-loop for p in grid for i from 0
                          do (cl-loop for j from 0 below k for s in steps
                                      for v = (aref (aref heights i) j)
@@ -462,15 +501,18 @@ traced over it, \"ridges\" one line per price."
                                                         (financial-chart-3d--r3 (+ x hx)) (financial-chart-3d--r3 (* scale v))
                                                         (financial-chart-3d--r3 (+ z hz)))
                                                 boxes)
-                                          (push (financial-chart-3d-market--mix low high (/ v vmax)) colors))))
-                (list :id "surface" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors)))))
+                                          (push (financial-chart-3d-market--mix low high (/ v vmax)) colors)
+                                          (push (funcall tip s p) tips))))
+                (list :id "surface" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors))
+                      :tooltips (vconcat (nreverse tips)))))
              (t (financial-chart-3d-market--surface
                  graphics
                  (list :id "surface" :type "heightfield"
                        :x (vector (funcall x-at (funcall column (car steps))) (funcall x-at (funcall column (car (last steps)))))
                        :z (vector (- d) d)
                        :y_scale (financial-chart-3d--r3 scale) :heights heights
-                       :low_color low :high_color high :color_range (vector 0 vmax))
+                       :low_color low :high_color high :color_range (vector 0 vmax)
+                       :tooltips (vconcat (cl-loop for p in grid nconc (cl-loop for st in steps collect (funcall tip st p)))))
                  t)))
        (list :id "mid" :type "segments" :color (financial-chart-3d--opt graphics "mid_color" "#ffffff")
              :segments (vconcat (cl-loop for (a b) on trace while b
@@ -564,7 +606,7 @@ migrating session by session."
          (ramp (lambda (j) (financial-chart-3d-market--mix (car stops) (cadr stops)
                                                            (if (> ns 1) (/ j (float (1- ns))) 1.0))))
          (verts nil) (tris nil) (tri-colors nil) (n 0)
-         tops top-colors pocs vwaps)
+         tops top-colors top-tips pocs poc-tips vwaps)
     (cl-loop for s in sessions for j from 0
              for points = (sort (mapcar (lambda (r) (cons (float (financial-chart-3d--value r xk))
                                                           (float (financial-chart-3d--value r yk))))
@@ -591,11 +633,20 @@ migrating session by session."
                            do (push (financial-chart-3d-market--seg (funcall x-of (car a)) (funcall y-of (cdr a)) zf
                                                                     (funcall x-of (car b)) (funcall y-of (cdr b)) zf)
                                     tops)
-                           (push color top-colors))
+                           (push color top-colors)
+                           (push (financial-chart-3d-tip (format "%s  price %s to %s" s (financial-chart-3d-num (car a))
+                                                                 (financial-chart-3d-num (car b)))
+                                                         (format "%s %s to %s" (substring (symbol-name yk) 1)
+                                                                 (financial-chart-3d-num (cdr a) 0) (financial-chart-3d-num (cdr b) 0)))
+                                 top-tips))
                   (let ((poc (seq-reduce (lambda (best p) (if (> (cdr p) (cdr best)) p best)) points (car points))))
                     (push (financial-chart-3d-market--seg (funcall x-of (car poc)) (+ 0.08 (funcall y-of (cdr poc))) (- z half)
                                                           (funcall x-of (car poc)) (+ 0.08 (funcall y-of (cdr poc))) (+ z half))
-                          pocs))
+                          pocs)
+                    (push (financial-chart-3d-tip (format "%s  point of control" s)
+                                                  (format "price %s  %s %s" (financial-chart-3d-num (car poc))
+                                                          (substring (symbol-name yk) 1) (financial-chart-3d-num (cdr poc) 0)))
+                          poc-tips))
                   (when-let* ((v (seq-some (lambda (r) (and (equal (financial-chart-3d--value r zk) s)
                                                             (numberp (financial-chart-3d--value r vk))
                                                             (financial-chart-3d--value r vk)))
@@ -606,9 +657,10 @@ migrating session by session."
      (financial-chart-3d--axes "axes" (- w) w height (- d) d)
      (list :id "profiles" :type "mesh" :vertices (vconcat (nreverse verts))
            :triangles (vconcat (nreverse tris)) :colors (vconcat (nreverse tri-colors)))
-     (list :id "tops" :type "segments" :segments (vconcat (nreverse tops)) :colors (vconcat (nreverse top-colors)))
+     (list :id "tops" :type "segments" :segments (vconcat (nreverse tops)) :colors (vconcat (nreverse top-colors))
+           :tooltips (vconcat (nreverse top-tips)))
      (list :id "poc" :type "segments" :color (financial-chart-3d--opt graphics "poc_color" "#ffffff")
-           :segments (vconcat (nreverse pocs)))
+           :segments (vconcat (nreverse pocs)) :tooltips (vconcat (nreverse poc-tips)))
      (list :id "vwap" :type "segments" :color (financial-chart-3d--opt graphics "vwap_color" "#ffb74d")
            :segments (vconcat (append
                                (cl-loop for (a b) on vwaps while b

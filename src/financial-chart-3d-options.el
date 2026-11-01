@@ -66,6 +66,8 @@
 (declare-function financial-chart-3d--domain "financial-chart-3d" (rows))
 (declare-function financial-chart-3d--phase "financial-chart-3d" (graphics))
 (declare-function financial-chart-3d--axes "financial-chart-3d" (id x0 x1 y1 z0 z1 &optional color))
+(declare-function financial-chart-3d-tip "financial-chart-3d" (&rest lines))
+(declare-function financial-chart-3d-num "financial-chart-3d" (v &optional digits))
 
 (defconst financial-chart-3d-options-templates
   '("greeks-surface" "position-pnl-surface" "pop-surface" "density-surface")
@@ -143,6 +145,12 @@ dropped to the floor at the front."
                       (vconcat (cl-loop for i from 0 below (1- nx)
                                         collect (vector (funcall x-at i) (funcall y-at (aref hs i)) zz
                                                         (funcall x-at (1+ i)) (funcall y-at (aref hs (1+ i))) zz))))))
+           (tip (lambda (xv zv)
+                  (let ((v (gethash (cons xv zv) cells)))
+                    (financial-chart-3d-tip
+                     (format "%s %s  %s %s" (substring (symbol-name xk) 1) (financial-chart-3d-num xv)
+                             (substring (symbol-name zk) 1) (financial-chart-3d-num zv))
+                     (format "%s %s" (substring (symbol-name yk) 1) (if v (financial-chart-3d-num v 4) "no value"))))))
            (ghost-z (and ghost (car (last zs))))
            (level (and level (< lo level hi) (funcall y-at level)))
            (slice (and (numberp spot) (> nx 1) (<= (car xs) spot (car (last xs)))
@@ -166,7 +174,11 @@ dropped to the floor at the front."
                                                               b)
                                              :low_color (financial-chart-3d--opt graphics "low_color" low)
                                              :high_color (financial-chart-3d--opt graphics "high_color" high)
-                                             :color_range (or colors (vector lo hi)))))))
+                                             :color_range (or colors (vector lo hi))
+                                             ;; The strip reads as its nearer row: both of its
+                                             ;; sample rows tip that row's cells.
+                                             :tooltips (let ((tips (mapcar (lambda (xv) (funcall tip xv (nth (1+ j) shown))) xs)))
+                                                         (vconcat tips tips)))))))
          (list (list :id "surface-0" :type "segments" :segments [])))
        (list
        (list :id "ghost" :type "segments" :color "#8a94a6"

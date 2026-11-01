@@ -174,7 +174,13 @@ The shared measure enum is `value`, `spread_bp`, `hazard_bps`, `pd_pct`,
 `auto` resolves to a concrete field in the adapter. The chart subtitle
 shows curve shape, front and long slope and skipped tenors. Thin tenors
 and buckets are dimmed; forward hazard buckets are stepped slabs across
-their actual year ranges. Tooltips retain every row and top-level field.
+their actual year ranges. Hovering shows at most four lines; rows keep
+every top-level field. Each segment of a curve gives its date, the two
+tenors it joins, their par spreads and cumulative PDs, and its source:
+the output's `source` for ISDA outputs, or the basis, last print, recent
+trades and `thin` for a term structure. Tenor nodes give date, tenor,
+maturity, spread, hazard, PD and the same source line. Buckets give
+forward hazard, conditional PD, `thin` and `floored`.
 Legacy rows retain their par spread and hazard fields and derive survival
 and cumulative PD from the legacy cumulative default probability.
 
@@ -195,7 +201,10 @@ The `measure` slot selects `model_yield`, `model_price`, `cds_spread_bp`,
 `expected_loss_per_100` or `dv01_usd`. 3D bars sit at maturity and are
 coloured by whether the CDS spread was extrapolated; a Treasury yield
 ribbon runs behind them. The title states “model, not traded”; the
-subtitle summarizes the ladder. Each bond bar tooltip lists its full row.
+subtitle summarizes the ladder. A bond bar's tooltip has four lines:
+name, maturity and coupon; model price, model yield and CDS spread;
+modified duration, USD DV01 and expected loss; and which inputs were
+extrapolated. It never shows the run's summary.
 The committed NVDA examples are the real `term.json` and `ladder.json`
 invest-metrics outputs. Their view, Treasury and EDGAR inputs and the
 `credit_curve` Rust tests and golden are retained under

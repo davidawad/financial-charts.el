@@ -313,7 +313,11 @@
          (bindings (financial-chart-3d-rates--from-cds-term nil output nil)))
     (should (= (length (plist-get buckets :boxes)) 1))
     (should (string-match-p "0-2y" (aref (plist-get buckets :tooltips) 0)))
-    (should (string-match-p "par_spread_bp" (aref (plist-get nodes :tooltips) 0)))
+    (should (equal (aref (plist-get nodes :tooltips) 0)
+                   (concat "2026-10-30  2Y  (2028-10-20)\nspread 62.0 bp  hazard 103.0 bp\nPD 2.04%\n"
+                           "source cds_implied_model, last print 2026-10-29, 8 trades/30d, thin")))
+    (should (equal (aref (plist-get buckets :tooltips) 0)
+                   "2026-10-30  forward 0-2y\nforward hazard 103.0 bp\nconditional PD 2.04%\nthin"))
     (should (string-match-p "Shape upward" (plist-get bindings :description)))
     (should (string-match-p "7Y" (plist-get bindings :description)))))
 

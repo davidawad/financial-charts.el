@@ -59,6 +59,8 @@
 
 (declare-function graphics-eas-define-mark "graphics-eas-marks" (mark function))
 (declare-function financial-chart-3d--replay "financial-chart-3d" (graphics rows field mark))
+(declare-function financial-chart-3d-tip "financial-chart-3d" (&rest lines))
+(declare-function financial-chart-3d-num "financial-chart-3d" (v &optional digits))
 (declare-function graphics-eas-show "graphics-eas" (view &optional cols rows window))
 (declare-function financial-chart-3d-available-p "financial-chart-3d" ())
 (declare-function financial-chart-3d-open "financial-chart-3d" (name &rest args))
@@ -275,15 +277,20 @@ cell has a flat one), so a frame-by-frame replay tweens bar by bar."
          (half (/ (financial-chart-3d-risk--opt graphics "band" 0.7) 2.0))
          (x0 (/ (1- nx) 2.0)) (z0 (/ (1- nz) 2.0))
          (left (- -0.5 x0)) (right (+ 0.5 x0)) (back (- -0.5 z0)) (front (+ 0.5 z0))
-         bars colors tiles grid)
+         (yname (substring (symbol-name yk) 1))
+         bars colors bar-tips tiles tile-tips grid)
     (cl-loop for z in zs for j from 0 do
              (cl-loop for x in cols for i from 0 do
                       (let ((cx (- i x0)) (cz (- j z0)))
                         (if (and (not diagonal) (equal x z))
-                            (push (vector (financial-chart-3d-risk--r3 (- cx half)) 0 (financial-chart-3d-risk--r3 (- cz half))
-                                          (financial-chart-3d-risk--r3 (+ cx half)) (financial-chart-3d-risk--r3 (* 0.02 height))
-                                          (financial-chart-3d-risk--r3 (+ cz half)))
-                                  tiles)
+                            (progn
+                              (push (vector (financial-chart-3d-risk--r3 (- cx half)) 0 (financial-chart-3d-risk--r3 (- cz half))
+                                            (financial-chart-3d-risk--r3 (+ cx half)) (financial-chart-3d-risk--r3 (* 0.02 height))
+                                            (financial-chart-3d-risk--r3 (+ cz half)))
+                                    tiles)
+                              (push (financial-chart-3d-tip (format "%s  %s" (financial-chart-3d-num z) (financial-chart-3d-num x))
+                                                            "the diagonal")
+                                    tile-tips))
                           (let* ((v (gethash (cons x z) shown 0.0)) (y (* scale v))
                                  (w (if (equal x net) (* 0.6 half) half)))
                             (push (vector (financial-chart-3d-risk--r3 (- cx w)) (financial-chart-3d-risk--r3 (min 0 y))
@@ -291,7 +298,13 @@ cell has a flat one), so a frame-by-frame replay tweens bar by bar."
                                           (financial-chart-3d-risk--r3 (+ cx w)) (financial-chart-3d-risk--r3 (max 0 y))
                                           (financial-chart-3d-risk--r3 (+ cz w)))
                                   bars)
-                            (push (financial-chart-3d-risk--signed-color graphics v top) colors))))))
+                            (push (financial-chart-3d-risk--signed-color graphics v top) colors)
+                            (push (financial-chart-3d-tip
+                                   (format "%s  %s" (financial-chart-3d-num z) (financial-chart-3d-num x))
+                                   (if (gethash (cons x z) shown)
+                                       (format "%s%s %s" yname (if (equal x net) " (net)" "") (financial-chart-3d-num v 3))
+                                     "no value"))
+                                  bar-tips))))))
     (dotimes (i (1+ nx))
       (let ((x (financial-chart-3d-risk--r3 (- i x0 0.5))))
         (push (vector x 0 back x 0 front) grid)))
@@ -307,9 +320,9 @@ cell has a flat one), so a frame-by-frame replay tweens bar by bar."
             (financial-chart-3d-risk--axes left right (- (if (seq-some (lambda (v) (< v 0)) (hash-table-values all)) height 0))
                                            height back front)
             (list :id "diagonal" :type "boxes" :boxes (vconcat (nreverse tiles))
-                  :color financial-chart-3d-risk-muted-color)
+                  :color financial-chart-3d-risk-muted-color :tooltips (vconcat (nreverse tile-tips)))
             (list :id "bars" :type "boxes" :boxes (vconcat (nreverse bars))
-                  :colors (vconcat (nreverse colors))))))
+                  :colors (vconcat (nreverse colors)) :tooltips (vconcat (nreverse bar-tips))))))
 
 ;;; fc-risk-ribbons3d: signed slabs per series
 
@@ -374,7 +387,9 @@ toward the front, a ridgeline whose slabs never hide each other."
          (x-index (financial-chart-3d-risk--index xs)) (nx (length xs))
          (x-at (lambda (x) (financial-chart-3d-risk--r3 (financial-chart-3d-risk--spread (gethash x x-index 0) nx w))))
          (y-at (lambda (v) (financial-chart-3d-risk--r3 (* scale v))))
-         (verts nil) (tris nil) (tri-colors nil) (n 0) (lines nil) (line-colors nil) (marks nil) (zeros nil))
+         (yname (if underwater "drawdown %" (substring (symbol-name yk) 1)))
+         (verts nil) (tris nil) (tri-colors nil) (n 0) (lines nil) (line-colors nil) (line-tips nil)
+         (marks nil) (zeros nil))
     (cl-loop for key in keys for k from 0 do
              (let* ((z (- (* gap (+ 0.5 k)) d))
                     (base (financial-chart-3d-risk--r3 (* stack (- nz 1 k))))
@@ -388,6 +403,12 @@ toward the front, a ridgeline whose slabs never hide each other."
                                                         (y (financial-chart-3d-risk--number r yk)))
                                                     (and x y (cons (funcall x-at x)
                                                                    (financial-chart-3d-risk--r3 (+ base (funcall y-at y))))))))
+                                              rows)))
+                    (values (delq nil (mapcar (lambda (r)
+                                                (when (equal (financial-chart-3d-risk--value r zk) key)
+                                                  (let ((x (financial-chart-3d-risk--value r xk))
+                                                        (y (financial-chart-3d-risk--number r yk)))
+                                                    (and x y (cons x y)))))
                                               rows)))
                     (first n)
                     (quad (lambda (a b c e)
@@ -405,9 +426,13 @@ toward the front, a ridgeline whose slabs never hide each other."
                (when points
                  (funcall quad first (1+ first) (+ first 3) (+ first 2))
                  (funcall quad (- n 4) (- n 2) (- n 1) (- n 3)))
-               (cl-loop for (a b) on points while b do
+               (cl-loop for (a b) on points while b for (va vb) on values do
                         (push (vector (car a) (cdr a) zf (car b) (cdr b) zf) lines)
-                        (push (financial-chart-3d-risk--blend color "#ffffff" 0.55) line-colors))
+                        (push (financial-chart-3d-risk--blend color "#ffffff" 0.55) line-colors)
+                        (push (financial-chart-3d-tip
+                               (format "%s  %s to %s" key (financial-chart-3d-num (car va)) (financial-chart-3d-num (car vb)))
+                               (format "%s %s to %s" yname (financial-chart-3d-num (cdr va) 3) (financial-chart-3d-num (cdr vb) 3)))
+                              line-tips))
                (when (> stack 0)
                  (push (vector (- w) base zb w base zb) zeros)
                  (push (vector (- w) base zf w base zf) zeros))
@@ -425,7 +450,7 @@ toward the front, a ridgeline whose slabs never hide each other."
               (list :id "slabs" :type "mesh" :vertices (vconcat (nreverse verts))
                     :triangles (vconcat (nreverse tris)) :colors (vconcat (nreverse tri-colors)))
               (list :id "edges" :type "segments" :segments (vconcat (nreverse lines))
-                    :colors (vconcat (nreverse line-colors)))
+                    :colors (vconcat (nreverse line-colors)) :tooltips (vconcat (nreverse line-tips)))
               (list :id "worst" :type "segments" :segments (vconcat (nreverse marks))
                     :color financial-chart-3d-risk-mark-color)))))
 
@@ -508,7 +533,7 @@ height scale spans every lane, a replay's too."
          (low (plist-get hist :low)) (step (plist-get hist :step))
          (x-at (lambda (v) (financial-chart-3d-risk--r3 (- (* 2 w (/ (- v low) (* step bins))) w))))
          (bar-half (* 0.42 (/ (* 2 w) bins)))
-         boxes colors gates)
+         boxes colors tips gates)
     (dolist (h (plist-get hist :histograms))
       (let* ((k (cl-position (plist-get h :lane) lanes :test #'equal))
              ;; The first lane in front, the longest horizon at the back.
@@ -529,7 +554,14 @@ height scale spans every lane, a replay's too."
                    (push (if (< center 0)
                              (financial-chart-3d-risk--opt graphics "down_color" financial-chart-3d-risk-down-color)
                            (financial-chart-3d-risk--opt graphics "up_color" financial-chart-3d-risk-up-color))
-                         colors)))
+                         colors)
+                   (push (financial-chart-3d-tip
+                          (format "%s  %s %s to %s" (financial-chart-3d-num (plist-get h :lane)) (substring (symbol-name xk) 1)
+                                  (financial-chart-3d-num (+ low (* step i)) 4) (financial-chart-3d-num (+ low (* step (1+ i))) 4))
+                          (format "%.1f%% of %d" (* 100 share) (plist-get h :count))
+                          (format "VaR %s  CVaR %s (%s%%)" (financial-chart-3d-num (plist-get h :var) 4)
+                                  (financial-chart-3d-num (plist-get h :cvar) 4) (financial-chart-3d-num (* 100 level) 0)))
+                         tips)))
         (let ((x (funcall x-at (- (plist-get h :var))))
               (y (financial-chart-3d-risk--r3 (+ (* 0.15 height) lane-top))))
           (push (vector x 0 zb x y zb) gates)
@@ -541,7 +573,8 @@ height scale spans every lane, a replay's too."
                     :segments (if (<= low 0 (plist-get hist :high))
                                   (vector (vector x0 0 (- d) x0 0 d))
                                 []))
-              (list :id "bars" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors)))
+              (list :id "bars" :type "boxes" :boxes (vconcat (nreverse boxes)) :colors (vconcat (nreverse colors))
+                    :tooltips (vconcat (nreverse tips)))
               (list :id "var" :type "segments" :segments (vconcat (nreverse gates))
                     :color financial-chart-3d-risk-mark-color)))))
 
@@ -586,6 +619,8 @@ replay's too."
                                                           (* 0.95 height (/ (- (financial-chart-3d-risk--number r yk) y-lo)
                                                                             (if (> y-hi y-lo) (- y-hi y-lo) 1.0)))))
                           z)))
+         ;; Each curve point's row, by the point's own vector.
+         (row-of (make-hash-table :test #'eq))
          (curves (delq nil
                        (cl-loop for date in dates for j from 0
                                 collect (let ((pts (seq-filter (lambda (r) (and (equal (financial-chart-3d-risk--value r zk) date)
@@ -595,12 +630,20 @@ replay's too."
                                           (when pts
                                             ;; The first date in front.
                                             (let ((z (financial-chart-3d-risk--r3 (- (financial-chart-3d-risk--spread j nz d)))))
-                                              (mapcar (lambda (r) (cons (funcall point r z)
-                                                                        (or (financial-chart-3d-risk--number r ck) c-lo)))
+                                              (mapcar (lambda (r) (let ((pt (funcall point r z)))
+                                                                    (puthash pt r row-of)
+                                                                    (cons pt (or (financial-chart-3d-risk--number r ck) c-lo))))
                                                       (sort pts (lambda (a b) (< (financial-chart-3d-risk--number a yk)
                                                                                  (financial-chart-3d-risk--number b yk)))))))))))
          (fill (float (financial-chart-3d-risk--opt graphics "fill" 0.55)))
-         (verts nil) (tris nil) (tri-colors nil) (n 0) (lines nil) (line-colors nil) (best nil))
+         (tip (lambda (r)
+                (financial-chart-3d-tip
+                 (financial-chart-3d-num (financial-chart-3d-risk--value r zk))
+                 (format "%s %s  %s %s" (substring (symbol-name xk) 1) (financial-chart-3d-num (financial-chart-3d-risk--number r xk) 4)
+                         (substring (symbol-name yk) 1) (financial-chart-3d-num (financial-chart-3d-risk--number r yk) 4))
+                 (let ((c (financial-chart-3d-risk--number r ck)))
+                   (and c (format "%s %s" (substring (symbol-name ck) 1) (financial-chart-3d-num c 3)))))))
+         (verts nil) (tris nil) (tri-colors nil) (n 0) (lines nil) (line-colors nil) (line-tips nil) (best nil))
     (cl-loop for (a b) on curves while b
              when (= (length a) (length b)) do
              (let ((base n))
@@ -620,18 +663,22 @@ replay's too."
     (cl-loop for curve in curves for newest = (null (cdr (memq curve curves))) do
              (cl-loop for (p q) on curve while q do
                       (push (vconcat (car p) (car q)) lines)
-                      (push (if newest "#ffffff" (funcall color-at (/ (+ (cdr p) (cdr q)) 2))) line-colors))
+                      (push (if newest "#ffffff" (funcall color-at (/ (+ (cdr p) (cdr q)) 2))) line-colors)
+                      (push (funcall tip (gethash (car q) row-of)) line-tips))
              (push (car (seq-reduce (lambda (m p) (if (> (cdr p) (cdr m)) p m)) curve (car curve))) best))
     (setq best (nreverse best))
     (vector (financial-chart-3d-risk--axes (- w) w 0 height (- d) d)
             (list :id "surface" :type "mesh" :vertices (vconcat (nreverse verts))
                   :triangles (vconcat (nreverse tris)) :colors (vconcat (nreverse tri-colors)))
             (list :id "curves" :type "segments" :segments (vconcat (nreverse lines))
-                  :colors (vconcat (nreverse line-colors)))
+                  :colors (vconcat (nreverse line-colors)) :tooltips (vconcat (nreverse line-tips)))
             (list :id "best-path" :type "segments" :color financial-chart-3d-risk-mark-color
                   :segments (vconcat (cl-loop for (p q) on best while q collect (vconcat p q))))
             (list :id "best" :type "points" :points (vconcat best) :size 3
-                  :color financial-chart-3d-risk-mark-color))))
+                  :color financial-chart-3d-risk-mark-color
+                  :tooltips (vconcat (mapcar (lambda (pt) (concat (funcall tip (gethash pt row-of))
+                                                                  (format "  best %s" (substring (symbol-name ck) 1))))
+                                             best))))))
 
 ;;; Registration
 

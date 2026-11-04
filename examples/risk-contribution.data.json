@@ -1,0 +1,9 @@
+{
+  "title": "Portfolio volatility contributions by factor",
+  "portfolio_vol": 0.12,
+  "contributions": [
+    {"name": "AAPL", "class": "equity", "factor": "market", "contribution": 0.08},
+    {"name": "TLT", "class": "rates", "factor": "duration", "contribution": 0.06},
+    {"name": "GLD", "class": "commodity", "factor": "market", "contribution": -0.02}
+  ]
+}

@@ -75,6 +75,7 @@
 (require 'financial-chart-multi)
 (require 'financial-chart-returns)
 (require 'financial-chart-depth)
+(require 'financial-chart-risk-contribution)
 (require 'financial-chart-matrix)
 (require 'financial-chart-eas)
 (require 'financial-chart-eas-parity)

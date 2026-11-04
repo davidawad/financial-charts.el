@@ -73,6 +73,7 @@ checkout (`financial-chart-root`).
 | `payoff` | option P/L vs price with breakevens | `(PRICE PNL)` sorted by price |
 | `payoff-curves` | T+n payoff curves on one price grid | `(("T+0" . PAYOFF) ("T+30" . PAYOFF))` |
 | `bars` | diverging bars, e.g. P/L per position | `(LABEL . VALUE)` |
+| `risk-contribution` | signed contributions to portfolio volatility; `:by` groups by `name` (default), `class` or `factor` | `(:portfolio-vol NUMBER :contributions ((:name LABEL :class LABEL :factor LABEL :contribution SIGNED-NUMBER) ...))` |
 | `drawdown` | running % decline from the high-water mark, max drawdown | series (equity or price) |
 | `histogram` | distribution of period returns, mean and stdev (`:bins`) | series |
 | `depth` | cumulative bid/ask order-book depth | `(:bids ((P S) ...) :asks ((P S) ...))` |

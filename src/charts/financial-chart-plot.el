@@ -291,6 +291,8 @@ default 600x240); text takes :width columns and :height rows."
          (bindings (list slot (if adapter (eas-data-rows (eas-data-from adapter data)) data))))
     (when (stringp (plist-get props :title))
       (setq bindings (plist-put bindings :title (plist-get props :title))))
+    (when (stringp (plist-get props :description))
+      (setq bindings (plist-put bindings :description (plist-get props :description))))
     (dolist (pair (plist-get entry :props))
       (when-let* ((value (plist-get props (car pair))))
         (setq bindings (plist-put bindings (cdr pair) (financial-chart-eas--json-value value)))))

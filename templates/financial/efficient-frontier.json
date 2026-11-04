@@ -1,0 +1,93 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "efficient-frontier",
+    "version": "1.0.0",
+    "doc": "Portfolio risk against expected return: an efficient frontier, construction methods and current portfolio.",
+    "slots": {
+      "data": {
+        "shape": "plist",
+        "required": true,
+        "doc": "rows {kind, risk, return, label}: kind frontier|method|current; risk and return in percent"
+      },
+      "title": {
+        "type": "string",
+        "default": "Efficient frontier: risk and expected return"
+      },
+      "description": {
+        "type": "string",
+        "default": "Risk and expected return for the efficient frontier, candidate construction methods, and the current portfolio. Method and current portfolio points are labeled.",
+        "doc": "the takeaway; alt text and table-view fallback"
+      }
+    }
+  },
+  "title": {"x-eas:slot": "title"},
+  "description": {"x-eas:slot": "description"},
+  "width": "container",
+  "height": 240,
+  "data": {"name": "data"},
+  "layer": [
+    {
+      "name": "frontier",
+      "transform": [{"filter": "datum.kind === 'frontier'"}],
+      "mark": {"type": "line", "color": "#5b8ff9", "strokeWidth": 2.5},
+      "encoding": {
+        "x": {"field": "risk", "type": "quantitative", "title": "risk (volatility %)"},
+        "y": {"field": "return", "type": "quantitative", "title": "expected return (%)"},
+        "order": {"field": "risk", "type": "quantitative"},
+        "tooltip": [
+          {"field": "risk", "type": "quantitative", "format": ".2f", "title": "Risk %"},
+          {"field": "return", "type": "quantitative", "format": ".2f", "title": "Expected return %"}
+        ]
+      }
+    },
+    {
+      "name": "methods",
+      "transform": [{"filter": "datum.kind === 'method'"}],
+      "mark": {"type": "point", "filled": true, "size": 100, "color": "#e3a008"},
+      "encoding": {
+        "x": {"field": "risk", "type": "quantitative"},
+        "y": {"field": "return", "type": "quantitative"},
+        "tooltip": [
+          {"field": "label", "type": "nominal", "title": "Construction method"},
+          {"field": "risk", "type": "quantitative", "format": ".2f", "title": "Risk %"},
+          {"field": "return", "type": "quantitative", "format": ".2f", "title": "Expected return %"}
+        ]
+      }
+    },
+    {
+      "name": "method labels",
+      "transform": [{"filter": "datum.kind === 'method'"}],
+      "mark": {"type": "text", "align": "left", "dx": 7, "dy": -7, "fontSize": 10, "color": "#8a5c00"},
+      "encoding": {
+        "x": {"field": "risk", "type": "quantitative"},
+        "y": {"field": "return", "type": "quantitative"},
+        "text": {"field": "label", "type": "nominal"}
+      }
+    },
+    {
+      "name": "current portfolio",
+      "transform": [{"filter": "datum.kind === 'current'"}],
+      "mark": {"type": "point", "filled": true, "shape": "diamond", "size": 150, "color": "#c43c39"},
+      "encoding": {
+        "x": {"field": "risk", "type": "quantitative"},
+        "y": {"field": "return", "type": "quantitative"},
+        "tooltip": [
+          {"field": "label", "type": "nominal"},
+          {"field": "risk", "type": "quantitative", "format": ".2f", "title": "Risk %"},
+          {"field": "return", "type": "quantitative", "format": ".2f", "title": "Expected return %"}
+        ]
+      }
+    },
+    {
+      "name": "current label",
+      "transform": [{"filter": "datum.kind === 'current'"}],
+      "mark": {"type": "text", "align": "left", "dx": 8, "dy": 9, "fontSize": 10, "fontWeight": "bold", "color": "#9e2623"},
+      "encoding": {
+        "x": {"field": "risk", "type": "quantitative"},
+        "y": {"field": "return", "type": "quantitative"},
+        "text": {"field": "label", "type": "nominal"}
+      }
+    }
+  ]
+}

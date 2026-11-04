@@ -31,6 +31,7 @@
 (require 'financial-chart-risk-contribution)
 (require 'financial-chart-scenario-heatmap)
 (require 'financial-chart-greeks)
+(require 'financial-chart-frontier)
 
 (defvar financial-chart-eas-parity-checks
   '((ohlc . financial-chart-eas--ohlc-parity)
@@ -48,9 +49,31 @@
     (risk-contribution . financial-chart-eas--risk-contribution-parity)
     (volume-profile . financial-chart-eas--volume-profile-parity)
     (scenario-heatmap . financial-chart-eas--scenario-heatmap-parity)
-    (greeks-by-strike . financial-chart-eas--greeks-by-strike-parity))
+    (greeks-by-strike . financial-chart-eas--greeks-by-strike-parity)
+    (frontier . financial-chart-eas--frontier-parity))
   "KIND -> (FN DATA PROPS SCENE) returning checks (NAME EXPECTED ACTUAL)
 of the numbers KIND's template plots against financial-chart's own.")
+
+(defun financial-chart-eas--frontier-parity (data _props scene)
+  "Check that frontier, method and current rows preserve supplied points."
+  (let ((frontier (financial-chart-eas--rows scene "frontier"))
+        (methods (financial-chart-eas--rows scene "methods"))
+        (current (financial-chart-eas--rows scene "current portfolio")))
+    (list (list "frontier risk" (mapcar (lambda (r) (plist-get r :risk))
+                                         (seq-filter (lambda (r) (eq (plist-get r :kind) :frontier)) data))
+                (mapcar (lambda (r) (plist-get r :risk)) frontier))
+          (list "frontier return" (mapcar (lambda (r) (plist-get r :return))
+                                           (seq-filter (lambda (r) (eq (plist-get r :kind) :frontier)) data))
+                (mapcar (lambda (r) (plist-get r :return)) frontier))
+          (list "method labels" (mapcar (lambda (r) (plist-get r :label))
+                                        (seq-filter (lambda (r) (eq (plist-get r :kind) :method)) data))
+                (mapcar (lambda (r) (plist-get r :label)) methods))
+          (list "current portfolio" (mapcar (lambda (r) (list (plist-get r :label)
+                                                               (plist-get r :risk)
+                                                               (plist-get r :return)))
+                                             (seq-filter (lambda (r) (eq (plist-get r :kind) :current)) data))
+                (mapcar (lambda (r) (list (plist-get r :label) (plist-get r :risk)
+                                          (plist-get r :return))) current)))))
 
 (defun financial-chart-eas--rows (scene mark)
   "The rows SCENE's MARK (an id) plots, as a list."

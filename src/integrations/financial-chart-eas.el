@@ -13,7 +13,7 @@
 ;; registers, through eas's public registries only:
 ;;
 ;;   adapters    series payoff labeled matrix order-book payoff-curves
-;;               multi-series, each validated by financial-chart's own
+;;               multi-series and frontier, each validated by financial-chart's own
 ;;               shape validator and lowered to tidy rows
 ;;   transforms  "indicator", which evaluates any registered indicator
 ;;               through `financial-chart-indicator-evaluate' (no copy);
@@ -51,6 +51,7 @@
 (require 'financial-chart-depth)
 (require 'financial-chart-matrix)
 (require 'financial-chart-greeks)
+(require 'financial-chart-frontier)
 (require 'financial-chart-eas-readout)
 
 (defun financial-chart-eas--validate (shape data)
@@ -135,6 +136,14 @@
     "financial-chart (LABEL . SERIES) entries as rows {series, x, y}."
   (cl-loop for (label . series) in data
            append (financial-chart-eas--series-rows series :series (format "%s" label))))
+
+(financial-chart-eas--adapter frontier
+    "Efficient-frontier point plists as rows {kind, risk, return, label}."
+  (mapcar (lambda (row)
+            (list :kind (substring (symbol-name (plist-get row :kind)) 1)
+                  :risk (plist-get row :risk) :return (plist-get row :return)
+                  :label (or (plist-get row :label) "")))
+          data))
 
 ;;; indicator transform
 

@@ -76,6 +76,7 @@ checkout (`financial-chart-root`).
 | `risk-contribution` | signed contributions to portfolio volatility; `:by` groups by `name` (default), `class` or `factor` | `(:portfolio-vol NUMBER :contributions ((:name LABEL :class LABEL :factor LABEL :contribution SIGNED-NUMBER) ...))` |
 | `drawdown` | running % decline from the high-water mark, max drawdown | series (equity or price) |
 | `histogram` | distribution of period returns, mean and stdev (`:bins`) | series |
+| `frontier` | efficient risk-return frontier with labeled method points and current portfolio | rows `(:kind :frontier|:method|:current :risk NUMBER :return NUMBER [:label STRING])` |
 | `depth` | cumulative bid/ask order-book depth | `(:bids ((P S) ...) :asks ((P S) ...))` |
 | `heatmap` | labeled matrix, e.g. correlations, diverging colors | `(:labels (...) :rows ((...) ...))` |
 | `volume-profile` | volume by price level with point of control | ohlc |
@@ -83,6 +84,13 @@ checkout (`financial-chart-root`).
 
 `(financial-chart-list-kinds)` lists them with docs;
 `(financial-chart-describe-kind 'KIND)` shows a kind's data shape and example.
+
+The `frontier` kind takes points in percent units. Include at least two
+`:frontier` rows in ascending risk order, one or more labeled `:method`
+rows, and exactly one labeled `:current` portfolio row. Its template
+draws the frontier as a line, labels each method and the current portfolio,
+and supplies a descriptive title and alt description; override those with
+`:title` and `:description` when rendering if needed.
 
 Every kind is drawn by an eas template (`financial-chart-describe-kind`
 names it), so text and SVG share one layout, hover tooltips and the

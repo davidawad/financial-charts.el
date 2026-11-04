@@ -28,11 +28,8 @@
 (require 'financial-chart-matrix)
 (require 'financial-chart-depth)
 (require 'financial-chart-payoff-curves)
-<<<<<<< HEAD
 (require 'financial-chart-risk-contribution)
-=======
 (require 'financial-chart-scenario-heatmap)
->>>>>>> ec53364 (feat: add scenario heatmap chart kind (fc-maj.3))
 
 (defvar financial-chart-eas-parity-checks
   '((ohlc . financial-chart-eas--ohlc-parity)
@@ -47,13 +44,9 @@
     (histogram . financial-chart-eas--histogram-parity)
     (heatmap . financial-chart-eas--heatmap-parity)
     (depth . financial-chart-eas--depth-parity)
-<<<<<<< HEAD
     (risk-contribution . financial-chart-eas--risk-contribution-parity)
-    (volume-profile . financial-chart-eas--volume-profile-parity))
-=======
     (volume-profile . financial-chart-eas--volume-profile-parity)
     (scenario-heatmap . financial-chart-eas--scenario-heatmap-parity))
->>>>>>> ec53364 (feat: add scenario heatmap chart kind (fc-maj.3))
   "KIND -> (FN DATA PROPS SCENE) returning checks (NAME EXPECTED ACTUAL)
 of the numbers KIND's template plots against financial-chart's own.")
 

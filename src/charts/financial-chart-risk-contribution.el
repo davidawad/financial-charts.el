@@ -61,7 +61,7 @@
   (mapcar (lambda (row) (plist-get row :contribution))
           (plist-get data :contributions)))
 
-(defun financial-chart-risk-contribution--check (data props)
+(defun financial-chart-risk-contribution--check (_data props)
   "Check DATA's grouping property in PROPS."
   (let ((by (or (plist-get props :by) 'name)))
     (unless (memq by '(name class factor))

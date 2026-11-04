@@ -28,6 +28,7 @@
 (require 'financial-chart-matrix)
 (require 'financial-chart-depth)
 (require 'financial-chart-payoff-curves)
+(require 'financial-chart-risk-contribution)
 
 (defvar financial-chart-eas-parity-checks
   '((ohlc . financial-chart-eas--ohlc-parity)
@@ -42,6 +43,7 @@
     (histogram . financial-chart-eas--histogram-parity)
     (heatmap . financial-chart-eas--heatmap-parity)
     (depth . financial-chart-eas--depth-parity)
+    (risk-contribution . financial-chart-eas--risk-contribution-parity)
     (volume-profile . financial-chart-eas--volume-profile-parity))
   "KIND -> (FN DATA PROPS SCENE) returning checks (NAME EXPECTED ACTUAL)
 of the numbers KIND's template plots against financial-chart's own.")
@@ -128,6 +130,17 @@ of the numbers KIND's template plots against financial-chart's own.")
                          (mapcar (lambda (r) (plist-get r :cumulative))
                                  (sort (financial-chart-eas--rows scene mark)
                                        (lambda (a b) (< (plist-get a :distance) (plist-get b :distance))))))))
+
+(defun financial-chart-eas--risk-contribution-parity (data props scene)
+  "Grouped signed contributions against the diverging-bars template."
+  (let* ((bindings (financial-chart-risk-contribution--bindings data props))
+         (expected (mapcar (lambda (row)
+                             (list (plist-get row :label) (plist-get row :value)))
+                           (append (plist-get bindings :data) nil)))
+         (actual (mapcar (lambda (row)
+                           (list (plist-get row :label) (plist-get row :value)))
+                         (financial-chart-eas--rows scene "bars"))))
+    (list (list "grouped contributions" expected actual))))
 
 (defun financial-chart-eas--volume-profile-parity (data props scene)
   "Volume per level and the point of control against financial-chart's."

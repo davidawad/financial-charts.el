@@ -620,6 +620,16 @@ produces them can be charted:
   built-in kind beyond the core ones lives in its own module this way,
   so adding one never edits a core file.
 
+### Scenario heatmap
+
+`scenario-heatmap` draws portfolio P/L over spot-shock and implied-volatility-shock
+percentages. Supply one row per grid cell with finite `:spot-shock`, `:iv-shock`,
+`:pnl`, `:delta`, `:gamma`, `:vega` and `:theta` values; duplicate shock pairs
+are rejected. The zero-centred diverging color scale represents P/L, and each
+cell's tooltip shows P/L and all four Greeks. See
+[`examples/scenario-heatmap.data.json`](examples/scenario-heatmap.data.json) or
+`(financial-chart-describe-kind 'scenario-heatmap)` for the input contract.
+
 ## 3D charts (optional: graphics.el)
 
 Every template has a 3D variant in `templates3d/`, drawn by

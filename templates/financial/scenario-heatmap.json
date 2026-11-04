@@ -1,0 +1,49 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "scenario-heatmap",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {"component": "text", "props": {"text": {"expr": "at"}, "priority": 10, "style": {"dim": true}}},
+        {"component": "fields", "props": {"source": "auto"}}
+      ]
+    },
+    "doc": "Scenario P/L heatmap: spot shock across, implied-volatility shock down, with portfolio Greeks in each cell tooltip.",
+    "slots": {
+      "data": {"shape": "plist", "required": true, "doc": "cells {spot-shock, iv-shock, pnl, delta, gamma, vega, theta}; shocks are percent changes"},
+      "title": {"type": "string", "default": ""},
+      "description": {"type": "string", "default": "Portfolio P/L under spot and implied-volatility shocks, with cell Greeks.", "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"}
+    },
+    "example": "../../examples/scenario-heatmap.data.json"
+  },
+  "title": {"x-eas:slot": "title"},
+  "description": {"x-eas:slot": "description"},
+  "width": "container",
+  "height": 280,
+  "data": {"name": "data"},
+  "encoding": {
+    "x": {"field": "spot-shock", "type": "ordinal", "title": "spot shock (%)", "sort": "ascending", "axis": {"orient": "top"}},
+    "y": {"field": "iv-shock", "type": "ordinal", "title": "IV shock (%)", "sort": "descending"}
+  },
+  "layer": [
+    {
+      "name": "cells",
+      "mark": {"type": "rect", "stroke": "#ffffff", "strokeWidth": 1},
+      "encoding": {
+        "color": {"field": "pnl", "type": "quantitative", "title": "P/L", "scale": {"scheme": "redblue", "domainMid": 0}},
+        "tooltip": [
+          {"field": "spot-shock", "type": "quantitative", "title": "spot shock (%)"},
+          {"field": "iv-shock", "type": "quantitative", "title": "IV shock (%)"},
+          {"field": "pnl", "type": "quantitative", "title": "P/L", "format": ",.2f"},
+          {"field": "delta", "type": "quantitative", "title": "Delta", "format": ",.3f"},
+          {"field": "gamma", "type": "quantitative", "title": "Gamma", "format": ",.3f"},
+          {"field": "vega", "type": "quantitative", "title": "Vega", "format": ",.3f"},
+          {"field": "theta", "type": "quantitative", "title": "Theta", "format": ",.3f"}
+        ]
+      }
+    }
+  ]
+}

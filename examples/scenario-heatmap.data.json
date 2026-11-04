@@ -1,0 +1,14 @@
+{
+  "title": "Portfolio P/L by spot and IV shock",
+  "data": [
+    {"spot-shock": -10, "iv-shock": -20, "pnl": -1450, "delta": -72, "gamma": 1.8, "vega": 31, "theta": -12},
+    {"spot-shock": -10, "iv-shock": 0, "pnl": -930, "delta": -78, "gamma": 2.0, "vega": 34, "theta": -13},
+    {"spot-shock": -10, "iv-shock": 20, "pnl": -280, "delta": -85, "gamma": 2.2, "vega": 37, "theta": -14},
+    {"spot-shock": 0, "iv-shock": -20, "pnl": -410, "delta": 12, "gamma": 1.5, "vega": 29, "theta": -11},
+    {"spot-shock": 0, "iv-shock": 0, "pnl": 0, "delta": 18, "gamma": 1.7, "vega": 32, "theta": -12},
+    {"spot-shock": 0, "iv-shock": 20, "pnl": 650, "delta": 25, "gamma": 1.9, "vega": 35, "theta": -13},
+    {"spot-shock": 10, "iv-shock": -20, "pnl": 790, "delta": 98, "gamma": 1.2, "vega": 27, "theta": -10},
+    {"spot-shock": 10, "iv-shock": 0, "pnl": 1320, "delta": 104, "gamma": 1.4, "vega": 30, "theta": -11},
+    {"spot-shock": 10, "iv-shock": 20, "pnl": 1980, "delta": 111, "gamma": 1.6, "vega": 33, "theta": -12}
+  ]
+}

@@ -133,8 +133,8 @@ ID names the 3D view."
   ;; Every template whose data comes from a metric has an adapter; the
   ;; rest take order books, bars or a metric whose shape does not fit.
   (let ((fed (delete-dups (apply #'append (mapcar #'cdr (financial-chart-3d-metric-templates)))))
-        (not-from-a-metric '("depth-live" "ladder" "liquidity-heatmap" "session-profile"
-                             "volume-profile" "revenue-surface")))
+        (not-from-a-metric '("depth-live" "ladder" "liquidity-heatmap" "scenario-heatmap"
+                             "session-profile" "volume-profile" "revenue-surface")))
     (dolist (f (directory-files (expand-file-name "templates/financial" financial-chart-test-root) nil "\\.json\\'"))
       (let ((name (file-name-base f)))
         (ert-info (name)

@@ -215,6 +215,28 @@ VARIANTS = {
             "encoding": {"x": {"field": "label"}, "y": {"field": "value"}},
         },
     },
+    "scenario-heatmap": {
+        "source": "templates/financial/scenario-heatmap.json",
+        "example": "examples/scenario-heatmap.data.json",
+        "reading": "portfolio P/L across spot and implied-volatility shocks as a "
+                   "heightfield with a red-to-green diverging palette",
+        "graphics": {
+            "mark": "surface3d",
+            "encoding": {"x": {"field": "spot-shock"},
+                         "z": {"field": "iv-shock"},
+                         "y": {"field": "pnl"},
+                         "tooltip": [{"field": "pnl", "title": "P/L"},
+                                     {"field": "delta", "title": "Delta"},
+                                     {"field": "gamma", "title": "Gamma"},
+                                     {"field": "vega", "title": "Vega"}]},
+            "low_color": "#ef5350",
+            "mid_color": "#f5f5f5",
+            "high_color": "#26a69a",
+            "extent": [12, 9],
+            "height": 4,
+            "camera": {"yaw": 35, "pitch": 35, "zoom": 1.2},
+        },
+    },
 }
 
 

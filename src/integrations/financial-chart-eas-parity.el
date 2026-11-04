@@ -162,7 +162,7 @@ of the numbers KIND's template plots against financial-chart's own.")
           (list "poc" (plist-get profile :poc)
                 (cl-loop for r in rows when (eq (plist-get r :poc) t) return (plist-get r :bin))))))
 
-(defun financial-chart-eas--greeks-by-strike-parity (data _props scene)
+(defun financial-chart-eas--greeks-by-strike-parity (data _props _scene)
   "Each dollar Greek by expiry and strike against the resolved template rows."
   (let* ((expected (sort
                     (cl-loop for row in data append

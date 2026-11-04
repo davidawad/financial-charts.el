@@ -276,6 +276,32 @@ depth, a fraction of the spacing, default 0.3)."
 
 ;;; Skew term structure over time
 
+(defun financial-chart-3d-positioning--greek-strikes-mark (graphics rows)
+  "Dollar delta bars by strike and expiry, with all four Greeks in each tip.
+GRAPHICS supplies the strike, expiry and delta encodings; ROWS are the
+caller-supplied dollar-Greek rows."
+  (let* ((normalized
+          (mapcar (lambda (row)
+                    (let ((delta (plist-get row :delta)))
+                      (list :expiry (plist-get row :expiry)
+                            :strike (plist-get row :strike)
+                            :call_oi (max 0 delta)
+                            :put_oi (max 0 (- delta)))))
+                  rows))
+         (primitives (financial-chart-3d-positioning--strikes-mark graphics normalized))
+         (bars (seq-find (lambda (p) (equal (plist-get p :id) "bars")) primitives)))
+    (when bars
+      (setf (plist-get bars :tooltips)
+            (vconcat
+             (cl-loop for row in rows
+                      for delta = (plist-get row :delta)
+                      when (/= delta 0)
+                      collect (format "%s  strike %s\ndelta %s  gamma %s\nvega %s  theta %s"
+                                      (plist-get row :expiry) (plist-get row :strike)
+                                      delta (plist-get row :gamma) (plist-get row :vega)
+                                      (plist-get row :theta))))))
+    primitives))
+
 (defun financial-chart-3d-positioning--sort-values (values)
   "Distinct VALUES sorted: numbers ascending, else as strings (ISO dates)."
   (sort (financial-chart-3d--categories values)
@@ -717,6 +743,7 @@ opt.iv_rank and opt.calendar_iv_ratio outputs (their value)."
 
 (defconst financial-chart-3d-positioning-marks
   '(("fc-strikes3d" . financial-chart-3d-positioning--strikes-mark)
+    ("fc-greek-strikes3d" . financial-chart-3d-positioning--greek-strikes-mark)
     ("fc-skew3d" . financial-chart-3d-positioning--skew-mark)
     ("fc-vrp3d" . financial-chart-3d-positioning--vrp-replay))
   "The options-positioning 3D marks: (MARK . FUNCTION).")

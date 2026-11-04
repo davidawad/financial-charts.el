@@ -27,7 +27,7 @@
         }
       ]
     },
-    "doc": "3D variant of financial-chart's greeks-by-strike (graphics.el, mark fc-strikes3d): portfolio dollar Greeks by strike across expiries, with delta as bar height and strike groups arranged along expiry.  2D: Dollar delta, gamma, vega and theta by strike, with one panel for each expiry.",
+    "doc": "3D variant of financial-chart's greeks-by-strike (graphics.el, mark fc-greek-strikes3d): portfolio dollar Greeks by strike across expiries, with delta as bar height and strike groups arranged along expiry.  2D: Dollar delta, gamma, vega and theta by strike, with one panel for each expiry.",
     "slots": {
       "data": {
         "shape": "plist",
@@ -44,10 +44,10 @@
         "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
       }
     },
-    "example": "examples/greeks-by-strike.data.json",
+    "example": "examples/3d/greeks-by-strike.data.json",
     "base": "greeks-by-strike",
     "graphics": {
-      "mark": "fc-strikes3d",
+      "mark": "fc-greek-strikes3d",
       "encoding": {
         "x": {
           "field": "strike"

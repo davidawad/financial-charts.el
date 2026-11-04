@@ -905,6 +905,9 @@ The payoff variant's `surface' is computed from its `data', `vol' and
 replays toward expiry."
   (let* ((name (financial-chart-3d--name name))
          (bindings (copy-sequence (or bindings (eas-template-example name)))))
+    (when (and (equal (financial-chart-3d--base name) "greeks-by-strike")
+               (vectorp bindings))
+      (setq bindings (list :data bindings)))
     (when (and (equal (financial-chart-3d--base name) "payoff")
                (not (plist-get bindings :surface)))
       (let ((slots (plist-get (plist-get (eas-template-get name) :meta) :slots)))

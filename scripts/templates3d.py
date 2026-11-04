@@ -159,10 +159,10 @@ VARIANTS = {
     },
     "greeks-by-strike": {
         "source": "templates/financial/greeks-by-strike.json",
-        "example": "examples/greeks-by-strike.data.json",
+        "example": "examples/3d/greeks-by-strike.data.json",
         "reading": "portfolio dollar Greeks by strike across expiries, with delta as bar height and strike groups arranged along expiry",
         "graphics": {
-            "mark": "fc-strikes3d",
+            "mark": "fc-greek-strikes3d",
             "encoding": {"x": {"field": "strike"}, "z": {"field": "expiry"},
                          "y": {"field": "delta"}, "color": {"field": "expiry"}},
             "max_rows": 300,

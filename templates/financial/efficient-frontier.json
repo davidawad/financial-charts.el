@@ -19,7 +19,8 @@
         "default": "Risk and expected return for the efficient frontier, candidate construction methods, and the current portfolio. Method and current portfolio points are labeled.",
         "doc": "the takeaway; alt text and table-view fallback"
       }
-    }
+    },
+    "example": "../../examples/frontier.data.json"
   },
   "title": {"x-eas:slot": "title"},
   "description": {"x-eas:slot": "description"},

@@ -680,6 +680,54 @@ replay's too."
                                                                   (format "  best %s" (substring (symbol-name ck) 1))))
                                              best))))))
 
+;;; fc-efficient-frontier3d: one risk-return frontier and labelled choices
+
+(defun financial-chart-3d-risk--efficient-frontier-mark (graphics rows)
+  "Primitives for one efficient frontier and its labelled portfolio choices.
+Rows contain kind, risk, return and optional label."
+  (let* ((xk (financial-chart-3d-risk--field graphics "x" "risk"))
+         (yk (financial-chart-3d-risk--field graphics "y" "return"))
+         (zk (financial-chart-3d-risk--field graphics "z" "kind"))
+         (dom (financial-chart-3d-risk--domain rows))
+         (xs (delq nil (mapcar (lambda (r) (financial-chart-3d-risk--number r xk)) dom)))
+         (ys (delq nil (mapcar (lambda (r) (financial-chart-3d-risk--number r yk)) dom)))
+         (x-lo (if xs (apply #'min xs) 0.0)) (x-hi (if xs (apply #'max xs) 1.0))
+         (y-lo (if ys (apply #'min ys) 0.0)) (y-hi (if ys (apply #'max ys) 1.0))
+         (extent (financial-chart-3d-risk--opt graphics "extent" [12 8]))
+         (w (/ (float (elt extent 0)) 2)) (d (/ (float (elt extent 1)) 2))
+         (height (float (financial-chart-3d-risk--opt graphics "height" 5)))
+         (point (lambda (r)
+                  (vector (financial-chart-3d-risk--r3
+                           (- (* 2 w (/ (- (financial-chart-3d-risk--number r xk) x-lo)
+                                      (if (> x-hi x-lo) (- x-hi x-lo) 1.0))) w))
+                          (financial-chart-3d-risk--r3
+                           (+ (* 0.08 height)
+                              (* 0.84 height (/ (- (financial-chart-3d-risk--number r yk) y-lo)
+                                                (if (> y-hi y-lo) (- y-hi y-lo) 1.0)))))
+                          (financial-chart-3d-risk--r3
+                           (cond ((member (financial-chart-3d-risk--value r zk) '(:method "method")) (* 0.25 d))
+                                 ((member (financial-chart-3d-risk--value r zk) '(:current "current")) (* -0.25 d))
+                                 (t 0.0))))))
+         (frontier (sort (seq-filter (lambda (r) (member (financial-chart-3d-risk--value r zk) '(:frontier "frontier"))) rows)
+                         (lambda (a b) (< (financial-chart-3d-risk--number a xk)
+                                          (financial-chart-3d-risk--number b xk)))))
+         (choices (seq-filter (lambda (r) (member (financial-chart-3d-risk--value r zk)
+                                                   '(:method "method" :current "current"))) rows))
+         (segments (cl-loop for (a b) on frontier while b collect (vconcat (funcall point a) (funcall point b))))
+         (tips (mapcar (lambda (r)
+                         (format "%s  risk %s%%  return %s%%"
+                                 (or (financial-chart-3d-risk--value r :label)
+                                     (format "%s" (financial-chart-3d-risk--value r zk)))
+                                 (financial-chart-3d-num (financial-chart-3d-risk--number r xk) 3)
+                                 (financial-chart-3d-num (financial-chart-3d-risk--number r yk) 3)))
+                       choices)))
+    (vector (financial-chart-3d-risk--axes (- w) w 0 height (- d) d)
+            (list :id "frontier" :type "segments" :segments (vconcat segments)
+                  :color "#5b8ff9" :width 12)
+            (list :id "methods" :type "points" :points (vconcat (mapcar point choices))
+                  :size 16 :color financial-chart-3d-risk-mark-color
+                  :tooltips (vconcat tips)))))
+
 ;;; Registration
 
 (defun financial-chart-3d-risk--ribbons-replay (graphics rows)
@@ -699,7 +747,8 @@ See `financial-chart-3d--replay'."
   '(("fc-risk-grid3d" . financial-chart-3d-risk--grid-mark)
     ("fc-risk-ribbons3d" . financial-chart-3d-risk--ribbons-replay)
     ("fc-risk-histogram3d" . financial-chart-3d-risk--histogram-replay)
-    ("fc-risk-frontier3d" . financial-chart-3d-risk--frontier-replay))
+    ("fc-risk-frontier3d" . financial-chart-3d-risk--frontier-replay)
+    ("fc-efficient-frontier3d" . financial-chart-3d-risk--efficient-frontier-mark))
   "The portfolio-risk 3D marks this file adds to graphics.el: (MARK . FUNCTION).")
 
 (defun financial-chart-3d-risk--register-marks ()

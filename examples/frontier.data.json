@@ -1,0 +1,12 @@
+{
+  "title": "Efficient frontier: risk and expected return",
+  "description": "Risk and expected return for the efficient frontier, construction methods, and the current portfolio.",
+  "data": [
+    {"kind": "frontier", "risk": 2.0, "return": 4.0},
+    {"kind": "frontier", "risk": 5.0, "return": 8.0},
+    {"kind": "frontier", "risk": 9.0, "return": 11.0},
+    {"kind": "method", "risk": 4.0, "return": 6.0, "label": "Minimum variance"},
+    {"kind": "method", "risk": 7.0, "return": 9.0, "label": "Maximum Sharpe"},
+    {"kind": "current", "risk": 6.0, "return": 5.5, "label": "Current portfolio"}
+  ]
+}

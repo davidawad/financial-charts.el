@@ -216,6 +216,19 @@ VARIANTS = {
             "timeline": replay_timeline(6),
         },
     },
+    "efficient-frontier": {
+        "source": "templates/financial/efficient-frontier.json",
+        "example": "examples/frontier.data.json",
+        "reading": "the efficient risk-return curve with construction methods and the current portfolio marked at their supplied risk and return",
+        "graphics": {
+            "mark": "fc-efficient-frontier3d",
+            "encoding": {"x": {"field": "risk"}, "y": {"field": "return"},
+                         "z": {"field": "kind"}, "color": {"field": "return"}},
+            "replay": "kind",
+            "camera": {"yaw": -28, "pitch": 24, "zoom": 1.1},
+            "timeline": replay_timeline(5),
+        },
+    },
     "diverging-bars": {
         "source": "templates/diverging-bars.json",
         "example": "examples/diverging-bars.data.json",

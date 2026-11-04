@@ -264,6 +264,19 @@
     ;; The newest frontier is drawn white.
     (should (member "#ffffff" (append (plist-get (financial-chart-3d-risk-test--prim prims "curves") :colors) nil)))))
 
+(ert-deftest financial-chart-3d-risk-efficient-frontier-draws-methods-and-current ()
+  (let* ((graphics (plist-get (plist-get (eas-template-get "fc3d/efficient-frontier") :meta) :graphics))
+         (rows (append (plist-get (eas-template-example "fc3d/efficient-frontier") :data) nil))
+         (prims (financial-chart-3d-risk--efficient-frontier-mark graphics rows))
+         (line (financial-chart-3d-risk-test--prim prims "frontier"))
+         (choices (financial-chart-3d-risk-test--prim prims "methods")))
+    (should (= (length (plist-get line :segments)) 2))
+    (should (= (length (plist-get choices :points)) 3))
+    (should (equal (append (plist-get choices :tooltips) nil)
+                   '("Minimum variance  risk 4.000%  return 6.000%"
+                     "Maximum Sharpe  risk 7.000%  return 9.000%"
+                     "Current portfolio  risk 6.000%  return 5.500%")))))
+
 ;;; Without graphics.el
 
 (ert-deftest financial-chart-3d-risk-falls-back-to-2d ()

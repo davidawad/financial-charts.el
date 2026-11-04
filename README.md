@@ -79,6 +79,7 @@ checkout (`financial-chart-root`).
 | `depth` | cumulative bid/ask order-book depth | `(:bids ((P S) ...) :asks ((P S) ...))` |
 | `heatmap` | labeled matrix, e.g. correlations, diverging colors | `(:labels (...) :rows ((...) ...))` |
 | `volume-profile` | volume by price level with point of control | ohlc |
+| `greeks-by-strike` | dollar delta, gamma, vega and theta by strike, one panel per expiry | rows `(:expiry STRING :strike POSITIVE :delta DOLLARS :gamma DOLLARS :vega DOLLARS :theta DOLLARS)`; Greeks are portfolio totals supplied by the caller |
 
 `(financial-chart-list-kinds)` lists them with docs;
 `(financial-chart-describe-kind 'KIND)` shows a kind's data shape and example.
@@ -143,6 +144,7 @@ Nothing is drawn until the data passes its shape's validator. Codes:
 | labeled | `(LABEL . NUMBER)` | `invalid_label`, `not_a_number` |
 | order-book | `:bids`/`:asks` of positive `(PRICE SIZE)`, best bid <= best ask | `not_an_order_book`, `invalid_level`, `not_positive`, `crossed_book` |
 | matrix | one numeric row per label, rectangular | `not_a_matrix`, `row_count`, `column_count`, `not_a_number` |
+| `greeks-by-strike` | non-empty expiry label, positive finite strike and finite dollar delta/gamma/vega/theta on each row | `not_a_list`, `not_a_plist`, `missing_field`, `invalid_expiry`, `not_positive`, `not_a_number` |
 | multi-series, payoff-curves | each entry as its inner shape (nested rows read `series[2].y`), payoff curves on one price grid | the inner codes, `zero_base`, `grid_mismatch` |
 
 Drawdown and histogram also check their math (`negative_price`,

@@ -1,0 +1,5 @@
+[
+  {"expiry": "2026-12-18", "strike": 95, "delta": 1250, "gamma": -320, "vega": 85, "theta": -42},
+  {"expiry": "2026-12-18", "strike": 100, "delta": 2100, "gamma": 540, "vega": 160, "theta": -88},
+  {"expiry": "2027-01-15", "strike": 100, "delta": 740, "gamma": 190, "vega": 230, "theta": -31}
+]

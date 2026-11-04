@@ -30,6 +30,7 @@
 (require 'financial-chart-payoff-curves)
 (require 'financial-chart-risk-contribution)
 (require 'financial-chart-scenario-heatmap)
+(require 'financial-chart-greeks)
 
 (defvar financial-chart-eas-parity-checks
   '((ohlc . financial-chart-eas--ohlc-parity)
@@ -46,7 +47,8 @@
     (depth . financial-chart-eas--depth-parity)
     (risk-contribution . financial-chart-eas--risk-contribution-parity)
     (volume-profile . financial-chart-eas--volume-profile-parity)
-    (scenario-heatmap . financial-chart-eas--scenario-heatmap-parity))
+    (scenario-heatmap . financial-chart-eas--scenario-heatmap-parity)
+    (greeks-by-strike . financial-chart-eas--greeks-by-strike-parity))
   "KIND -> (FN DATA PROPS SCENE) returning checks (NAME EXPECTED ACTUAL)
 of the numbers KIND's template plots against financial-chart's own.")
 
@@ -159,6 +161,28 @@ of the numbers KIND's template plots against financial-chart's own.")
     (list (list "volumes" (plist-get profile :volumes) (mapcar (lambda (r) (plist-get r :volume)) rows))
           (list "poc" (plist-get profile :poc)
                 (cl-loop for r in rows when (eq (plist-get r :poc) t) return (plist-get r :bin))))))
+
+(defun financial-chart-eas--greeks-by-strike-parity (data _props scene)
+  "Each dollar Greek by expiry and strike against the resolved template rows."
+  (let* ((expected (sort
+                    (cl-loop for row in data append
+                             (cl-loop for greek in '(:delta :gamma :vega :theta)
+                                      collect (list (plist-get row :expiry) (plist-get row :strike)
+                                                    (substring (symbol-name greek) 1)
+                                                    (plist-get row greek))))
+                    (lambda (a b) (string-lessp (format "%S" a) (format "%S" b)))))
+         (actual (sort
+                  (cl-loop for expiry in (delete-dups (mapcar (lambda (row) (plist-get row :expiry)) data))
+                           append
+                           (let ((expiry-rows (cl-remove-if-not
+                                               (lambda (row) (equal (plist-get row :expiry) expiry)) data)))
+                             (mapcar (lambda (row) (list expiry (plist-get row :strike)
+                                                         (plist-get row :greek) (plist-get row :dollars)))
+                                     (financial-chart-eas--rows
+                                      (financial-chart-eas-scene 'greeks-by-strike expiry-rows 'svg)
+                                      "greeks"))))
+                  (lambda (a b) (string-lessp (format "%S" a) (format "%S" b))))))
+    (list (list "dollar Greeks by expiry and strike" expected actual))))
 
 (defun financial-chart-eas--ohlc-parity (data _props scene)
   "Candles and each configured overlay against financial-chart's series."

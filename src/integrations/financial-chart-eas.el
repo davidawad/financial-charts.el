@@ -50,6 +50,7 @@
 (require 'financial-chart-multi)
 (require 'financial-chart-depth)
 (require 'financial-chart-matrix)
+(require 'financial-chart-greeks)
 (require 'financial-chart-eas-readout)
 
 (defun financial-chart-eas--validate (shape data)
@@ -94,6 +95,19 @@
 (financial-chart-eas--adapter labeled
     "financial-chart (LABEL . VALUE) conses as rows {label, value}."
   (mapcar (lambda (p) (list :label (format "%s" (car p)) :value (cdr p))) data))
+
+(eas-register-adapter
+ "greeks-by-strike"
+ :doc "Dollar option-book Greeks as rows {expiry, strike, delta, gamma, vega, theta}."
+ :example (plist-get (alist-get 'greeks-by-strike financial-chart-shapes) :example)
+ :convert (lambda (data)
+            (financial-chart-greeks--validate data)
+            (eas-data-make
+             (vconcat
+              (mapcar (lambda (row)
+                        (list :expiry (plist-get row :expiry) :strike (plist-get row :strike)
+                              :delta (plist-get row :delta) :gamma (plist-get row :gamma)
+                              :vega (plist-get row :vega) :theta (plist-get row :theta))) data)))))
 
 (financial-chart-eas--adapter matrix
     "financial-chart matrix as long rows {row, column, value}."

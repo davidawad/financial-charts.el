@@ -1,0 +1,57 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "greeks-by-strike",
+    "version": "1.0.0",
+    "readout": {
+      "max_lines": 1,
+      "component": "row",
+      "children": [
+        {"component": "text", "props": {"text": {"expr": "at"}, "priority": 10, "style": {"dim": true}}},
+        {"component": "fields", "props": {"source": "auto"}}
+      ]
+    },
+    "doc": "Dollar delta, gamma, vega and theta by strike, with one panel for each expiry.",
+    "slots": {
+      "data": {"shape": "plist", "required": true, "doc": "rows {expiry, strike, delta, gamma, vega, theta}; each value is dollar exposure for the options book"},
+      "title": {"type": "string", "default": ""},
+      "description": {"type": "string", "default": "Dollar delta, gamma, vega and theta by strike, one panel per expiry.", "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"}
+    },
+    "example": "../../examples/greeks-by-strike.data.json"
+  },
+  "title": {"x-eas:slot": "title"},
+  "description": {"x-eas:slot": "description"},
+  "data": {"name": "data"},
+  "transform": [
+    {"fold": ["delta", "gamma", "vega", "theta"], "as": ["greek", "dollars"]}
+  ],
+  "facet": {"row": {"field": "expiry", "type": "nominal", "title": "expiry", "sort": null}},
+  "spec": {
+    "width": "container",
+    "height": 140,
+    "layer": [
+      {
+        "name": "zero",
+        "data": {"values": [{"zero": 0}]},
+        "mark": {"type": "rule", "color": "#777", "strokeDash": [2, 2]},
+        "encoding": {"y": {"field": "zero", "type": "quantitative"}}
+      },
+      {
+        "name": "greeks",
+        "mark": {"type": "bar"},
+        "encoding": {
+          "x": {"field": "strike", "type": "ordinal", "sort": null, "title": "strike"},
+          "y": {"field": "dollars", "type": "quantitative", "title": "dollar exposure"},
+          "xOffset": {"field": "greek"},
+          "color": {"field": "greek", "type": "nominal", "title": "Greek", "scale": {"domain": ["delta", "gamma", "vega", "theta"], "range": ["#4c78a8", "#f58518", "#54a24b", "#e45756"]}},
+          "tooltip": [
+            {"field": "expiry", "type": "nominal"},
+            {"field": "strike", "type": "quantitative"},
+            {"field": "greek", "type": "nominal"},
+            {"field": "dollars", "type": "quantitative", "title": "dollars"}
+          ]
+        }
+      }
+    ]
+  }
+}

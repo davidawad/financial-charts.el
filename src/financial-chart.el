@@ -78,6 +78,7 @@
 (require 'financial-chart-risk-contribution)
 (require 'financial-chart-matrix)
 (require 'financial-chart-scenario-heatmap)
+(require 'financial-chart-greeks)
 (require 'financial-chart-eas)
 (require 'financial-chart-eas-parity)
 

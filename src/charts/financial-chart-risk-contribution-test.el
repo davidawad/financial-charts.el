@@ -44,6 +44,15 @@
     (should (equal (plist-get plan :min) -0.02))
     (should (equal (plist-get plan :max) 0.08))))
 
+(ert-deftest financial-chart-risk-contribution-keeps-zero-sum-group-once ()
+  (let* ((data '(:portfolio-vol 0.2
+                 :contributions ((:name "A" :class "equity" :factor "market" :contribution 0.1)
+                                 (:name "A" :class "equity" :factor "market" :contribution -0.1)
+                                 (:name "B" :class "equity" :factor "market" :contribution 0.2))))
+         (rows (plist-get (financial-chart-eas-bindings 'risk-contribution data) :data)))
+    (should (equal (mapcar (lambda (row) (plist-get row :label)) rows) '("A" "B")))
+    (should (equal (mapcar (lambda (row) (plist-get row :value)) rows) '(0.0 0.2)))))
+
 (ert-deftest financial-chart-risk-contribution-renders-text ()
   (let ((chart (financial-chart-plot 'risk-contribution
                                      financial-chart-risk-contribution-test--data

@@ -77,7 +77,7 @@
     (dolist (row (plist-get data :contributions))
       (let* ((label (plist-get row field))
              (key (format "%s" label)))
-        (unless (gethash key groups) (push key labels))
+        (when (eq (gethash key groups :absent) :absent) (push key labels))
         (puthash key (+ (gethash key groups 0) (plist-get row :contribution)) groups)))
     (list :data (eas-data-rows
                  (eas-data-from "labeled"

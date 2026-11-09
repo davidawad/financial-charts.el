@@ -29,7 +29,7 @@ ISDA flat-hazard CDS mar…┤                                                 �
                           ■ heuristic  ■ market price  ■ weighted mean  ■ median
 
                          │
-       Risky PV01 (RPV01)┤0.04298 points per bp
+       Risky PV01 (RPV01)┤0.04298 points per bp; weights 1.0
 
 
                           3 of 4 methods ok; dispersion 0.4%; weighted mean 0.771; median 0.773

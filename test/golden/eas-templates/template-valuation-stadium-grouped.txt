@@ -28,8 +28,8 @@
                                 ■ statistical  ■ heuristic  ■ market price  ■ weighted mean
                                 ■ median
 
-Net current asset value (net-n…┤needs current_assets, total_liabilities
-Reverse DCF (market-implied gr…┤2.04% rate
+Net current asset value (net-n…┤needs current_assets, total_liabilities; weights 1.0
+Reverse DCF (market-implied gr…┤2.04% rate; weights 1.0
 
 
              8 of 10 methods ok; dispersion 57.5%; weighted mean 101.36; median 85.34; market 140.00

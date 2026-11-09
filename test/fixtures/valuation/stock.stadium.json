@@ -156,7 +156,12 @@
    "status": "ok",
    "unit": "usd_per_share",
    "value": 196.15,
-   "weight": 1.0
+   "weight": 1.0,
+   "unit_label": "USD per share",
+   "weights": {
+    "model": 0.7,
+    "confidence": 0.3
+   }
   },
   {
    "approach": "market",
@@ -1135,8 +1140,16 @@
    "approach": "cost",
    "method": "eq.ncav",
    "missing": [
-    "current_assets (usd): Total current assets",
-    "total_liabilities (usd): Total liabilities (current and long-term)"
+    {
+     "name": "current_assets",
+     "unit": "usd",
+     "doc": "Total current assets"
+    },
+    {
+     "name": "total_liabilities",
+     "unit": "usd",
+     "doc": "Total liabilities (current and long-term)"
+    }
    ],
    "name": "Net current asset value (net-net)",
    "role": "value",

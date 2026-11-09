@@ -191,9 +191,39 @@ the stadium."
   "APPROACH with underscores as spaces."
   (replace-regexp-in-string "_" " " approach))
 
+(defun financial-chart-valuation--weights-text (weights)
+  "WEIGHTS in a compact, readable form."
+  (cond ((null weights) "")
+        ((numberp weights) (format "%s" weights))
+        ((stringp weights) weights)
+        ((and (consp weights) (keywordp (car weights)))
+         (string-join
+          (cl-loop for (key value) on weights by #'cddr
+                   collect (format "%s %s" (substring (symbol-name key) 1)
+                                   (financial-chart-valuation--weights-text value)))
+          ", "))
+        ((or (vectorp weights) (listp weights))
+         (string-join (mapcar #'financial-chart-valuation--weights-text
+                              (financial-chart-valuation--items weights)) ", "))
+        (t (format "%s" weights))))
+
+(defun financial-chart-valuation--row-unit-label (row)
+  "ROW's human-readable unit label, with legacy UNIT fallback."
+  (or (financial-chart-valuation--get row :unit_label)
+      (financial-chart-valuation--unit-label (plist-get row :unit))))
+
+(defun financial-chart-valuation--row-weights (row)
+  "ROW's displayed weights, preferring WEIGHTS over legacy WEIGHT."
+  (let ((weights (or (financial-chart-valuation--get row :weights)
+                     (financial-chart-valuation--get row :weight))))
+    (when weights (format "weights %s" (financial-chart-valuation--weights-text weights)))))
+
 (defun financial-chart-valuation--missing-note (row)
   "A skipped ROW's note: the inputs it needs."
-  (let ((names (mapcar (lambda (m) (car (split-string (format "%s" m) " (")))
+  (let ((names (mapcar (lambda (m)
+                         (if (eas-object-p m)
+                             (plist-get m :name)
+                           (car (split-string (format "%s" m) " ("))))
                        (financial-chart-valuation--items (plist-get row :missing)))))
     (cond (names (format "needs %s" (string-join names ", ")))
           ((financial-chart-valuation--get row :reason) (format "%s" (plist-get row :reason)))
@@ -201,13 +231,15 @@ the stadium."
 
 (defun financial-chart-valuation--note (row)
   "ROW's note for the strip beneath the field."
-  (let ((status (plist-get row :status)) (unit (plist-get row :unit)))
-    (cond ((equal status "skipped") (financial-chart-valuation--missing-note row))
-          ((equal status "error")
-           (format "error: %s" (or (financial-chart-valuation--get row :reason) "failed")))
-          ((equal status "not_implemented") "not implemented")
-          (t (format "%s %s" (financial-chart-valuation--format (plist-get row :value) unit)
-                     (financial-chart-valuation--unit-label unit))))))
+  (let* ((status (plist-get row :status)) (unit (plist-get row :unit))
+         (note (cond ((equal status "skipped") (financial-chart-valuation--missing-note row))
+                     ((equal status "error")
+                      (format "error: %s" (or (financial-chart-valuation--get row :reason) "failed")))
+                     ((equal status "not_implemented") "not implemented")
+                     (t (format "%s %s" (financial-chart-valuation--format (plist-get row :value) unit)
+                                (financial-chart-valuation--row-unit-label row)))))
+         (weights (financial-chart-valuation--row-weights row)))
+    (if weights (format "%s; %s" note weights) note)))
 
 (defun financial-chart-valuation--unit-label (unit)
   "UNIT as a short label."
@@ -282,22 +314,31 @@ dispersion line."
              (value (financial-chart-valuation--get row :value))
              (low (or (financial-chart-valuation--get row :low) value))
              (high (or (financial-chart-valuation--get row :high) value))
+             (unit-label (financial-chart-valuation--row-unit-label row))
+             (weights (or (financial-chart-valuation--get row :weights)
+                          (financial-chart-valuation--get row :weight)))
              (base (list :method (plist-get row :method) :label (financial-chart-valuation--row-name row)
                          :band band :series (plist-get row :approach)
                          :approach (financial-chart-valuation--approach-label (plist-get row :approach))
                          :unit (plist-get row :unit)
+                         :unit_label unit-label :weights weights
+                         :weights_label (and weights
+                                             (format "weights %s"
+                                                     (financial-chart-valuation--weights-text weights)))
                          :note (financial-chart-valuation--note row))))
         (push (if (equal band "value")
                   (append base
                           (list :value value :low low :high high
-                                :value_label (financial-chart-valuation--format value unit)
+                                :value_label (format "%s %s" (financial-chart-valuation--format value unit) unit-label)
                                 :range_label (if (= low high) "point"
-                                               (format "%s to %s" (financial-chart-valuation--format low unit)
-                                                       (financial-chart-valuation--format high unit)))
+                                               (format "%s to %s %s" (financial-chart-valuation--format low unit)
+                                                       (financial-chart-valuation--format high unit) unit-label))
                                 :rank_value (cl-position row by-value :test #'eq)
                                 :rank_approach (cl-position row by-approach :test #'eq)))
-                (append base (and value (list :value_label (financial-chart-valuation--format
-                                                            value (plist-get row :unit))))))
+                (append base (and value (list :value_label (format "%s %s"
+                                                                    (financial-chart-valuation--format
+                                                                     value (plist-get row :unit))
+                                                                    unit-label)))))
               rows)))
     (setq rows (nreverse rows))
     (let ((markers

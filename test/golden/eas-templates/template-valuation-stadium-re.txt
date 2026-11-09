@@ -28,8 +28,8 @@
                                 ■ statistical  ■ heuristic  ■ market price  ■ weighted mean
                                 ■ median
 
-50% rule (expense-ratio heuris…┤3,448,276 usd
- 1% rule (rent-to-price screen)┤needs monthly_rent
+50% rule (expense-ratio heuris…┤3,448,276 usd; weights 1.0
+ 1% rule (rent-to-price screen)┤needs monthly_rent; weights 1.0
 
 
   10 of 12 methods ok; dispersion 10.8%; weighted mean 3,987,506; median 4,152,567; market 4,150,000

@@ -183,6 +183,16 @@
                 "field": "range_label",
                 "type": "nominal",
                 "title": "range"
+              },
+              {
+                "field": "unit_label",
+                "type": "nominal",
+                "title": "unit"
+              },
+              {
+                "field": "weights_label",
+                "type": "nominal",
+                "title": "weights"
               }
             ]
           }
@@ -267,6 +277,16 @@
                 "field": "range_label",
                 "type": "nominal",
                 "title": "range"
+              },
+              {
+                "field": "unit_label",
+                "type": "nominal",
+                "title": "unit"
+              },
+              {
+                "field": "weights_label",
+                "type": "nominal",
+                "title": "weights"
               }
             ]
           }

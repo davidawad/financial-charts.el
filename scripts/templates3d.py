@@ -239,6 +239,17 @@ VARIANTS = {
             "encoding": {"x": {"field": "label"}, "y": {"field": "value"}},
         },
     },
+    "valuation-stadium": {
+        "source": "templates/financial/valuation-stadium.json",
+        "example": "examples/valuation-stadium.data.json",
+        "reading": "valuation methods as a 3D range field, with value estimates rising by method",
+        "graphics": {
+            "mark": "bar3d",
+            "encoding": {"x": {"field": "label"}, "y": {"field": "value"},
+                         "tooltip": [{"field": "label"}, {"field": "value_label", "title": "value"},
+                                     {"field": "weights_label", "title": "weights"}]},
+        },
+    },
     "scenario-heatmap": {
         "source": "templates/financial/scenario-heatmap.json",
         "example": "examples/scenario-heatmap.data.json",

@@ -134,7 +134,8 @@ ID names the 3D view."
   ;; rest take order books, bars or a metric whose shape does not fit.
   (let ((fed (delete-dups (apply #'append (mapcar #'cdr (financial-chart-3d-metric-templates)))))
         (not-from-a-metric '("depth-live" "efficient-frontier" "greeks-by-strike" "ladder" "liquidity-heatmap"
-                             "scenario-heatmap" "session-profile" "volume-profile" "revenue-surface")))
+                             "scenario-heatmap" "session-profile" "volume-profile" "revenue-surface"
+                             "valuation-stadium")))
     (dolist (f (directory-files (expand-file-name "templates/financial" financial-chart-test-root) nil "\\.json\\'"))
       (let ((name (file-name-base f)))
         (ert-info (name)

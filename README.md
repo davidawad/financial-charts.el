@@ -80,6 +80,7 @@ checkout (`financial-chart-root`).
 | `depth` | cumulative bid/ask order-book depth | `(:bids ((P S) ...) :asks ((P S) ...))` |
 | `heatmap` | labeled matrix, e.g. correlations, diverging colors | `(:labels (...) :rows ((...) ...))` |
 | `volume-profile` | volume by price level with point of control | ohlc |
+| `risk-profile` | options risk profile: at-expiry P/L split into profit and loss regions, Black-Scholes T+n curves, spot and a marker per strike | a position `(:spot NUM :date "YYYY-MM-DD" :rate R :dividend-yield Q :range (LOW HIGH) :dates (...) :legs (LEG ...))`; a leg is `(:type call\|put :side long\|short :qty N :strike K :expiry DATE :price PREMIUM :iv V)` or `(:type stock :side long\|short :qty SHARES)` |
 | `greeks-by-strike` | dollar delta, gamma, vega and theta by strike, one panel per expiry | rows `(:expiry STRING :strike POSITIVE :delta DOLLARS :gamma DOLLARS :vega DOLLARS :theta DOLLARS)`; Greeks are portfolio totals supplied by the caller |
 
 `(financial-chart-list-kinds)` lists them with docs;
@@ -152,6 +153,7 @@ Nothing is drawn until the data passes its shape's validator. Codes:
 | labeled | `(LABEL . NUMBER)` | `invalid_label`, `not_a_number` |
 | order-book | `:bids`/`:asks` of positive `(PRICE SIZE)`, best bid <= best ask | `not_an_order_book`, `invalid_level`, `not_positive`, `crossed_book` |
 | matrix | one numeric row per label, rectangular | `not_a_matrix`, `row_count`, `column_count`, `not_a_number` |
+| `risk-profile` | positive spot, ISO dates, at least one well-formed leg (call/put/stock, long/short, positive qty, strike, expiry, `:price` or `:iv`), `:range` ascending, `:dates` not before `:date` | `not_a_plist`, `not_positive`, `invalid_date`, `no_legs`, `invalid_type`, `invalid_side`, `missing_field`, `not_a_number`, `bad_range`, `date_before_valuation` |
 | `greeks-by-strike` | non-empty expiry label, positive finite strike and finite dollar delta/gamma/vega/theta on each row | `not_a_list`, `not_a_plist`, `missing_field`, `invalid_expiry`, `not_positive`, `not_a_number` |
 | multi-series, payoff-curves | each entry as its inner shape (nested rows read `series[2].y`), payoff curves on one price grid | the inner codes, `zero_base`, `grid_mismatch` |
 
@@ -475,6 +477,32 @@ Failures carry `:code` and the JSON `:path`: `UNKNOWN_STUDY`,
 `INVALID_STUDY`, `INDICATOR_FAILED` (bad `params`), `INVALID_ZONE`,
 `INVALID_SHIFT`, `UNKNOWN_ANNOTATION`, `INVALID_ANNOTATION`,
 `NO_SUCH_BAR` (a marker's `at` names no bar) and `INVALID_TIME`.
+
+## Options risk profile
+
+`risk-profile` draws the P/L of an N-leg position by underlying price: the
+at-expiry line (red where it loses, green where it profits, the area to
+zero shaded), dotted Black-Scholes T+n curves, the spot price, a zero
+line and a marker per strike (`-165P`, red for short and green for long).
+Pricing is pure (`financial-chart-risk-profile-bs-price`,
+`-expiry-pnl`, `-pnl-at`, `-breakevens`, `-regions`, `-curve`), so a caller
+can use the numbers without drawing.
+
+```elisp
+(financial-chart-plot 'risk-profile
+  '(:spot 178.88 :date "2026-11-09" :rate 0.04 :range (154.25 200.75)
+    :dates ("2026-11-11")                      ; optional more T+n curves
+    :legs ((:type put :side short :qty 1 :strike 165
+            :expiry "2026-11-13" :price 1.04 :iv 0.71)))
+  :backend 'svg)                               ; or 'text; kitty via eas-output
+```
+
+Legs may be calls, puts and stock in any mix. An option needs `:price`
+(premium) or `:iv`; the other is derived at `:date`. The at-expiry line is the
+position on its last option expiry; each option is repriced at its own
+remaining time and IV, a year is 365 days, an expired leg is intrinsic.
+`examples/risk-profile.data.json` is the position above;
+`fc-eas render risk-profile --data examples/risk-profile.data.json`.
 
 ## Candlesticks
 

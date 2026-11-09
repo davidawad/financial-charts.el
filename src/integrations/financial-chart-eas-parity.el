@@ -31,6 +31,7 @@
 (require 'financial-chart-risk-contribution)
 (require 'financial-chart-scenario-heatmap)
 (require 'financial-chart-greeks)
+(require 'financial-chart-risk-profile)
 (require 'financial-chart-frontier)
 
 (defvar financial-chart-eas-parity-checks
@@ -50,7 +51,8 @@
     (volume-profile . financial-chart-eas--volume-profile-parity)
     (scenario-heatmap . financial-chart-eas--scenario-heatmap-parity)
     (greeks-by-strike . financial-chart-eas--greeks-by-strike-parity)
-    (frontier . financial-chart-eas--frontier-parity))
+    (frontier . financial-chart-eas--frontier-parity)
+    (risk-profile . financial-chart-eas--risk-profile-parity))
   "KIND -> (FN DATA PROPS SCENE) returning checks (NAME EXPECTED ACTUAL)
 of the numbers KIND's template plots against financial-chart's own.")
 
@@ -206,6 +208,23 @@ of the numbers KIND's template plots against financial-chart's own.")
                                       "greeks"))))
                   (lambda (a b) (string-lessp (format "%S" a) (format "%S" b))))))
     (list (list "dollar Greeks by expiry and strike" expected actual))))
+
+(defun financial-chart-eas--risk-profile-parity (data _props scene)
+  "Expiry points, breakevens and T+0 curve against the risk-profile math."
+  (let* ((rows (financial-chart-eas--rows scene "expiry"))
+         (regions (financial-chart-risk-profile-regions data))
+         (t0 (cl-remove-if-not (lambda (row) (equal (plist-get row :series) "T+0"))
+                               (financial-chart-eas--rows scene "curves"))))
+    (list (list "expiry pnl"
+                (cl-loop for r in regions append (mapcar #'cadr (plist-get r :points)))
+                (mapcar (lambda (row) (plist-get row :pnl)) rows))
+          (list "breakevens" (financial-chart-risk-profile-breakevens data)
+                (cl-loop for r in (butlast regions)
+                         collect (car (car (last (plist-get r :points))))))
+          (list "T+0 pnl"
+                (mapcar #'cadr (financial-chart-risk-profile-curve
+                                data (plist-get data :date)))
+                (mapcar (lambda (row) (plist-get row :pnl)) t0)))))
 
 (defun financial-chart-eas--ohlc-parity (data _props scene)
   "Candles and each configured overlay against financial-chart's series."

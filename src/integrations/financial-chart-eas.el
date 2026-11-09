@@ -51,6 +51,7 @@
 (require 'financial-chart-depth)
 (require 'financial-chart-matrix)
 (require 'financial-chart-greeks)
+(require 'financial-chart-risk-profile)
 (require 'financial-chart-frontier)
 (require 'financial-chart-eas-readout)
 
@@ -109,6 +110,14 @@
                         (list :expiry (plist-get row :expiry) :strike (plist-get row :strike)
                               :delta (plist-get row :delta) :gamma (plist-get row :gamma)
                               :vega (plist-get row :vega) :theta (plist-get row :theta))) data)))))
+
+(eas-register-adapter
+ "risk-profile"
+ :doc "A risk-profile position as rows {kind, seg, side, series, price, pnl, label}."
+ :example (plist-get (alist-get 'risk-profile financial-chart-shapes) :example)
+ :convert (lambda (data)
+            (financial-chart-risk-profile--validate data)
+            (eas-data-make (vconcat (financial-chart-risk-profile-rows data)))))
 
 (financial-chart-eas--adapter matrix
     "financial-chart matrix as long rows {row, column, value}."

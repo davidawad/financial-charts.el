@@ -145,6 +145,18 @@ VARIANTS = {
             "timeline": replay_timeline(6),
         },
     },
+    "risk-profile": {
+        "source": "templates/financial/risk-profile.json",
+        "example": "examples/3d/risk-profile.data.json",
+        "reading": "a position's P/L as one surface over price and valuation date "
+                   "(T+n curves, then the at-expiry payoff); a bright trace sweeps it to expiry",
+        "graphics": {
+            "mark": "fc-payoff3d",
+            "encoding": {"x": {"field": "price"}, "z": {"field": "series"},
+                         "y": {"field": "pnl"}},
+            "timeline": replay_timeline(6),
+        },
+    },
     "depth": {
         "source": "templates/depth.json",
         "example": "examples/depth.data.json",

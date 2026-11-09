@@ -1,0 +1,106 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "risk-profile",
+    "version": "1.0.0",
+    "doc": "Options risk profile: the at-expiry P/L line (red loss, green profit) with shaded regions, T+n curves, the spot price, a zero line and a marker for each strike.",
+    "slots": {
+      "data": {"shape": "plist", "required": true, "doc": "rows {kind, seg, side, series, price, pnl, label}; financial-chart's risk-profile adapter lowers a position (legs, spot, rate, dates, range) to these"},
+      "title": {"type": "string", "default": ""},
+      "description": {"type": "string", "default": "Options risk profile: at-expiry profit and loss by underlying price, T+n curves, spot and strikes.", "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"},
+      "y_title": {"type": "string", "default": "P/L ($)", "doc": "y-axis title"},
+      "x_min": {"type": "number", "default": 0, "doc": "left end of the price axis (the position's range)"},
+      "x_max": {"type": "number", "default": 1, "doc": "right end of the price axis"},
+      "series": {"type": "array", "items": "string", "default": ["T+0"], "doc": "legend labels of the valuation-date curves, in order"},
+      "series_colors": {"type": "array", "items": "string", "default": ["#22d3ee"], "doc": "their colors, in the same order"}
+    },
+    "example": "../../examples/risk-profile.data.json"
+  },
+  "title": {"x-eas:slot": "title"},
+  "description": {"x-eas:slot": "description"},
+  "width": "container",
+  "height": 260,
+  "background": "#10141a",
+  "data": {"name": "data"},
+  "layer": [
+    {
+      "name": "zero",
+      "data": {"values": [{"zero": 0}]},
+      "mark": {"type": "rule", "color": "#8b95a3", "strokeWidth": 1},
+      "encoding": {"y": {"field": "zero", "type": "quantitative", "title": {"x-eas:slot": "y_title"}, "axis": {"orient": "right", "format": ",.0f"}}}
+    },
+    {
+      "name": "regions",
+      "transform": [{"filter": "datum.kind == 'expiry'"}],
+      "mark": {"type": "area", "opacity": 0.45},
+      "encoding": {
+        "x": {"field": "price", "type": "quantitative", "scale": {"zero": false, "nice": false, "domain": [{"x-eas:slot": "x_min"}, {"x-eas:slot": "x_max"}]}, "title": "underlying price", "stack": null},
+        "y": {"field": "pnl", "type": "quantitative", "title": {"x-eas:slot": "y_title"},
+              "axis": {"orient": "right", "format": ",.0f"}},
+        "y2": {"field": "base", "type": "quantitative"},
+        "detail": {"field": "seg", "type": "nominal"},
+        "color": {"field": "fill", "type": "nominal", "legend": null, "scale": null}
+      }
+    },
+    {
+      "name": "expiry",
+      "transform": [{"filter": "datum.kind == 'expiry'"}],
+      "mark": {"type": "line", "strokeWidth": 2.5},
+      "encoding": {
+        "x": {"field": "price", "type": "quantitative", "scale": {"zero": false, "nice": false, "domain": [{"x-eas:slot": "x_min"}, {"x-eas:slot": "x_max"}]}},
+        "y": {"field": "pnl", "type": "quantitative"},
+        "detail": {"field": "seg", "type": "nominal"},
+        "color": {"field": "ink", "type": "nominal", "legend": null, "scale": null},
+        "tooltip": [
+          {"field": "price", "type": "quantitative", "title": "price"},
+          {"field": "pnl", "type": "quantitative", "title": "P/L at expiry"}
+        ]
+      }
+    },
+    {
+      "name": "curves",
+      "transform": [{"filter": "datum.kind == 'curve'"}],
+      "mark": {"type": "line", "strokeWidth": 1.8, "strokeDash": [2, 3]},
+      "encoding": {
+        "x": {"field": "price", "type": "quantitative", "scale": {"zero": false, "nice": false, "domain": [{"x-eas:slot": "x_min"}, {"x-eas:slot": "x_max"}]}},
+        "y": {"field": "pnl", "type": "quantitative"},
+        "stroke": {"field": "series", "type": "nominal", "sort": null, "title": null,
+                  "scale": {"domain": {"x-eas:slot": "series"}, "range": {"x-eas:slot": "series_colors"}},
+                  "legend": {"orient": "bottom", "direction": "horizontal"}},
+        "tooltip": [
+          {"field": "series", "type": "nominal", "title": "date"},
+          {"field": "price", "type": "quantitative", "title": "price"},
+          {"field": "pnl", "type": "quantitative", "title": "P/L"}
+        ]
+      }
+    },
+    {
+      "name": "spot",
+      "transform": [{"filter": "datum.kind == 'spot'"}],
+      "mark": {"type": "rule", "color": "#cbd5e1", "strokeDash": [2, 3], "strokeWidth": 1.2},
+      "encoding": {
+        "x": {"field": "price", "type": "quantitative", "scale": {"zero": false, "nice": false, "domain": [{"x-eas:slot": "x_min"}, {"x-eas:slot": "x_max"}]}},
+        "tooltip": [{"field": "price", "type": "quantitative", "title": "spot"}]
+      }
+    },
+    {
+      "name": "strikes",
+      "transform": [{"filter": "datum.kind == 'strike'"}],
+      "mark": {"type": "text", "baseline": "bottom", "fontWeight": "bold", "fontSize": 11},
+      "encoding": {
+        "x": {"field": "price", "type": "quantitative", "scale": {"zero": false, "nice": false, "domain": [{"x-eas:slot": "x_min"}, {"x-eas:slot": "x_max"}]}},
+        "y": {"field": "pnl", "type": "quantitative"},
+        "text": {"field": "label", "type": "nominal"},
+        "color": {"field": "ink", "type": "nominal", "legend": null, "scale": null}
+      }
+    }
+  ],
+  "resolve": {"scale": {"color": "independent"}},
+  "config": {
+    "axisY": {"orient": "right"},
+    "axis": {"gridColor": "#1f2630", "domainColor": "#3a4452", "tickColor": "#3a4452",
+             "labelColor": "#9aa5b4", "titleColor": "#9aa5b4"},
+    "view": {"stroke": null},
+    "legend": {"labelColor": "#cbd5e1", "titleColor": "#cbd5e1"}
+  }
+}

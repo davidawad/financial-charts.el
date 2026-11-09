@@ -8,6 +8,9 @@ Three templates show valuation over a grid of assumptions:
 | `revenue-surface` | `eq.revenue.possibility_surface` | fan of quantile lines, the median orange | `fc-revenue3d` | year by year |
 | `kelly-surface` | `stats.kelly.growth --grid` over edge x fraction | heatmap, diverging at zero growth | `fc-kelly3d` | none (not a time series) |
 
+The football field of every valuation method for one asset (valuation-rs's
+`valuation stadium`) is [valuation-stadium.md](valuation-stadium.md).
+
 Each one is a 2D template in `templates/financial/NAME.json` plus its 3D
 variant in `templates3d/NAME.json` (`fc3d/NAME`, written by
 `scripts/templates3d-valuation.py`). `src/financial-chart-3d-valuation.el`

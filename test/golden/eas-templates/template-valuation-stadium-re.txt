@@ -1,0 +1,35 @@
+                         24-unit apartment building (illustrative inputs)  (re_multifamily, default)
+
+
+                               │                                            │      │      │
+      Discounted cash flow wit…┤                                            │      │      │
+                               │                                            │      │   │
+      Cost approach (RCN less …┤                                            │      │   │
+                               │                                            │      ││
+          Gross rent multiplier┤                                            │      ││
+                               │                                            │      ││
+      Direct capitalization (N…┤                                       ▕▓▓▓▓│▓▓▓▓▓▓││▓▓▓▓▓▓▓▓▓▓▓▏
+                               │                                            │      ││
+      Sales comparison with ad…┤                                            │    ▕▓││▓▓▏
+                               │                                            │     ││
+      Price per unit, per squa…┤                                            │  ▐▓▓││▓▊
+                               │                                            │    │ │
+        Gross income multiplier┤                                            │    │ │
+                               │                                         │  │      │
+      Target-IRR / equity-mult…┤                                         │  │      │
+                               │                                 │          │      │
+      Lender-constrained value…┤                                 │          │      │
+                               │   │                                        │      │
+      Band of investment cap r…┤   │                                        │      │
+                               └┬──────────────┬──────────────┬──────────────┬──────────────┬───────
+                                2,800,000  3,200,000      3,600,000      4,000,000      4,400,000
+
+                                ■ income  ■ market  ■ cost  ■ arbitrage  ■ contingent_claim
+                                ■ statistical  ■ heuristic  ■ market price  ■ weighted mean
+                                ■ median
+
+50% rule (expense-ratio heuris…┤3,448,276 usd
+ 1% rule (rent-to-price screen)┤needs monthly_rent
+
+
+  10 of 12 methods ok; dispersion 10.8%; weighted mean 3,987,506; median 4,152,567; market 4,150,000

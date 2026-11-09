@@ -260,5 +260,8 @@ The generic ones (line, bars, area, ...) ship with eas.el itself.")
 ;; The composition DSL: a chart description compiled to one eas spec.
 (require 'financial-chart-eas-compose)
 
+;; The valuation stadium: valuation.stadium/1 as a football field.
+(require 'financial-chart-eas-valuation)
+
 (provide 'financial-chart-eas)
 ;;; financial-chart-eas.el ends here

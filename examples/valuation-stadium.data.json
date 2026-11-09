@@ -1,0 +1,1644 @@
+{
+ "data": {
+  "asset": "ACME Corp common (illustrative inputs)",
+  "class": "long_equity",
+  "contract": "valuation.stadium/1",
+  "next": [
+   "valuation describe eq.ncav --inputs"
+  ],
+  "profile": "default",
+  "reference": 140.0,
+  "rows": [
+   {
+    "approach": "market",
+    "detail": {
+     "assumptions": [
+      {
+       "name": "cash",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 1000000000.0
+      },
+      {
+       "name": "ebitda",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 1900000000.0
+      },
+      {
+       "name": "minority_interest",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 0
+      },
+      {
+       "name": "peer_ev_ebitda_ratios",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "ratio[]",
+       "value": [
+        9.5,
+        10.5,
+        11.2,
+        12.0
+       ]
+      },
+      {
+       "name": "preferred",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 0
+      },
+      {
+       "name": "shares_outstanding",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "count",
+       "value": 100000000.0
+      },
+      {
+       "name": "total_debt",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 2000000000.0
+      },
+      {
+       "name": "non_operating_assets",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.comps_ev_ebitda"
+       },
+       "unit": "usd",
+       "value": 0.0
+      }
+     ],
+     "high": 206.59999999999997,
+     "lines": [
+      {
+       "formula": "median of peer EV/EBITDA",
+       "from": [
+        "peer_ev_ebitda_ratios"
+       ],
+       "key": "median_multiple",
+       "value": 10.85
+      },
+      {
+       "formula": "median EV/EBITDA x EBITDA",
+       "from": [
+        "median_multiple",
+        "ebitda"
+       ],
+       "key": "enterprise_value",
+       "value": 20615000000.0
+      },
+      {
+       "formula": "(Q1 EV/EBITDA x EBITDA - net claims) / shares",
+       "from": [
+        "peer_ev_ebitda_ratios",
+        "ebitda",
+        "total_debt",
+        "cash",
+        "shares_outstanding"
+       ],
+       "key": "value_low",
+       "value": 184.75
+      },
+      {
+       "formula": "(EV - debt + cash - minorities - preferred + non-operating) / shares",
+       "from": [
+        "enterprise_value",
+        "total_debt",
+        "cash",
+        "minority_interest",
+        "preferred",
+        "non_operating_assets",
+        "shares_outstanding"
+       ],
+       "key": "value_per_share",
+       "value": 196.15
+      },
+      {
+       "formula": "(Q3 EV/EBITDA x EBITDA - net claims) / shares",
+       "from": [
+        "peer_ev_ebitda_ratios",
+        "ebitda",
+        "total_debt",
+        "cash",
+        "shares_outstanding"
+       ],
+       "key": "value_high",
+       "value": 206.59999999999997
+      }
+     ],
+     "low": 184.75,
+     "value": 196.15,
+     "warnings": [
+      "EV/EBITDA ignores capex intensity and leases; check peers have the same lease and capitalised-cost treatment",
+      "unsourced inputs (pass {value, source} objects): cash, ebitda, minority_interest, peer_ev_ebitda_ratios, preferred, shares_outstanding, total_debt"
+     ]
+    },
+    "high": 206.59999999999997,
+    "low": 184.75,
+    "method": "eq.comps_ev_ebitda",
+    "name": "Comparables: EV/EBITDA",
+    "role": "value",
+    "status": "ok",
+    "unit": "usd_per_share",
+    "value": 196.15,
+    "weight": 1.0
+   },
+   {
+    "approach": "market",
+    "detail": {
+     "assumptions": [
+      {
+       "name": "eps",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd_per_share",
+       "value": 5.2
+      },
+      {
+       "name": "peer_pe_ratios",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "ratio[]",
+       "value": [
+        17,
+        19,
+        21,
+        24
+       ]
+      }
+     ],
+     "high": 113.10000000000001,
+     "lines": [
+      {
+       "formula": "median of peer P/E",
+       "from": [
+        "peer_pe_ratios"
+       ],
+       "key": "median_multiple",
+       "value": 20.0
+      },
+      {
+       "formula": "Q1 peer P/E x EPS",
+       "from": [
+        "peer_pe_ratios",
+        "eps"
+       ],
+       "key": "value_low",
+       "value": 96.2
+      },
+      {
+       "formula": "median peer P/E x EPS",
+       "from": [
+        "median_multiple",
+        "eps"
+       ],
+       "key": "value_per_share",
+       "value": 104.0
+      },
+      {
+       "formula": "Q3 peer P/E x EPS",
+       "from": [
+        "peer_pe_ratios",
+        "eps"
+       ],
+       "key": "value_high",
+       "value": 113.10000000000001
+      }
+     ],
+     "low": 96.2,
+     "value": 104.0,
+     "warnings": [
+      "a P/E embeds the peers' growth, risk and leverage; adjust the peer set or use PEG if the target differs",
+      "unsourced inputs (pass {value, source} objects): eps, peer_pe_ratios"
+     ]
+    },
+    "high": 113.10000000000001,
+    "low": 96.2,
+    "method": "eq.comps_pe",
+    "name": "Comparables: trailing P/E",
+    "role": "value",
+    "status": "ok",
+    "unit": "usd_per_share",
+    "value": 104.0,
+    "weight": 1.0
+   },
+   {
+    "approach": "income",
+    "detail": {
+     "assumptions": [
+      {
+       "name": "beta",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "ratio",
+       "value": 1.1
+      },
+      {
+       "name": "equity_risk_premium",
+       "source": {
+        "as_of": "2026-01-01",
+        "kind": "profile",
+        "note": "Profile default, not fetched: Damodaran's implied ERP is published as a manually updated xlsx with no stable machine-readable URL. Override with a sourced value or a profile input.",
+        "ref": "standard.equity_risk_premium",
+        "transform": "house default",
+        "url": "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/implpr.html"
+       },
+       "unit": "rate",
+       "value": 0.045
+      },
+      {
+       "name": "fcfe_forecast",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd[]",
+       "value": [
+        850000000.0,
+        920000000.0,
+        990000000.0,
+        1060000000.0,
+        1120000000.0
+       ]
+      },
+      {
+       "name": "risk_free_rate",
+       "source": {
+        "as_of": "2026-11-05",
+        "kind": "fred",
+        "note": "retrieved_at 2026-11-09T03:27:42Z; requested as_of 2026-11-09",
+        "ref": "DGS10",
+        "transform": "percent / 100",
+        "url": "https://fred.stlouisfed.org/series/DGS10"
+       },
+       "unit": "rate",
+       "value": 0.0484
+      },
+      {
+       "name": "shares_outstanding",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "count",
+       "value": 100000000.0
+      },
+      {
+       "name": "terminal_growth",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "rate",
+       "value": 0.025
+      },
+      {
+       "name": "mid_year",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.dcf_fcfe"
+       },
+       "unit": "bool",
+       "value": false
+      },
+      {
+       "name": "non_operating_assets",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.dcf_fcfe"
+       },
+       "unit": "usd",
+       "value": 0.0
+      },
+      {
+       "name": "rate_band",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.dcf_fcfe"
+       },
+       "unit": "rate",
+       "value": 0.01
+      }
+     ],
+     "components": [
+      {
+       "key": "cost_of_equity",
+       "method": "coc.capm",
+       "valuation": {
+        "lines": [
+         {
+          "formula": "rf + erp",
+          "from": [
+           "risk_free_rate",
+           "equity_risk_premium"
+          ],
+          "key": "market_return",
+          "value": 0.0934
+         },
+         {
+          "formula": "rf + beta * (Rm - rf)",
+          "from": [
+           "risk_free_rate",
+           "beta",
+           "market_return"
+          ],
+          "key": "cost_of_equity",
+          "value": 0.0979
+         }
+        ],
+        "value": 0.0979
+       }
+      },
+      {
+       "key": "equity_pv",
+       "method": "common.dcf_explicit",
+       "valuation": {
+        "lines": [
+         {
+          "formula": "sum CF_t / (1+r)^t",
+          "key": "pv_explicit",
+          "value": 3717182937.7500505
+         },
+         {
+          "formula": "CF_n (1+g) / (r - g)",
+          "key": "terminal_value",
+          "value": 15747599451.303156
+         },
+         {
+          "formula": "TV / (1+r)^n",
+          "key": "pv_terminal",
+          "value": 9871892883.547956
+         },
+         {
+          "formula": "pv_explicit + pv_terminal",
+          "key": "value",
+          "value": 13589075821.298008
+         }
+        ],
+        "value": 13589075821.298008
+       }
+      }
+     ],
+     "high": 157.96231976739023,
+     "lines": [
+      {
+       "formula": "direct cost_of_equity or CAPM component",
+       "from": [
+        "cost_of_equity"
+       ],
+       "key": "cost_of_equity",
+       "value": 0.0979
+      },
+      {
+       "formula": "PV(FCFE) + PV(terminal value) + non-operating assets",
+       "from": [
+        "fcfe_forecast",
+        "terminal_growth",
+        "cost_of_equity",
+        "non_operating_assets"
+       ],
+       "key": "equity_value",
+       "value": 13589075821.298008
+      },
+      {
+       "formula": "equity value / shares outstanding",
+       "from": [
+        "equity_value",
+        "shares_outstanding"
+       ],
+       "key": "value_per_share",
+       "value": 135.89075821298007
+      }
+     ],
+     "low": 119.15601407260968,
+     "value": 135.89075821298007,
+     "warnings": [
+      "unsourced inputs (pass {value, source} objects): beta, fcfe_forecast, shares_outstanding, terminal_growth"
+     ]
+    },
+    "high": 157.96231976739023,
+    "low": 119.15601407260968,
+    "method": "eq.dcf_fcfe",
+    "name": "DCF: free cash flow to equity at cost of equity",
+    "role": "value",
+    "status": "ok",
+    "unit": "usd_per_share",
+    "value": 135.89075821298007,
+    "weight": 1.0
+   },
+   {
+    "approach": "income",
+    "detail": {
+     "assumptions": [
+      {
+       "name": "beta",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "ratio",
+       "value": 1.1
+      },
+      {
+       "name": "cash",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 1000000000.0
+      },
+      {
+       "name": "cost_of_debt",
+       "source": {
+        "as_of": "2026-11-05",
+        "kind": "fred",
+        "note": "retrieved_at 2026-11-09T03:27:43Z; requested as_of 2026-11-09",
+        "ref": "DBAA",
+        "transform": "percent / 100",
+        "url": "https://fred.stlouisfed.org/series/DBAA"
+       },
+       "unit": "rate",
+       "value": 0.0641
+      },
+      {
+       "name": "equity_risk_premium",
+       "source": {
+        "as_of": "2026-01-01",
+        "kind": "profile",
+        "note": "Profile default, not fetched: Damodaran's implied ERP is published as a manually updated xlsx with no stable machine-readable URL. Override with a sourced value or a profile input.",
+        "ref": "standard.equity_risk_premium",
+        "transform": "house default",
+        "url": "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/implpr.html"
+       },
+       "unit": "rate",
+       "value": 0.045
+      },
+      {
+       "name": "fcff_forecast",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd[]",
+       "value": [
+        1000000000.0,
+        1080000000.0,
+        1160000000.0,
+        1240000000.0,
+        1310000000.0
+       ]
+      },
+      {
+       "name": "market_cap",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 14000000000.0
+      },
+      {
+       "name": "minority_interest",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 0
+      },
+      {
+       "name": "preferred",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 0
+      },
+      {
+       "name": "risk_free_rate",
+       "source": {
+        "as_of": "2026-11-05",
+        "kind": "fred",
+        "note": "retrieved_at 2026-11-09T03:27:42Z; requested as_of 2026-11-09",
+        "ref": "DGS10",
+        "transform": "percent / 100",
+        "url": "https://fred.stlouisfed.org/series/DGS10"
+       },
+       "unit": "rate",
+       "value": 0.0484
+      },
+      {
+       "name": "shares_outstanding",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "count",
+       "value": 100000000.0
+      },
+      {
+       "name": "tax_rate",
+       "source": {
+        "as_of": "2018-01-01",
+        "kind": "profile",
+        "note": "Statutory default (26 U.S.C. 11(b)), not fetched and excludes state tax. Override with the entity's marginal rate.",
+        "ref": "standard.tax_rate",
+        "transform": "statutory",
+        "url": "https://www.law.cornell.edu/uscode/text/26/11"
+       },
+       "unit": "rate",
+       "value": 0.21
+      },
+      {
+       "name": "terminal_growth",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "rate",
+       "value": 0.025
+      },
+      {
+       "name": "total_debt",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 2000000000.0
+      },
+      {
+       "name": "mid_year",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.dcf_fcff"
+       },
+       "unit": "bool",
+       "value": false
+      },
+      {
+       "name": "non_operating_assets",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.dcf_fcff"
+       },
+       "unit": "usd",
+       "value": 0.0
+      },
+      {
+       "name": "rate_band",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.dcf_fcff"
+       },
+       "unit": "rate",
+       "value": 0.01
+      }
+     ],
+     "components": [
+      {
+       "key": "wacc",
+       "method": "coc.wacc",
+       "valuation": {
+        "components": [
+         {
+          "key": "cost_of_equity",
+          "method": "coc.capm",
+          "valuation": {
+           "lines": [
+            {
+             "formula": "rf + erp",
+             "from": [
+              "risk_free_rate",
+              "equity_risk_premium"
+             ],
+             "key": "market_return",
+             "value": 0.0934
+            },
+            {
+             "formula": "rf + beta * (Rm - rf)",
+             "from": [
+              "risk_free_rate",
+              "beta",
+              "market_return"
+             ],
+             "key": "cost_of_equity",
+             "value": 0.0979
+            }
+           ],
+           "value": 0.0979
+          }
+         }
+        ],
+        "lines": [
+         {
+          "formula": "direct input or CAPM component",
+          "from": [
+           "cost_of_equity"
+          ],
+          "key": "cost_of_equity",
+          "value": 0.0979
+         },
+         {
+          "formula": "E / (E + D)",
+          "from": [
+           "market_cap",
+           "total_debt"
+          ],
+          "key": "weight_equity",
+          "value": 0.875
+         },
+         {
+          "formula": "D / (E + D)",
+          "from": [
+           "market_cap",
+           "total_debt"
+          ],
+          "key": "weight_debt",
+          "value": 0.125
+         },
+         {
+          "formula": "Kd (1 - t)",
+          "from": [
+           "cost_of_debt",
+           "tax_rate"
+          ],
+          "key": "after_tax_cost_of_debt",
+          "value": 0.050639
+         },
+         {
+          "formula": "E/V Ke + D/V Kd (1 - t)",
+          "from": [
+           "cost_of_equity",
+           "weight_equity",
+           "weight_debt",
+           "after_tax_cost_of_debt"
+          ],
+          "key": "wacc",
+          "value": 0.091992375
+         }
+        ],
+        "value": 0.091992375
+       }
+      },
+      {
+       "key": "operating_value",
+       "method": "common.dcf_explicit",
+       "valuation": {
+        "lines": [
+         {
+          "formula": "sum CF_t / (1+r)^t",
+          "key": "pv_explicit",
+          "value": 4428021622.372013
+         },
+         {
+          "formula": "CF_n (1+g) / (r - g)",
+          "key": "terminal_value",
+          "value": 20043325826.26008
+         },
+         {
+          "formula": "TV / (1+r)^n",
+          "key": "pv_terminal",
+          "value": 12908380458.10819
+         },
+         {
+          "formula": "pv_explicit + pv_terminal",
+          "key": "value",
+          "value": 17336402080.4802
+         }
+        ],
+        "value": 17336402080.4802
+       }
+      }
+     ],
+     "high": 194.3820302815158,
+     "lines": [
+      {
+       "formula": "direct input or WACC component",
+       "from": [
+        "wacc"
+       ],
+       "key": "wacc",
+       "value": 0.091992375
+      },
+      {
+       "formula": "PV(FCFF) + PV(terminal value)",
+       "from": [
+        "fcff_forecast",
+        "terminal_growth",
+        "wacc"
+       ],
+       "key": "enterprise_value",
+       "value": 17336402080.4802
+      },
+      {
+       "formula": "EV - debt + cash - minorities - preferred + non-operating assets",
+       "from": [
+        "enterprise_value",
+        "total_debt",
+        "cash",
+        "minority_interest",
+        "preferred",
+        "non_operating_assets"
+       ],
+       "key": "equity_value",
+       "value": 16336402080.480202
+      },
+      {
+       "formula": "equity value / shares outstanding",
+       "from": [
+        "equity_value",
+        "shares_outstanding"
+       ],
+       "key": "value_per_share",
+       "value": 163.364020804802
+      }
+     ],
+     "low": 140.41853440789393,
+     "value": 163.364020804802,
+     "warnings": [
+      "unsourced inputs (pass {value, source} objects): beta, cash, fcff_forecast, market_cap, minority_interest, preferred, shares_outstanding, terminal_growth, total_debt"
+     ]
+    },
+    "high": 194.3820302815158,
+    "low": 140.41853440789393,
+    "method": "eq.dcf_fcff",
+    "name": "DCF: free cash flow to the firm at WACC",
+    "role": "value",
+    "status": "ok",
+    "unit": "usd_per_share",
+    "value": 163.364020804802,
+    "weight": 1.0
+   },
+   {
+    "approach": "income",
+    "detail": {
+     "assumptions": [
+      {
+       "name": "beta",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "ratio",
+       "value": 1.1
+      },
+      {
+       "name": "dividend_per_share",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd_per_share",
+       "value": 3.0
+      },
+      {
+       "name": "equity_risk_premium",
+       "source": {
+        "as_of": "2026-01-01",
+        "kind": "profile",
+        "note": "Profile default, not fetched: Damodaran's implied ERP is published as a manually updated xlsx with no stable machine-readable URL. Override with a sourced value or a profile input.",
+        "ref": "standard.equity_risk_premium",
+        "transform": "house default",
+        "url": "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/implpr.html"
+       },
+       "unit": "rate",
+       "value": 0.045
+      },
+      {
+       "name": "risk_free_rate",
+       "source": {
+        "as_of": "2026-11-05",
+        "kind": "fred",
+        "note": "retrieved_at 2026-11-09T03:27:42Z; requested as_of 2026-11-09",
+        "ref": "DGS10",
+        "transform": "percent / 100",
+        "url": "https://fred.stlouisfed.org/series/DGS10"
+       },
+       "unit": "rate",
+       "value": 0.0484
+      },
+      {
+       "name": "terminal_growth",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "rate",
+       "value": 0.025
+      },
+      {
+       "name": "rate_band",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.ddm_gordon"
+       },
+       "unit": "rate",
+       "value": 0.01
+      }
+     ],
+     "components": [
+      {
+       "key": "cost_of_equity",
+       "method": "coc.capm",
+       "valuation": {
+        "lines": [
+         {
+          "formula": "rf + erp",
+          "from": [
+           "risk_free_rate",
+           "equity_risk_premium"
+          ],
+          "key": "market_return",
+          "value": 0.0934
+         },
+         {
+          "formula": "rf + beta * (Rm - rf)",
+          "from": [
+           "risk_free_rate",
+           "beta",
+           "market_return"
+          ],
+          "key": "cost_of_equity",
+          "value": 0.0979
+         }
+        ],
+        "value": 0.0979
+       }
+      }
+     ],
+     "high": 48.88712241653417,
+     "lines": [
+      {
+       "formula": "direct input or CAPM component",
+       "from": [
+        "cost_of_equity"
+       ],
+       "key": "cost_of_equity",
+       "value": 0.0979
+      },
+      {
+       "formula": "D0 (1 + g)",
+       "from": [
+        "dividend_per_share",
+        "terminal_growth"
+       ],
+       "key": "next_dividend",
+       "value": 3.0749999999999997
+      },
+      {
+       "formula": "D1 / (Ke - g)",
+       "from": [
+        "next_dividend",
+        "cost_of_equity",
+        "terminal_growth"
+       ],
+       "key": "value_per_share",
+       "value": 42.181069958847736
+      }
+     ],
+     "low": 37.09288299155609,
+     "value": 42.181069958847736,
+     "warnings": [
+      "unsourced inputs (pass {value, source} objects): beta, dividend_per_share, terminal_growth"
+     ]
+    },
+    "high": 48.88712241653417,
+    "low": 37.09288299155609,
+    "method": "eq.ddm_gordon",
+    "name": "Dividend discount model: Gordon growth",
+    "role": "value",
+    "status": "ok",
+    "unit": "usd_per_share",
+    "value": 42.181069958847736,
+    "weight": 1.0
+   },
+   {
+    "approach": "income",
+    "detail": {
+     "assumptions": [
+      {
+       "name": "beta",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "ratio",
+       "value": 1.1
+      },
+      {
+       "name": "dividend_per_share",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd_per_share",
+       "value": 3.0
+      },
+      {
+       "name": "equity_risk_premium",
+       "source": {
+        "as_of": "2026-01-01",
+        "kind": "profile",
+        "note": "Profile default, not fetched: Damodaran's implied ERP is published as a manually updated xlsx with no stable machine-readable URL. Override with a sourced value or a profile input.",
+        "ref": "standard.equity_risk_premium",
+        "transform": "house default",
+        "url": "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/implpr.html"
+       },
+       "unit": "rate",
+       "value": 0.045
+      },
+      {
+       "name": "high_growth",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "rate",
+       "value": 0.07
+      },
+      {
+       "name": "high_growth_years",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "years",
+       "value": 5
+      },
+      {
+       "name": "risk_free_rate",
+       "source": {
+        "as_of": "2026-11-05",
+        "kind": "fred",
+        "note": "retrieved_at 2026-11-09T03:27:42Z; requested as_of 2026-11-09",
+        "ref": "DGS10",
+        "transform": "percent / 100",
+        "url": "https://fred.stlouisfed.org/series/DGS10"
+       },
+       "unit": "rate",
+       "value": 0.0484
+      },
+      {
+       "name": "terminal_growth",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "rate",
+       "value": 0.025
+      },
+      {
+       "name": "rate_band",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.ddm_multistage"
+       },
+       "unit": "rate",
+       "value": 0.01
+      },
+      {
+       "name": "transition_years",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.ddm_multistage"
+       },
+       "unit": "years",
+       "value": 0
+      }
+     ],
+     "components": [
+      {
+       "key": "cost_of_equity",
+       "method": "coc.capm",
+       "valuation": {
+        "lines": [
+         {
+          "formula": "rf + erp",
+          "from": [
+           "risk_free_rate",
+           "equity_risk_premium"
+          ],
+          "key": "market_return",
+          "value": 0.0934
+         },
+         {
+          "formula": "rf + beta * (Rm - rf)",
+          "from": [
+           "risk_free_rate",
+           "beta",
+           "market_return"
+          ],
+          "key": "cost_of_equity",
+          "value": 0.0979
+         }
+        ],
+        "value": 0.0979
+       }
+      }
+     ],
+     "high": 59.27106458119631,
+     "lines": [
+      {
+       "formula": "direct input or CAPM component",
+       "from": [
+        "cost_of_equity"
+       ],
+       "key": "cost_of_equity",
+       "value": 0.0979
+      },
+      {
+       "formula": "D_(N+T) (1 + g_s) / (Ke - g_s) / (1 + Ke)^(N+T)",
+       "from": [
+        "dividend_per_share",
+        "high_growth",
+        "high_growth_years",
+        "transition_years",
+        "stable_growth",
+        "cost_of_equity"
+       ],
+       "key": "pv_terminal",
+       "value": 37.08707263153179
+      },
+      {
+       "formula": "sum_t D_t / (1 + Ke)^t + PV(terminal)",
+       "from": [
+        "pv_terminal"
+       ],
+       "key": "value_per_share",
+       "value": 50.981541501979365
+      }
+     ],
+     "low": 44.696876108947905,
+     "value": 50.981541501979365,
+     "warnings": [
+      "unsourced inputs (pass {value, source} objects): beta, dividend_per_share, high_growth, high_growth_years, terminal_growth"
+     ]
+    },
+    "high": 59.27106458119631,
+    "low": 44.696876108947905,
+    "method": "eq.ddm_multistage",
+    "name": "Dividend discount model: two- and three-stage",
+    "role": "value",
+    "status": "ok",
+    "unit": "usd_per_share",
+    "value": 50.981541501979365,
+    "weight": 1.0
+   },
+   {
+    "approach": "heuristic",
+    "detail": {
+     "assumptions": [
+      {
+       "name": "book_value_per_share",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd_per_share",
+       "value": 38.0
+      },
+      {
+       "name": "eps",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd_per_share",
+       "value": 5.2
+      }
+     ],
+     "lines": [
+      {
+       "formula": "sqrt(22.5 x EPS x BVPS)  (22.5 = 15 x 1.5)",
+       "from": [
+        "eps",
+        "book_value_per_share"
+       ],
+       "key": "value_per_share",
+       "value": 66.6783323126786
+      }
+     ],
+     "value": 66.6783323126786,
+     "warnings": [
+      "Graham's ceiling for a defensive investor with 3-year average EPS; it is a maximum price, not a point estimate of worth",
+      "unsourced inputs (pass {value, source} objects): book_value_per_share, eps"
+     ]
+    },
+    "method": "eq.graham_number",
+    "name": "Graham number",
+    "role": "value",
+    "status": "ok",
+    "unit": "usd_per_share",
+    "value": 66.6783323126786,
+    "weight": 1.0
+   },
+   {
+    "approach": "cost",
+    "method": "eq.ncav",
+    "missing": [
+     "current_assets (usd): Total current assets",
+     "total_liabilities (usd): Total liabilities (current and long-term)"
+    ],
+    "name": "Net current asset value (net-net)",
+    "role": "value",
+    "status": "skipped",
+    "unit": "usd_per_share",
+    "weight": 1.0
+   },
+   {
+    "approach": "income",
+    "detail": {
+     "assumptions": [
+      {
+       "name": "beta",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "ratio",
+       "value": 1.1
+      },
+      {
+       "name": "book_value_per_share",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd_per_share",
+       "value": 38.0
+      },
+      {
+       "name": "equity_risk_premium",
+       "source": {
+        "as_of": "2026-01-01",
+        "kind": "profile",
+        "note": "Profile default, not fetched: Damodaran's implied ERP is published as a manually updated xlsx with no stable machine-readable URL. Override with a sourced value or a profile input.",
+        "ref": "standard.equity_risk_premium",
+        "transform": "house default",
+        "url": "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/implpr.html"
+       },
+       "unit": "rate",
+       "value": 0.045
+      },
+      {
+       "name": "payout_ratio",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "rate",
+       "value": 0.4
+      },
+      {
+       "name": "risk_free_rate",
+       "source": {
+        "as_of": "2026-11-05",
+        "kind": "fred",
+        "note": "retrieved_at 2026-11-09T03:27:42Z; requested as_of 2026-11-09",
+        "ref": "DGS10",
+        "transform": "percent / 100",
+        "url": "https://fred.stlouisfed.org/series/DGS10"
+       },
+       "unit": "rate",
+       "value": 0.0484
+      },
+      {
+       "name": "roe_path",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "rate[]",
+       "value": [
+        0.14,
+        0.14,
+        0.13,
+        0.13,
+        0.12
+       ]
+      },
+      {
+       "name": "rate_band",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.residual_income"
+       },
+       "unit": "rate",
+       "value": 0.01
+      },
+      {
+       "name": "residual_income_growth",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.residual_income"
+       },
+       "unit": "rate",
+       "value": 0.0
+      }
+     ],
+     "components": [
+      {
+       "key": "cost_of_equity",
+       "method": "coc.capm",
+       "valuation": {
+        "lines": [
+         {
+          "formula": "rf + erp",
+          "from": [
+           "risk_free_rate",
+           "equity_risk_premium"
+          ],
+          "key": "market_return",
+          "value": 0.0934
+         },
+         {
+          "formula": "rf + beta * (Rm - rf)",
+          "from": [
+           "risk_free_rate",
+           "beta",
+           "market_return"
+          ],
+          "key": "cost_of_equity",
+          "value": 0.0979
+         }
+        ],
+        "value": 0.0979
+       }
+      }
+     ],
+     "high": 58.96342072066204,
+     "lines": [
+      {
+       "formula": "direct input or CAPM component",
+       "from": [
+        "cost_of_equity"
+       ],
+       "key": "cost_of_equity",
+       "value": 0.0979
+      },
+      {
+       "formula": "sum (ROE_t - Ke) B_(t-1) / (1 + Ke)^t",
+       "from": [
+        "roe_path",
+        "payout_ratio",
+        "cost_of_equity"
+       ],
+       "key": "pv_residual_income",
+       "value": 5.761245604579232
+      },
+      {
+       "formula": "[(ROE_n - Ke) B_n / (Ke - g)] / (1 + Ke)^n",
+       "from": [
+        "roe_path",
+        "residual_income_growth",
+        "cost_of_equity"
+       ],
+       "key": "pv_terminal",
+       "value": 7.871728824725306
+      },
+      {
+       "formula": "B0 + PV(residual income)",
+       "from": [
+        "book_value_per_share",
+        "pv_residual_income",
+        "pv_terminal"
+       ],
+       "key": "value_per_share",
+       "value": 51.63297442930454
+      }
+     ],
+     "low": 45.723245491537476,
+     "value": 51.63297442930454,
+     "warnings": [
+      "unsourced inputs (pass {value, source} objects): beta, book_value_per_share, payout_ratio, roe_path"
+     ]
+    },
+    "high": 58.96342072066204,
+    "low": 45.723245491537476,
+    "method": "eq.residual_income",
+    "name": "Residual income (Edwards-Bell-Ohlson)",
+    "role": "value",
+    "status": "ok",
+    "unit": "usd_per_share",
+    "value": 51.63297442930454,
+    "weight": 1.0
+   },
+   {
+    "approach": "income",
+    "detail": {
+     "assumptions": [
+      {
+       "name": "base_fcff",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 1000000000.0
+      },
+      {
+       "name": "beta",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "ratio",
+       "value": 1.1
+      },
+      {
+       "name": "cash",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 1000000000.0
+      },
+      {
+       "name": "cost_of_debt",
+       "source": {
+        "as_of": "2026-11-05",
+        "kind": "fred",
+        "note": "retrieved_at 2026-11-09T03:27:43Z; requested as_of 2026-11-09",
+        "ref": "DBAA",
+        "transform": "percent / 100",
+        "url": "https://fred.stlouisfed.org/series/DBAA"
+       },
+       "unit": "rate",
+       "value": 0.0641
+      },
+      {
+       "name": "equity_risk_premium",
+       "source": {
+        "as_of": "2026-01-01",
+        "kind": "profile",
+        "note": "Profile default, not fetched: Damodaran's implied ERP is published as a manually updated xlsx with no stable machine-readable URL. Override with a sourced value or a profile input.",
+        "ref": "standard.equity_risk_premium",
+        "transform": "house default",
+        "url": "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/implpr.html"
+       },
+       "unit": "rate",
+       "value": 0.045
+      },
+      {
+       "name": "forecast_years",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "years",
+       "value": 5
+      },
+      {
+       "name": "market_price",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd_per_share",
+       "value": 140.0
+      },
+      {
+       "name": "minority_interest",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 0
+      },
+      {
+       "name": "preferred",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 0
+      },
+      {
+       "name": "risk_free_rate",
+       "source": {
+        "as_of": "2026-11-05",
+        "kind": "fred",
+        "note": "retrieved_at 2026-11-09T03:27:42Z; requested as_of 2026-11-09",
+        "ref": "DGS10",
+        "transform": "percent / 100",
+        "url": "https://fred.stlouisfed.org/series/DGS10"
+       },
+       "unit": "rate",
+       "value": 0.0484
+      },
+      {
+       "name": "shares_outstanding",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "count",
+       "value": 100000000.0
+      },
+      {
+       "name": "tax_rate",
+       "source": {
+        "as_of": "2018-01-01",
+        "kind": "profile",
+        "note": "Statutory default (26 U.S.C. 11(b)), not fetched and excludes state tax. Override with the entity's marginal rate.",
+        "ref": "standard.tax_rate",
+        "transform": "statutory",
+        "url": "https://www.law.cornell.edu/uscode/text/26/11"
+       },
+       "unit": "rate",
+       "value": 0.21
+      },
+      {
+       "name": "terminal_growth",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "rate",
+       "value": 0.025
+      },
+      {
+       "name": "total_debt",
+       "source": {
+        "kind": "caller"
+       },
+       "unit": "usd",
+       "value": 2000000000.0
+      },
+      {
+       "name": "growth_lower",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.reverse_dcf"
+       },
+       "unit": "rate",
+       "value": -0.5
+      },
+      {
+       "name": "growth_upper",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.reverse_dcf"
+       },
+       "unit": "rate",
+       "value": 0.5
+      },
+      {
+       "name": "non_operating_assets",
+       "source": {
+        "kind": "card_default",
+        "ref": "eq.reverse_dcf"
+       },
+       "unit": "usd",
+       "value": 0.0
+      }
+     ],
+     "components": [
+      {
+       "key": "wacc",
+       "method": "coc.wacc",
+       "valuation": {
+        "components": [
+         {
+          "key": "cost_of_equity",
+          "method": "coc.capm",
+          "valuation": {
+           "lines": [
+            {
+             "formula": "rf + erp",
+             "from": [
+              "risk_free_rate",
+              "equity_risk_premium"
+             ],
+             "key": "market_return",
+             "value": 0.0934
+            },
+            {
+             "formula": "rf + beta * (Rm - rf)",
+             "from": [
+              "risk_free_rate",
+              "beta",
+              "market_return"
+             ],
+             "key": "cost_of_equity",
+             "value": 0.0979
+            }
+           ],
+           "value": 0.0979
+          }
+         }
+        ],
+        "lines": [
+         {
+          "formula": "direct input or CAPM component",
+          "from": [
+           "cost_of_equity"
+          ],
+          "key": "cost_of_equity",
+          "value": 0.0979
+         },
+         {
+          "formula": "E / (E + D)",
+          "from": [
+           "market_cap",
+           "total_debt"
+          ],
+          "key": "weight_equity",
+          "value": 0.875
+         },
+         {
+          "formula": "D / (E + D)",
+          "from": [
+           "market_cap",
+           "total_debt"
+          ],
+          "key": "weight_debt",
+          "value": 0.125
+         },
+         {
+          "formula": "Kd (1 - t)",
+          "from": [
+           "cost_of_debt",
+           "tax_rate"
+          ],
+          "key": "after_tax_cost_of_debt",
+          "value": 0.050639
+         },
+         {
+          "formula": "E/V Ke + D/V Kd (1 - t)",
+          "from": [
+           "cost_of_equity",
+           "weight_equity",
+           "weight_debt",
+           "after_tax_cost_of_debt"
+          ],
+          "key": "wacc",
+          "value": 0.091992375
+         }
+        ],
+        "value": 0.091992375
+       }
+      }
+     ],
+     "lines": [
+      {
+       "formula": "price x shares",
+       "from": [
+        "market_price",
+        "shares_outstanding"
+       ],
+       "key": "market_cap",
+       "value": 14000000000.0
+      },
+      {
+       "formula": "market cap + debt - cash + minorities + preferred - non-operating assets",
+       "from": [
+        "market_cap",
+        "total_debt",
+        "cash",
+        "minority_interest",
+        "preferred",
+        "non_operating_assets"
+       ],
+       "key": "market_ev",
+       "value": 15000000000.0
+      },
+      {
+       "formula": "direct input or WACC component",
+       "from": [
+        "wacc"
+       ],
+       "key": "wacc",
+       "value": 0.091992375
+      },
+      {
+       "formula": "g such that PV(FCFF_0 (1+g)^t, terminal) = market EV",
+       "from": [
+        "base_fcff",
+        "forecast_years",
+        "terminal_growth",
+        "market_ev",
+        "wacc"
+       ],
+       "key": "implied_growth",
+       "value": 0.02041405589028294
+      }
+     ],
+     "value": 0.02041405589028294,
+     "warnings": [
+      "unsourced inputs (pass {value, source} objects): base_fcff, beta, cash, forecast_years, market_price, minority_interest, preferred, shares_outstanding, terminal_growth, total_debt"
+     ]
+    },
+    "method": "eq.reverse_dcf",
+    "name": "Reverse DCF (market-implied growth)",
+    "role": "diagnostic",
+    "status": "ok",
+    "unit": "rate",
+    "value": 0.02041405589028294,
+    "weight": 1.0
+   }
+  ],
+  "summary": {
+   "dispersion": 0.5746038895977422,
+   "max": 196.15,
+   "median": 85.3391661563393,
+   "min": 42.181069958847736,
+   "n_methods": 10,
+   "n_ok": 8,
+   "units": [
+    "usd_per_share"
+   ],
+   "weighted_mean": 101.35983715257404
+  }
+ }
+}

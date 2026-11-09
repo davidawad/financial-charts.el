@@ -1,0 +1,505 @@
+{
+ "asset": "5y single-name CDS, 100bp standard coupon (illustrative inputs)",
+ "class": "cds",
+ "contract": "valuation.stadium/1",
+ "next": [],
+ "profile": "default",
+ "rows": [
+  {
+   "approach": "arbitrage",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "cds_coupon_bp",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "bp",
+      "value": 100.0
+     },
+     {
+      "name": "cds_spread_bp",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "bp",
+      "value": 118.0
+     },
+     {
+      "name": "recovery_rate",
+      "source": {
+       "as_of": "2009-04-08",
+       "kind": "profile",
+       "note": "ISDA Standard CDS Model convention for senior unsecured reference obligations (0.25 for subordinated, emerging markets). Not fetched; override with a name-specific estimate.",
+       "ref": "standard.recovery_rate",
+       "transform": "market convention",
+       "url": "https://www.isda.org/2009/07/22/isda-cds-standard-model/"
+      },
+      "unit": "rate",
+      "value": 0.4
+     },
+     {
+      "name": "risk_free_rate",
+      "source": {
+       "as_of": "2026-11-05",
+       "kind": "fred",
+       "note": "retrieved_at 2026-11-09T03:27:45Z; requested as_of 2026-11-09; tenor 5y: nearest series to years_to_maturity = 5",
+       "ref": "DGS5",
+       "transform": "percent / 100",
+       "url": "https://fred.stlouisfed.org/series/DGS5"
+      },
+      "unit": "rate",
+      "value": 0.0459
+     },
+     {
+      "name": "years_to_maturity",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "years",
+      "value": 5
+     }
+    ],
+    "lines": [
+     {
+      "formula": "lambda = s / (1 - R)",
+      "from": [
+       "cds_spread_bp",
+       "recovery_rate"
+      ],
+      "key": "hazard_rate",
+      "value": 0.019666666666666666
+     },
+     {
+      "formula": "exp(-lambda T)",
+      "from": [
+       "hazard_rate",
+       "years_to_maturity"
+      ],
+      "key": "survival_probability",
+      "value": 0.906346737816457
+     },
+     {
+      "formula": "1 - exp(-lambda T)",
+      "from": [
+       "hazard_rate",
+       "years_to_maturity"
+      ],
+      "key": "cumulative_pd",
+      "value": 0.09365326218354297
+     },
+     {
+      "formula": "(1 - exp(-(r + lambda) T)) / (r + lambda)",
+      "from": [
+       "risk_free_rate",
+       "hazard_rate",
+       "years_to_maturity"
+      ],
+      "key": "risky_annuity",
+      "value": 4.2630947094939
+     },
+     {
+      "formula": "(s - c) * annuity * 100",
+      "from": [
+       "cds_spread_bp",
+       "cds_coupon_bp",
+       "risky_annuity"
+      ],
+      "key": "upfront_points",
+      "value": 0.7673570477089018
+     }
+    ],
+    "value": 0.7673570477089018,
+    "warnings": [
+     "continuous-time approximation: no accrual on default, no IMM schedule; use cds.upfront_running for the ISDA figure",
+     "unsourced inputs (pass {value, source} objects): cds_coupon_bp, cds_spread_bp, years_to_maturity"
+    ]
+   },
+   "method": "cds.credit_triangle",
+   "name": "Credit triangle",
+   "role": "value",
+   "status": "ok",
+   "unit": "price_per_100",
+   "value": 0.7673570477089018,
+   "weight": 1.0
+  },
+  {
+   "approach": "arbitrage",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "cds_coupon_bp",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "bp",
+      "value": 100.0
+     },
+     {
+      "name": "cds_spread_bp",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "bp",
+      "value": 118.0
+     },
+     {
+      "name": "effective_date",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "string",
+      "value": "2026-09-21"
+     },
+     {
+      "name": "recovery_rate",
+      "source": {
+       "as_of": "2009-04-08",
+       "kind": "profile",
+       "note": "ISDA Standard CDS Model convention for senior unsecured reference obligations (0.25 for subordinated, emerging markets). Not fetched; override with a name-specific estimate.",
+       "ref": "standard.recovery_rate",
+       "transform": "market convention",
+       "url": "https://www.isda.org/2009/07/22/isda-cds-standard-model/"
+      },
+      "unit": "rate",
+      "value": 0.4
+     },
+     {
+      "name": "risk_free_rate",
+      "source": {
+       "as_of": "2026-11-05",
+       "kind": "fred",
+       "note": "retrieved_at 2026-11-09T03:27:45Z; requested as_of 2026-11-09; tenor 5y: nearest series to years_to_maturity = 5",
+       "ref": "DGS5",
+       "transform": "percent / 100",
+       "url": "https://fred.stlouisfed.org/series/DGS5"
+      },
+      "unit": "rate",
+      "value": 0.0459
+     },
+     {
+      "name": "years_to_maturity",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "years",
+      "value": 5
+     },
+     {
+      "name": "upfront_paid",
+      "source": {
+       "kind": "card_default",
+       "ref": "cds.isda_flat_hazard_mtm"
+      },
+      "unit": "price_per_100",
+      "value": 0
+     }
+    ],
+    "lines": [
+     {
+      "formula": "flat hazard (given or bootstrapped from market_spread_bp)",
+      "from": [
+       "hazard_rate",
+       "cds_spread_bp"
+      ],
+      "key": "hazard_rate",
+      "value": 0.019813825676075994
+     },
+     {
+      "formula": "(1 - R) * integral DF(t) dQ(t), per 100",
+      "from": [
+       "hazard_rate",
+       "risk_free_rate",
+       "recovery_rate"
+      ],
+      "key": "protection_leg",
+      "value": 5.06867522533396
+     },
+     {
+      "formula": "sum DF S(t) accrual + accrual on default (years)",
+      "from": [
+       "hazard_rate",
+       "risk_free_rate"
+      ],
+      "key": "risky_annuity",
+      "value": 4.298264209126798
+     },
+     {
+      "formula": "coupon * RPV01 * 100",
+      "from": [
+       "cds_coupon_bp",
+       "risky_annuity"
+      ],
+      "key": "premium_leg",
+      "value": 4.298264209126798
+     },
+     {
+      "formula": "protection / (RPV01 - rebate)",
+      "from": [
+       "protection_leg",
+       "risky_annuity"
+      ],
+      "key": "par_spread_bp",
+      "value": 117.99999999999999
+     },
+     {
+      "formula": "protection - premium",
+      "from": [
+       "protection_leg",
+       "premium_leg"
+      ],
+      "key": "clean_points",
+      "value": 0.770411016207162
+     },
+     {
+      "formula": "clean + accrued rebate - upfront paid",
+      "from": [
+       "clean_points",
+       "cds_coupon_bp",
+       "upfront_paid"
+      ],
+      "key": "mtm_points",
+      "value": 0.7731877462373835
+     }
+    ],
+    "value": 0.7731877462373835,
+    "warnings": [
+     "flat discount curve (continuous) and flat hazard; a full ISDA run needs the swap discount curve",
+     "unsourced inputs (pass {value, source} objects): cds_coupon_bp, cds_spread_bp, effective_date, years_to_maturity"
+    ]
+   },
+   "method": "cds.isda_flat_hazard_mtm",
+   "name": "ISDA flat-hazard CDS mark-to-market",
+   "role": "value",
+   "status": "ok",
+   "unit": "price_per_100",
+   "value": 0.7731877462373835,
+   "weight": 1.0
+  },
+  {
+   "approach": "arbitrage",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "cds_spread_bp",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "bp",
+      "value": 118.0
+     },
+     {
+      "name": "effective_date",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "string",
+      "value": "2026-09-21"
+     },
+     {
+      "name": "recovery_rate",
+      "source": {
+       "as_of": "2009-04-08",
+       "kind": "profile",
+       "note": "ISDA Standard CDS Model convention for senior unsecured reference obligations (0.25 for subordinated, emerging markets). Not fetched; override with a name-specific estimate.",
+       "ref": "standard.recovery_rate",
+       "transform": "market convention",
+       "url": "https://www.isda.org/2009/07/22/isda-cds-standard-model/"
+      },
+      "unit": "rate",
+      "value": 0.4
+     },
+     {
+      "name": "risk_free_rate",
+      "source": {
+       "as_of": "2026-11-05",
+       "kind": "fred",
+       "note": "retrieved_at 2026-11-09T03:27:45Z; requested as_of 2026-11-09; tenor 5y: nearest series to years_to_maturity = 5",
+       "ref": "DGS5",
+       "transform": "percent / 100",
+       "url": "https://fred.stlouisfed.org/series/DGS5"
+      },
+      "unit": "rate",
+      "value": 0.0459
+     },
+     {
+      "name": "years_to_maturity",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "years",
+      "value": 5
+     }
+    ],
+    "lines": [
+     {
+      "formula": "RPV01 in years: sum DF S(t) accrual + accrual on default",
+      "from": [
+       "hazard_rate",
+       "cds_spread_bp",
+       "risk_free_rate"
+      ],
+      "key": "risky_annuity",
+      "value": 4.298264209126798
+     },
+     {
+      "formula": "RPV01 * 100 * 1e-4",
+      "from": [
+       "risky_annuity"
+      ],
+      "key": "risky_pv01_points_per_bp",
+      "value": 0.04298264209126798
+     },
+     {
+      "formula": "a 1 bp spread move changes the upfront by about the RPV01 per bp",
+      "from": [
+       "risky_pv01_points_per_bp"
+      ],
+      "key": "cs01_approx_points",
+      "value": 0.04298264209126798
+     }
+    ],
+    "value": 0.04298264209126798,
+    "warnings": [
+     "unsourced inputs (pass {value, source} objects): cds_spread_bp, effective_date, years_to_maturity"
+    ]
+   },
+   "method": "cds.risky_pv01",
+   "name": "Risky PV01 (RPV01)",
+   "role": "diagnostic",
+   "status": "ok",
+   "unit": "points_per_bp",
+   "value": 0.04298264209126798,
+   "weight": 1.0
+  },
+  {
+   "approach": "arbitrage",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "cds_coupon_bp",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "bp",
+      "value": 100.0
+     },
+     {
+      "name": "cds_spread_bp",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "bp",
+      "value": 118.0
+     },
+     {
+      "name": "effective_date",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "string",
+      "value": "2026-09-21"
+     },
+     {
+      "name": "recovery_rate",
+      "source": {
+       "as_of": "2009-04-08",
+       "kind": "profile",
+       "note": "ISDA Standard CDS Model convention for senior unsecured reference obligations (0.25 for subordinated, emerging markets). Not fetched; override with a name-specific estimate.",
+       "ref": "standard.recovery_rate",
+       "transform": "market convention",
+       "url": "https://www.isda.org/2009/07/22/isda-cds-standard-model/"
+      },
+      "unit": "rate",
+      "value": 0.4
+     },
+     {
+      "name": "risk_free_rate",
+      "source": {
+       "as_of": "2026-11-05",
+       "kind": "fred",
+       "note": "retrieved_at 2026-11-09T03:27:45Z; requested as_of 2026-11-09; tenor 5y: nearest series to years_to_maturity = 5",
+       "ref": "DGS5",
+       "transform": "percent / 100",
+       "url": "https://fred.stlouisfed.org/series/DGS5"
+      },
+      "unit": "rate",
+      "value": 0.0459
+     },
+     {
+      "name": "years_to_maturity",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "years",
+      "value": 5
+     }
+    ],
+    "lines": [
+     {
+      "formula": "flat hazard bootstrapped to the par spread",
+      "from": [
+       "cds_spread_bp",
+       "risk_free_rate",
+       "recovery_rate"
+      ],
+      "key": "hazard_rate",
+      "value": 0.019813825676075994
+     },
+     {
+      "formula": "ISDA risky annuity (RPV01, years)",
+      "from": [
+       "hazard_rate",
+       "risk_free_rate"
+      ],
+      "key": "risky_annuity",
+      "value": 4.298264209126798
+     },
+     {
+      "formula": "(s - c) (RPV01 - accrued rebate) / settlement DF * 100",
+      "from": [
+       "cds_spread_bp",
+       "cds_coupon_bp",
+       "risky_annuity"
+      ],
+      "key": "upfront_points",
+      "value": 0.7734794942873758
+     },
+     {
+      "formula": "c + upfront * DF / (100 (RPV01 - rebate)), round trip",
+      "from": [
+       "upfront_points",
+       "cds_coupon_bp"
+      ],
+      "key": "running_equivalent_bp",
+      "value": 118.0
+     }
+    ],
+    "value": 0.7734794942873758,
+    "warnings": [
+     "flat-hazard, single-quote curve: for a full term structure bootstrap each tenor (cds.curve_bootstrap)",
+     "unsourced inputs (pass {value, source} objects): cds_coupon_bp, cds_spread_bp, effective_date, years_to_maturity"
+    ]
+   },
+   "method": "cds.upfront_running",
+   "name": "Upfront and running spread conversion",
+   "role": "value",
+   "status": "ok",
+   "unit": "price_per_100",
+   "value": 0.7734794942873758,
+   "weight": 1.0
+  }
+ ],
+ "summary": {
+  "dispersion": 0.004477469634584322,
+  "max": 0.7734794942873758,
+  "median": 0.7731877462373835,
+  "min": 0.7673570477089018,
+  "n_methods": 4,
+  "n_ok": 3,
+  "units": [
+   "price_per_100"
+  ],
+  "weighted_mean": 0.7713414294112204
+ }
+}

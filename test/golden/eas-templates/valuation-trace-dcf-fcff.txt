@@ -1,0 +1,82 @@
+* DCF: free cash flow to the firm at WACC [eq.dcf_fcff] = 163.364  (range 140.419 to 194.382)
+** lines
+*** wacc = 0.0919924
+   direct input or WACC component
+   from wacc = 0.0919924
+*** enterprise_value = 17,336,402,080
+   PV(FCFF) + PV(terminal value)
+   from fcff_forecast = [1,000,000,000, 1,080,000,000, 1,160,000,000, 1,240,000,000, 1,310,000,000], terminal_growth = 0.025, wacc = 0.0919924
+*** equity_value = 16,336,402,080
+   EV - debt + cash - minorities - preferred + non-operating assets
+   from enterprise_value = 17,336,402,080, total_debt = 2,000,000,000, cash = 1,000,000,000, minority_interest = 0, preferred = 0, non_operating_assets = 0
+*** value_per_share = 163.364
+   equity value / shares outstanding
+   from equity_value = 16,336,402,080, shares_outstanding = 100,000,000
+** assumptions
+*** beta = 1.1 (caller)
+*** cash = 1,000,000,000 (caller)
+*** cost_of_debt = 0.0641 (fred DBAA as of 2026-11-05)
+   url: https://fred.stlouisfed.org/series/DBAA
+   transform: percent / 100
+   note: retrieved_at 2026-11-09T03:27:43Z; requested as_of 2026-11-09
+*** equity_risk_premium = 0.045 (profile standard.equity_risk_premium as of 2026-01-01)
+   url: https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/implpr.html
+   transform: house default
+   note: Profile default, not fetched: Damodaran's implied ERP is published as a manually updated xlsx with no stable machine-readable URL. Override with a sourced value or a profile input.
+*** fcff_forecast = [1,000,000,000, 1,080,000,000, 1,160,000,000, 1,240,000,000, 1,310,000,000] (caller)
+*** market_cap = 14,000,000,000 (caller)
+*** minority_interest = 0 (caller)
+*** preferred = 0 (caller)
+*** risk_free_rate = 0.0484 (fred DGS10 as of 2026-11-05)
+   url: https://fred.stlouisfed.org/series/DGS10
+   transform: percent / 100
+   note: retrieved_at 2026-11-09T03:27:42Z; requested as_of 2026-11-09
+*** shares_outstanding = 100,000,000 (caller)
+*** tax_rate = 0.21 (profile standard.tax_rate as of 2018-01-01)
+   url: https://www.law.cornell.edu/uscode/text/26/11
+   transform: statutory
+   note: Statutory default (26 U.S.C. 11(b)), not fetched and excludes state tax. Override with the entity's marginal rate.
+*** terminal_growth = 0.025 (caller)
+*** total_debt = 2,000,000,000 (caller)
+*** mid_year = false (card_default eq.dcf_fcff)
+*** non_operating_assets = 0 (card_default eq.dcf_fcff)
+*** rate_band = 0.01 (card_default eq.dcf_fcff)
+** components
+*** wacc [coc.wacc] = 0.0919924
+**** lines
+***** cost_of_equity = 0.0979
+     direct input or CAPM component
+     from cost_of_equity = 0.0979
+***** weight_equity = 0.875
+     E / (E + D)
+     from market_cap = 14,000,000,000, total_debt = 2,000,000,000
+***** weight_debt = 0.125
+     D / (E + D)
+     from market_cap = 14,000,000,000, total_debt = 2,000,000,000
+***** after_tax_cost_of_debt = 0.050639
+     Kd (1 - t)
+     from cost_of_debt = 0.0641, tax_rate = 0.21
+***** wacc = 0.0919924
+     E/V Ke + D/V Kd (1 - t)
+     from cost_of_equity = 0.0979, weight_equity = 0.875, weight_debt = 0.125, after_tax_cost_of_debt = 0.050639
+**** components
+***** cost_of_equity [coc.capm] = 0.0979
+****** lines
+******* market_return = 0.0934
+       rf + erp
+       from risk_free_rate = 0.0484, equity_risk_premium = 0.045
+******* cost_of_equity = 0.0979
+       rf + beta * (Rm - rf)
+       from risk_free_rate = 0.0484, beta = 1.1, market_return = 0.0934
+*** operating_value [common.dcf_explicit] = 17,336,402,080
+**** lines
+***** pv_explicit = 4,428,021,622
+     sum CF_t / (1+r)^t
+***** terminal_value = 20,043,325,826
+     CF_n (1+g) / (r - g)
+***** pv_terminal = 12,908,380,458
+     TV / (1+r)^n
+***** value = 17,336,402,080
+     pv_explicit + pv_terminal
+** warnings
+   unsourced inputs (pass {value, source} objects): beta, cash, fcff_forecast, market_cap, minority_interest, preferred, shares_outstanding, terminal_growth, total_debt

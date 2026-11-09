@@ -1,0 +1,444 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+  "x-eas": {
+    "template": "valuation-stadium",
+    "version": "1.0.0",
+    "doc": "Valuation football field: one bar per method (low to high, a tick at its value) coloured by approach, a rule at the market price, markers for the weighted mean and median, diagnostics, skipped and failed methods listed beneath; selecting a bar opens its drill-down tree.",
+    "slots": {
+      "data": {
+        "shape": "valuation-stadium",
+        "required": true,
+        "doc": "a valuation.stadium/1 object (valuation-rs `valuation stadium`), bare or in its {contract, ok, data} envelope; validated strictly and lowered to rows by the valuation-stadium adapter (docs/valuation-stadium.md)"
+      },
+      "group": {
+        "type": "boolean",
+        "default": false,
+        "doc": "group bars by approach (income, market, cost, ...) instead of sorting by value, highest first"
+      },
+      "title": {
+        "type": "string",
+        "default": "",
+        "doc": "overrides the header line (asset, class, profile)"
+      },
+      "description": {
+        "type": "string",
+        "default": "Valuation football field: each method's low-to-high range and value by approach, against the market price, weighted mean and median; diagnostics and skipped methods listed beneath.",
+        "doc": "the takeaway; alt text and table-view fallback (bin/chart check requires it)"
+      }
+    },
+    "actions": {
+      "range": [
+        {
+          "action": "valuation-drill"
+        }
+      ],
+      "value": [
+        {
+          "action": "valuation-drill"
+        }
+      ]
+    },
+    "example": "../examples/valuation-stadium.data.json"
+  },
+  "title": {
+    "x-eas:slot": "title"
+  },
+  "description": {
+    "x-eas:slot": "description"
+  },
+  "data": {
+    "name": "data"
+  },
+  "transform": [
+    {
+      "x-eas:when": "group",
+      "spec": {
+        "calculate": "datum.rank_approach",
+        "as": "order"
+      }
+    },
+    {
+      "calculate": "isValid(datum.order) ? datum.order : datum.rank_value",
+      "as": "order"
+    }
+  ],
+  "vconcat": [
+    {
+      "name": "header",
+      "width": "container",
+      "height": 14,
+      "transform": [
+        {
+          "filter": "datum.band == 'header'"
+        }
+      ],
+      "mark": {
+        "type": "text",
+        "align": "left",
+        "fontSize": 12,
+        "fontWeight": "bold",
+        "clip": false
+      },
+      "encoding": {
+        "x": {
+          "value": 0
+        },
+        "y": {
+          "value": 7
+        },
+        "text": {
+          "field": "note"
+        }
+      }
+    },
+    {
+      "name": "field",
+      "width": "container",
+      "height": 240,
+      "layer": [
+        {
+          "name": "range",
+          "transform": [
+            {
+              "filter": "datum.band == 'value'"
+            }
+          ],
+          "mark": {
+            "type": "bar",
+            "height": {
+              "band": 0.5
+            },
+            "opacity": 0.55
+          },
+          "encoding": {
+            "y": {
+              "field": "label",
+              "type": "nominal",
+              "sort": {
+                "field": "order"
+              },
+              "title": null
+            },
+            "x": {
+              "field": "low",
+              "type": "quantitative",
+              "scale": {
+                "zero": false
+              },
+              "title": null
+            },
+            "x2": {
+              "field": "high"
+            },
+            "color": {
+              "field": "series",
+              "type": "nominal",
+              "title": null,
+              "scale": {
+                "domain": [
+                  "income",
+                  "market",
+                  "cost",
+                  "arbitrage",
+                  "contingent_claim",
+                  "statistical",
+                  "heuristic",
+                  "market price",
+                  "weighted mean",
+                  "median"
+                ],
+                "range": [
+                  "#4c78a8",
+                  "#f58518",
+                  "#54a24b",
+                  "#b279a2",
+                  "#e45756",
+                  "#72b7b2",
+                  "#9d755d",
+                  "#d62728",
+                  "#222222",
+                  "#7f7f7f"
+                ]
+              },
+              "legend": {
+                "orient": "bottom"
+              }
+            },
+            "tooltip": [
+              {
+                "field": "label",
+                "type": "nominal",
+                "title": "method"
+              },
+              {
+                "field": "approach",
+                "type": "nominal"
+              },
+              {
+                "field": "value_label",
+                "type": "nominal",
+                "title": "value"
+              },
+              {
+                "field": "range_label",
+                "type": "nominal",
+                "title": "range"
+              }
+            ]
+          }
+        },
+        {
+          "name": "value",
+          "transform": [
+            {
+              "filter": "datum.band == 'value'"
+            }
+          ],
+          "mark": {
+            "type": "tick",
+            "thickness": 3,
+            "size": 14
+          },
+          "encoding": {
+            "y": {
+              "field": "label",
+              "type": "nominal",
+              "sort": {
+                "field": "order"
+              }
+            },
+            "x": {
+              "field": "value",
+              "type": "quantitative",
+              "scale": {
+                "zero": false
+              }
+            },
+            "color": {
+              "field": "series",
+              "type": "nominal",
+              "title": null,
+              "scale": {
+                "domain": [
+                  "income",
+                  "market",
+                  "cost",
+                  "arbitrage",
+                  "contingent_claim",
+                  "statistical",
+                  "heuristic",
+                  "market price",
+                  "weighted mean",
+                  "median"
+                ],
+                "range": [
+                  "#4c78a8",
+                  "#f58518",
+                  "#54a24b",
+                  "#b279a2",
+                  "#e45756",
+                  "#72b7b2",
+                  "#9d755d",
+                  "#d62728",
+                  "#222222",
+                  "#7f7f7f"
+                ]
+              },
+              "legend": {
+                "orient": "bottom"
+              }
+            },
+            "tooltip": [
+              {
+                "field": "label",
+                "type": "nominal",
+                "title": "method"
+              },
+              {
+                "field": "approach",
+                "type": "nominal"
+              },
+              {
+                "field": "value_label",
+                "type": "nominal",
+                "title": "value"
+              },
+              {
+                "field": "range_label",
+                "type": "nominal",
+                "title": "range"
+              }
+            ]
+          }
+        },
+        {
+          "name": "markers",
+          "transform": [
+            {
+              "filter": "datum.band == 'marker'"
+            }
+          ],
+          "mark": {
+            "type": "rule",
+            "strokeWidth": 2
+          },
+          "encoding": {
+            "x": {
+              "field": "value",
+              "type": "quantitative",
+              "scale": {
+                "zero": false
+              }
+            },
+            "color": {
+              "field": "series",
+              "type": "nominal",
+              "title": null,
+              "scale": {
+                "domain": [
+                  "income",
+                  "market",
+                  "cost",
+                  "arbitrage",
+                  "contingent_claim",
+                  "statistical",
+                  "heuristic",
+                  "market price",
+                  "weighted mean",
+                  "median"
+                ],
+                "range": [
+                  "#4c78a8",
+                  "#f58518",
+                  "#54a24b",
+                  "#b279a2",
+                  "#e45756",
+                  "#72b7b2",
+                  "#9d755d",
+                  "#d62728",
+                  "#222222",
+                  "#7f7f7f"
+                ]
+              },
+              "legend": {
+                "orient": "bottom"
+              }
+            },
+            "strokeDash": {
+              "field": "series",
+              "type": "nominal",
+              "legend": null,
+              "scale": {
+                "domain": [
+                  "market price",
+                  "weighted mean",
+                  "median"
+                ],
+                "range": [
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    6,
+                    3
+                  ],
+                  [
+                    2,
+                    2
+                  ]
+                ]
+              }
+            },
+            "tooltip": [
+              {
+                "field": "note",
+                "type": "nominal",
+                "title": "marker"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "strip",
+      "width": "container",
+      "transform": [
+        {
+          "filter": "datum.band == 'diagnostic' || datum.band == 'skipped' || datum.band == 'error' || datum.band == 'not_implemented'"
+        }
+      ],
+      "mark": {
+        "type": "text",
+        "align": "left",
+        "fontSize": 10,
+        "clip": false
+      },
+      "encoding": {
+        "x": {
+          "value": 0
+        },
+        "y": {
+          "field": "label",
+          "type": "nominal",
+          "sort": null,
+          "title": null,
+          "axis": {
+            "labelLimit": 220
+          }
+        },
+        "text": {
+          "field": "note"
+        },
+        "color": {
+          "condition": {
+            "test": "datum.band == 'diagnostic'",
+            "value": "#444444"
+          },
+          "value": "#b03030"
+        }
+      },
+      "height": {
+        "step": 14
+      }
+    },
+    {
+      "name": "caption",
+      "width": "container",
+      "height": 14,
+      "transform": [
+        {
+          "filter": "datum.band == 'caption'"
+        }
+      ],
+      "mark": {
+        "type": "text",
+        "align": "left",
+        "fontSize": 10,
+        "clip": false
+      },
+      "encoding": {
+        "x": {
+          "value": 0
+        },
+        "y": {
+          "value": 7
+        },
+        "text": {
+          "field": "note"
+        }
+      }
+    }
+  ],
+  "resolve": {
+    "legend": {
+      "color": "independent"
+    },
+    "scale": {
+      "color": "independent",
+      "y": "independent",
+      "x": "independent"
+    }
+  }
+}

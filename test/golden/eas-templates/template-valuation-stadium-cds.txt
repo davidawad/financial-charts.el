@@ -1,0 +1,35 @@
+                     5y single-name CDS, 100bp standard coupon (illustrative inputs)  (cds, default)
+
+
+                         │                                                 │                    │
+                         │                                                 │                    │
+                         │                                                 │                    │
+Upfront and running spre…┤                                                 │                    │  │
+                         │                                                 │                    │
+                         │                                                 │                    │
+                         │                                                 │                    │
+                         │                                                 │                    │
+                         │                                                 │                    │
+                         │                                                 │                    │
+ISDA flat-hazard CDS mar…┤                                                 │                    │
+                         │                                                 │                    │
+                         │                                                 │                    │
+                         │                                                 │                    │
+                         │                                                 │                    │
+                         │                                                 │                    │
+                         │                                                 │                    │
+          Credit triangle┤    │                                            │                    │
+                         │                                                 │                    │
+                         │                                                 │                    │
+                         │                                                 │                    │
+                         └┬──────────┬──────────┬───────────┬──────────┬──────────┬───────────┬─────
+                          0.767    0.768      0.769       0.770      0.771      0.772       0.773
+
+                          ■ income  ■ market  ■ cost  ■ arbitrage  ■ contingent_claim  ■ statistical
+                          ■ heuristic  ■ market price  ■ weighted mean  ■ median
+
+                         │
+       Risky PV01 (RPV01)┤0.04298 points per bp
+
+
+                          3 of 4 methods ok; dispersion 0.4%; weighted mean 0.771; median 0.773

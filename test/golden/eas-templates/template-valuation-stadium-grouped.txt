@@ -1,0 +1,35 @@
+                                ACME Corp common (illustrative inputs)  (long_equity, default)
+
+
+                               │                      │    │            │
+                               │                      │    │            │
+                               │                      │    │            │
+                               │                      │    │            │
+                               │                      │    │            │       │
+      DCF: free cash flow to t…┤                      │    │            │▓▓▓▓▓▓▓│▓▓▓▓▓▓▓▓▓▓▎
+                               │                      │    │           ││
+      DCF: free cash flow to e…┤                      │    │     ▕▓▓▓▓▓││▓▓▓▓▓▉
+                               │          │           │    │            │
+      Residual income (Edwards…┤        ▕▓│▓▓▎        │    │            │
+                               │          │           │    │            │
+      Dividend discount model:…┤        ▐▓│▓▓▍        │    │            │
+                               │       │              │    │            │
+      Dividend discount model:…┤     ▕▓│▓▉            │    │            │
+                               │                      │    │            │                  │
+         Comparables: EV/EBITDA┤                      │    │            │               ▓▓▓│▓▓▓▌
+                               │                      │    ││           │
+      Comparables: trailing P/E┤                      │  ▕▓││▓▓▋        │
+                               │               │      │    │            │
+                  Graham number┤               │      │    │            │
+                               └──────────┬────────────────┬────────────────┬────────────────┬──────
+                                         50               100              150              200
+
+                                ■ income  ■ market  ■ cost  ■ arbitrage  ■ contingent_claim
+                                ■ statistical  ■ heuristic  ■ market price  ■ weighted mean
+                                ■ median
+
+Net current asset value (net-n…┤needs current_assets, total_liabilities
+Reverse DCF (market-implied gr…┤2.04% rate
+
+
+             8 of 10 methods ok; dispersion 57.5%; weighted mean 101.36; median 85.34; market 140.00

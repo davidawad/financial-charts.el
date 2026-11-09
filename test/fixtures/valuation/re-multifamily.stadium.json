@@ -1,0 +1,1494 @@
+{
+ "asset": "24-unit apartment building (illustrative inputs)",
+ "class": "re_multifamily",
+ "contract": "valuation.stadium/1",
+ "next": [
+  "valuation describe re.rule_one_percent --inputs"
+ ],
+ "profile": "default",
+ "reference": 4150000.0,
+ "rows": [
+  {
+   "approach": "income",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "amortization_years",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "years",
+      "value": 30
+     },
+     {
+      "name": "equity_dividend_rate",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.09
+     },
+     {
+      "name": "loan_to_value",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "ratio",
+      "value": 0.7
+     },
+     {
+      "name": "mortgage_rate",
+      "source": {
+       "as_of": "2026-11-05",
+       "kind": "fred",
+       "note": "retrieved_at 2026-11-09T03:27:56Z; requested as_of 2026-11-09",
+       "ref": "MORTGAGE30US",
+       "transform": "percent / 100",
+       "url": "https://fred.stlouisfed.org/series/MORTGAGE30US"
+      },
+      "unit": "rate",
+      "value": 0.0718
+     },
+     {
+      "name": "noi",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd",
+      "value": 242800.0
+     },
+     {
+      "name": "payments_per_year",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.band_of_investment"
+      },
+      "unit": "count",
+      "value": 12
+     }
+    ],
+    "lines": [
+     {
+      "formula": "12 x level monthly payment per $1 (rate/12, years x 12)",
+      "from": [
+       "mortgage_rate",
+       "amortization_years",
+       "payments_per_year"
+      ],
+      "key": "mortgage_constant",
+      "value": 0.08129217982197419
+     },
+     {
+      "formula": "M x R_m",
+      "from": [
+       "loan_to_value",
+       "mortgage_constant"
+      ],
+      "key": "debt_component",
+      "value": 0.05690452587538193
+     },
+     {
+      "formula": "(1 - M) x R_e",
+      "from": [
+       "loan_to_value",
+       "equity_dividend_rate"
+      ],
+      "key": "equity_component",
+      "value": 0.027000000000000003
+     },
+     {
+      "formula": "R_o = M x R_m + (1 - M) x R_e",
+      "from": [
+       "debt_component",
+       "equity_component"
+      ],
+      "key": "cap_rate",
+      "value": 0.08390452587538194
+     },
+     {
+      "formula": "R_o / (M x R_m)",
+      "from": [
+       "cap_rate",
+       "debt_component"
+      ],
+      "key": "implied_dscr",
+      "value": 1.474478955489914
+     },
+     {
+      "formula": "NOI / R_o",
+      "from": [
+       "noi",
+       "cap_rate"
+      ],
+      "key": "value",
+      "value": 2893765.2345549916
+     }
+    ],
+    "value": 2893765.2345549916,
+    "warnings": [
+     "unsourced inputs (pass {value, source} objects): amortization_years, equity_dividend_rate, loan_to_value, noi"
+    ]
+   },
+   "method": "re.band_of_investment",
+   "name": "Band of investment cap rate",
+   "role": "value",
+   "status": "ok",
+   "unit": "usd",
+   "value": 2893765.2345549916,
+   "weight": 1.0
+  },
+  {
+   "approach": "cost",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "economic_life",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "years",
+      "value": 60
+     },
+     {
+      "name": "effective_age",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "years",
+      "value": 12
+     },
+     {
+      "name": "land_value",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd",
+      "value": 900000.0
+     },
+     {
+      "name": "reproduction_cost_new",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd",
+      "value": 4200000.0
+     },
+     {
+      "name": "entrepreneurial_incentive_rate",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.cost_approach"
+      },
+      "unit": "rate",
+      "value": 0.0
+     },
+     {
+      "name": "external_obsolescence",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.cost_approach"
+      },
+      "unit": "usd",
+      "value": 0.0
+     },
+     {
+      "name": "functional_curable",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.cost_approach"
+      },
+      "unit": "usd",
+      "value": 0.0
+     },
+     {
+      "name": "functional_incurable",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.cost_approach"
+      },
+      "unit": "usd",
+      "value": 0.0
+     },
+     {
+      "name": "physical_curable",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.cost_approach"
+      },
+      "unit": "usd",
+      "value": 0.0
+     },
+     {
+      "name": "site_improvements",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.cost_approach"
+      },
+      "unit": "usd",
+      "value": 0.0
+     }
+    ],
+    "lines": [
+     {
+      "formula": "RCN x (1 + entrepreneurial incentive)",
+      "from": [
+       "reproduction_cost_new",
+       "entrepreneurial_incentive_rate"
+      ],
+      "key": "cost_new",
+      "value": 4200000.0
+     },
+     {
+      "formula": "given, or (cost new - curable items) x effective age / economic life",
+      "from": [
+       "physical_incurable",
+       "effective_age",
+       "economic_life"
+      ],
+      "key": "physical_incurable",
+      "value": 840000.0
+     },
+     {
+      "formula": "physical curable + incurable",
+      "from": [
+       "physical_curable",
+       "physical_incurable"
+      ],
+      "key": "physical_depreciation",
+      "value": 840000.0
+     },
+     {
+      "formula": "functional curable + incurable",
+      "from": [
+       "functional_curable",
+       "functional_incurable"
+      ],
+      "key": "functional_obsolescence",
+      "value": 0.0
+     },
+     {
+      "formula": "physical + functional + external",
+      "from": [
+       "physical_depreciation",
+       "functional_obsolescence",
+       "external_obsolescence"
+      ],
+      "key": "total_depreciation",
+      "value": 840000.0
+     },
+     {
+      "formula": "cost new - total depreciation, floored at 0",
+      "from": [
+       "cost_new",
+       "total_depreciation"
+      ],
+      "key": "improvements_value",
+      "value": 3360000.0
+     },
+     {
+      "formula": "land + depreciated improvements + site improvements",
+      "from": [
+       "land_value",
+       "improvements_value",
+       "site_improvements"
+      ],
+      "key": "value",
+      "value": 4260000.0
+     }
+    ],
+    "value": 4260000.0,
+    "warnings": [
+     "cost approach is weakest on old buildings, where depreciation is estimated, not observed",
+     "unsourced inputs (pass {value, source} objects): economic_life, effective_age, land_value, reproduction_cost_new"
+    ]
+   },
+   "method": "re.cost_approach",
+   "name": "Cost approach (RCN less depreciation plus land)",
+   "role": "value",
+   "status": "ok",
+   "unit": "usd",
+   "value": 4260000.0,
+   "weight": 1.0
+  },
+  {
+   "approach": "income",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "discount_rate",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.075
+     },
+     {
+      "name": "noi_forecast",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd[]",
+      "value": [
+       242800,
+       250084,
+       257587,
+       265314,
+       273274,
+       281472,
+       289916,
+       298613,
+       307572,
+       316799
+      ]
+     },
+     {
+      "name": "selling_cost_rate",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.03
+     },
+     {
+      "name": "terminal_cap_rate",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.062
+     },
+     {
+      "name": "terminal_noi_growth",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.03
+     },
+     {
+      "name": "capex",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.dcf_reversion"
+      },
+      "unit": "usd[]",
+      "value": []
+     },
+     {
+      "name": "mid_year",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.dcf_reversion"
+      },
+      "unit": "bool",
+      "value": false
+     }
+    ],
+    "components": [
+     {
+      "key": "operations",
+      "method": "common.dcf_explicit",
+      "valuation": {
+       "lines": [
+        {
+         "formula": "sum CF_t / (1+r)^t",
+         "key": "pv_explicit",
+         "value": 1877330.025404247
+        },
+        {
+         "formula": "pv_explicit + pv_terminal",
+         "key": "value",
+         "value": 1877330.025404247
+        }
+       ],
+       "value": 1877330.025404247
+      }
+     }
+    ],
+    "lines": [
+     {
+      "formula": "sum (NOI_t - capex_t) / (1+r)^t",
+      "from": [
+       "noi_forecast",
+       "capex",
+       "discount_rate"
+      ],
+      "key": "pv_operations",
+      "value": 1877330.025404247
+     },
+     {
+      "formula": "NOI_n x (1 + g)",
+      "from": [
+       "noi_forecast",
+       "terminal_noi_growth"
+      ],
+      "key": "noi_next",
+      "value": 326302.97000000003
+     },
+     {
+      "formula": "NOI_(n+1) / terminal cap rate",
+      "from": [
+       "noi_next",
+       "terminal_cap_rate"
+      ],
+      "key": "gross_reversion",
+      "value": 5262951.129032259
+     },
+     {
+      "formula": "gross reversion x (1 - selling cost)",
+      "from": [
+       "gross_reversion",
+       "selling_cost_rate"
+      ],
+      "key": "net_reversion",
+      "value": 5105062.595161291
+     },
+     {
+      "formula": "net reversion / (1+r)^n",
+      "from": [
+       "net_reversion",
+       "discount_rate"
+      ],
+      "key": "pv_reversion",
+      "value": 2476945.374771175
+     },
+     {
+      "formula": "pv_operations + pv_reversion",
+      "from": [
+       "pv_operations",
+       "pv_reversion"
+      ],
+      "key": "value",
+      "value": 4354275.400175422
+     },
+     {
+      "formula": "pv_reversion / value",
+      "from": [
+       "pv_reversion",
+       "value"
+      ],
+      "key": "reversion_share",
+      "value": 0.5688536316906793
+     }
+    ],
+    "value": 4354275.400175422,
+    "warnings": [
+     "unsourced inputs (pass {value, source} objects): discount_rate, noi_forecast, selling_cost_rate, terminal_cap_rate, terminal_noi_growth"
+    ]
+   },
+   "method": "re.dcf_reversion",
+   "name": "Discounted cash flow with reversion",
+   "role": "value",
+   "status": "ok",
+   "unit": "usd",
+   "value": 4354275.400175422,
+   "weight": 1.0
+  },
+  {
+   "approach": "income",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "amortization_years",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "years",
+      "value": 30
+     },
+     {
+      "name": "cap_rate",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.058
+     },
+     {
+      "name": "cap_rate_high",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.063
+     },
+     {
+      "name": "cap_rate_low",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.054
+     },
+     {
+      "name": "equity_dividend_rate",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.09
+     },
+     {
+      "name": "gross_potential_income",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd",
+      "value": 420000.0
+     },
+     {
+      "name": "loan_to_value",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "ratio",
+      "value": 0.7
+     },
+     {
+      "name": "mortgage_rate",
+      "source": {
+       "as_of": "2026-11-05",
+       "kind": "fred",
+       "note": "retrieved_at 2026-11-09T03:27:56Z; requested as_of 2026-11-09",
+       "ref": "MORTGAGE30US",
+       "transform": "percent / 100",
+       "url": "https://fred.stlouisfed.org/series/MORTGAGE30US"
+      },
+      "unit": "rate",
+      "value": 0.0718
+     },
+     {
+      "name": "noi",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd",
+      "value": 242800.0
+     },
+     {
+      "name": "operating_expenses",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd",
+      "value": 160000.0
+     },
+     {
+      "name": "other_income",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd",
+      "value": 8000.0
+     },
+     {
+      "name": "vacancy_rate",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.06
+     },
+     {
+      "name": "replacement_reserves",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.direct_cap"
+      },
+      "unit": "usd",
+      "value": 0.0
+     }
+    ],
+    "high": 4496296.296296297,
+    "lines": [
+     {
+      "formula": "NOI after replacement reserves",
+      "from": [
+       "noi_before_reserves",
+       "replacement_reserves"
+      ],
+      "key": "noi",
+      "value": 242800.0
+     },
+     {
+      "formula": "R_o (input or band of investment)",
+      "key": "cap_rate",
+      "value": 0.058
+     },
+     {
+      "formula": "V = NOI / R_o",
+      "from": [
+       "noi",
+       "cap_rate"
+      ],
+      "key": "value",
+      "value": 4186206.896551724
+     },
+     {
+      "formula": "NOI / cap_rate_high",
+      "from": [
+       "noi",
+       "cap_rate_high"
+      ],
+      "key": "value_low",
+      "value": 3853968.2539682537
+     },
+     {
+      "formula": "NOI / cap_rate_low",
+      "from": [
+       "noi",
+       "cap_rate_low"
+      ],
+      "key": "value_high",
+      "value": 4496296.296296297
+     }
+    ],
+    "low": 3853968.2539682537,
+    "value": 4186206.896551724,
+    "warnings": [
+     "unsourced inputs (pass {value, source} objects): amortization_years, cap_rate, cap_rate_high, cap_rate_low, equity_dividend_rate, gross_potential_income, loan_to_value, noi, operating_expenses, other_income, vacancy_rate"
+    ]
+   },
+   "high": 4496296.296296297,
+   "low": 3853968.2539682537,
+   "method": "re.direct_cap",
+   "name": "Direct capitalization (NOI / cap rate)",
+   "role": "value",
+   "status": "ok",
+   "unit": "usd",
+   "value": 4186206.896551724,
+   "weight": 1.0
+  },
+  {
+   "approach": "market",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "gim",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "ratio",
+      "value": 10.2
+     },
+     {
+      "name": "gross_potential_income",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd",
+      "value": 420000.0
+     },
+     {
+      "name": "other_income",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd",
+      "value": 8000.0
+     },
+     {
+      "name": "vacancy_rate",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.06
+     }
+    ],
+    "lines": [
+     {
+      "formula": "GPI x (1 - vacancy) + other income",
+      "from": [
+       "gross_potential_income",
+       "vacancy_rate",
+       "other_income"
+      ],
+      "key": "effective_gross_income",
+      "value": 402800.0
+     },
+     {
+      "formula": "V = GIM x EGI",
+      "from": [
+       "gim",
+       "effective_gross_income"
+      ],
+      "key": "value",
+      "value": 4108559.9999999995
+     }
+    ],
+    "value": 4108559.9999999995,
+    "warnings": [
+     "unsourced inputs (pass {value, source} objects): gim, gross_potential_income, other_income, vacancy_rate"
+    ]
+   },
+   "method": "re.gim",
+   "name": "Gross income multiplier",
+   "role": "value",
+   "status": "ok",
+   "unit": "usd",
+   "value": 4108559.9999999995,
+   "weight": 1.0
+  },
+  {
+   "approach": "market",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "grm",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "ratio",
+      "value": 10.5
+     },
+     {
+      "name": "gross_annual_rent",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd",
+      "value": 400000.0
+     }
+    ],
+    "lines": [
+     {
+      "formula": "V = GRM x gross annual rent",
+      "from": [
+       "grm",
+       "gross_annual_rent"
+      ],
+      "key": "value",
+      "value": 4200000.0
+     },
+     {
+      "formula": "price / gross annual rent",
+      "from": [
+       "value",
+       "gross_annual_rent"
+      ],
+      "key": "implied_grm",
+      "value": 10.5
+     }
+    ],
+    "value": 4200000.0,
+    "warnings": [
+     "GRM ignores expenses and vacancy: two properties with equal rent can have very different NOI",
+     "unsourced inputs (pass {value, source} objects): grm, gross_annual_rent"
+    ]
+   },
+   "method": "re.grm",
+   "name": "Gross rent multiplier",
+   "role": "value",
+   "status": "ok",
+   "unit": "usd",
+   "value": 4200000.0,
+   "weight": 1.0
+  },
+  {
+   "approach": "income",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "amortization_years",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "years",
+      "value": 30
+     },
+     {
+      "name": "max_ltv",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "ratio",
+      "value": 0.65
+     },
+     {
+      "name": "min_dscr",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "ratio",
+      "value": 1.25
+     },
+     {
+      "name": "mortgage_rate",
+      "source": {
+       "as_of": "2026-11-05",
+       "kind": "fred",
+       "note": "retrieved_at 2026-11-09T03:27:56Z; requested as_of 2026-11-09",
+       "ref": "MORTGAGE30US",
+       "transform": "percent / 100",
+       "url": "https://fred.stlouisfed.org/series/MORTGAGE30US"
+      },
+      "unit": "rate",
+      "value": 0.0718
+     },
+     {
+      "name": "noi",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd",
+      "value": 242800.0
+     },
+     {
+      "name": "payments_per_year",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.lender_constrained"
+      },
+      "unit": "count",
+      "value": 12
+     }
+    ],
+    "lines": [
+     {
+      "formula": "annual debt service per $1 of loan",
+      "from": [
+       "mortgage_rate",
+       "amortization_years",
+       "payments_per_year"
+      ],
+      "key": "mortgage_constant",
+      "value": 0.08129217982197419
+     },
+     {
+      "formula": "NOI / min DSCR",
+      "from": [
+       "noi",
+       "min_dscr"
+      ],
+      "key": "debt_service_capacity",
+      "value": 194240.0
+     },
+     {
+      "formula": "capacity / mortgage constant",
+      "from": [
+       "debt_service_capacity",
+       "mortgage_constant"
+      ],
+      "key": "loan_by_dscr",
+      "value": 2389405.7266686154
+     },
+     {
+      "formula": "min(loan by DSCR, loan by debt yield); binding constraint: dscr",
+      "from": [
+       "loan_by_dscr",
+       "loan_by_debt_yield"
+      ],
+      "key": "max_loan",
+      "value": 2389405.7266686154
+     },
+     {
+      "formula": "NOI / debt service (finance_rs::re::dscr)",
+      "from": [
+       "noi",
+       "max_loan"
+      ],
+      "key": "dscr_at_max_loan",
+      "value": 1.25
+     },
+     {
+      "formula": "NOI / loan (finance_rs::re::debt_yield)",
+      "from": [
+       "noi",
+       "max_loan"
+      ],
+      "key": "debt_yield_at_max_loan",
+      "value": 0.10161522477746775
+     },
+     {
+      "formula": "loan / value (finance_rs::re::ltv)",
+      "from": [
+       "max_loan",
+       "value"
+      ],
+      "key": "ltv_at_value",
+      "value": 0.65
+     },
+     {
+      "formula": "max loan / max LTV: the value at which the tightest cash-flow test and the LTV cap bind together",
+      "from": [
+       "max_loan",
+       "max_ltv"
+      ],
+      "key": "value",
+      "value": 3676008.8102594083
+     }
+    ],
+    "value": 3676008.8102594083,
+    "warnings": [
+     "this is lender-supported value, a floor-type check on market value; it is not what a buyer must pay",
+     "unsourced inputs (pass {value, source} objects): amortization_years, max_ltv, min_dscr, noi"
+    ]
+   },
+   "method": "re.lender_constrained",
+   "name": "Lender-constrained value (DSCR, debt yield, LTV)",
+   "role": "value",
+   "status": "ok",
+   "unit": "usd",
+   "value": 3676008.8102594083,
+   "weight": 1.0
+  },
+  {
+   "approach": "market",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "comp_unit_prices",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd[]",
+      "value": [
+       165000,
+       172000,
+       180000,
+       176000,
+       169000
+      ]
+     },
+     {
+      "name": "subject_quantity",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "count",
+      "value": 24
+     },
+     {
+      "name": "adjustment_pct",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.price_per_unit"
+      },
+      "unit": "rate",
+      "value": 0.0
+     }
+    ],
+    "high": 4224000.0,
+    "lines": [
+     {
+      "formula": "25th percentile of comp unit prices",
+      "from": [
+       "comp_unit_prices"
+      ],
+      "key": "unit_price_p25",
+      "value": 169000.0
+     },
+     {
+      "formula": "median of comp unit prices",
+      "from": [
+       "comp_unit_prices"
+      ],
+      "key": "unit_price_median",
+      "value": 172000.0
+     },
+     {
+      "formula": "75th percentile of comp unit prices",
+      "from": [
+       "comp_unit_prices"
+      ],
+      "key": "unit_price_p75",
+      "value": 176000.0
+     },
+     {
+      "formula": "median unit price x quantity x (1 + adjustment)",
+      "from": [
+       "unit_price_median",
+       "subject_quantity",
+       "adjustment_pct"
+      ],
+      "key": "value",
+      "value": 4128000.0
+     }
+    ],
+    "low": 4056000.0,
+    "value": 4128000.0,
+    "warnings": [
+     "unit-price comps ignore differences in quality, age, location and lease terms unless adjusted",
+     "unsourced inputs (pass {value, source} objects): comp_unit_prices, subject_quantity"
+    ]
+   },
+   "high": 4224000.0,
+   "low": 4056000.0,
+   "method": "re.price_per_unit",
+   "name": "Price per unit, per square foot or per key",
+   "role": "value",
+   "status": "ok",
+   "unit": "usd",
+   "value": 4128000.0,
+   "weight": 1.0
+  },
+  {
+   "approach": "heuristic",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "cap_rate",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.058
+     },
+     {
+      "name": "gross_annual_rent",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd",
+      "value": 400000.0
+     },
+     {
+      "name": "expense_ratio",
+      "source": {
+       "kind": "card_default",
+       "ref": "re.rule_fifty_percent"
+      },
+      "unit": "ratio",
+      "value": 0.5
+     }
+    ],
+    "lines": [
+     {
+      "formula": "gross rent x (1 - expense ratio)",
+      "from": [
+       "gross_annual_rent",
+       "expense_ratio"
+      ],
+      "key": "noi",
+      "value": 200000.0
+     },
+     {
+      "formula": "NOI / cap rate",
+      "from": [
+       "noi",
+       "cap_rate"
+      ],
+      "key": "value",
+      "value": 3448275.8620689656
+     }
+    ],
+    "value": 3448275.8620689656,
+    "warnings": [
+     "50% rule excludes debt service and is wrong for new or very old buildings; replace with actual operating expenses when known",
+     "unsourced inputs (pass {value, source} objects): cap_rate, gross_annual_rent"
+    ]
+   },
+   "method": "re.rule_fifty_percent",
+   "name": "50% rule (expense-ratio heuristic)",
+   "role": "diagnostic",
+   "status": "ok",
+   "unit": "usd",
+   "value": 3448275.8620689656,
+   "weight": 1.0
+  },
+  {
+   "approach": "heuristic",
+   "method": "re.rule_one_percent",
+   "missing": [
+    "monthly_rent (usd): Monthly market rent"
+   ],
+   "name": "1% rule (rent-to-price screen)",
+   "role": "diagnostic",
+   "status": "skipped",
+   "unit": "usd",
+   "weight": 1.0
+  },
+  {
+   "approach": "market",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "comps",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "object[]",
+      "value": [
+       {
+        "adjustments": [
+         {
+          "amount": 0.02,
+          "kind": "pct",
+          "name": "market conditions"
+         },
+         {
+          "amount": -60000,
+          "kind": "usd",
+          "name": "units"
+         }
+        ],
+        "price": 4100000
+       },
+       {
+        "adjustments": [
+         {
+          "amount": -90000,
+          "kind": "usd",
+          "name": "condition"
+         }
+        ],
+        "price": 4350000
+       },
+       {
+        "adjustments": [
+         {
+          "amount": 0.03,
+          "kind": "pct",
+          "name": "market conditions"
+         },
+         {
+          "amount": 50000,
+          "kind": "usd",
+          "name": "location"
+         }
+        ],
+        "price": 3980000
+       }
+      ]
+     }
+    ],
+    "high": 4260000.0,
+    "lines": [
+     {
+      "formula": "price adjusted sequentially in listed order (pct on the running price, usd added)",
+      "key": "comp_1_adjusted",
+      "value": 4122000.0
+     },
+     {
+      "formula": "sum |adjustment| / sale price",
+      "key": "comp_1_gross_adjustment_pct",
+      "value": 0.03463414634146342
+     },
+     {
+      "formula": "price adjusted sequentially in listed order (pct on the running price, usd added)",
+      "key": "comp_2_adjusted",
+      "value": 4260000.0
+     },
+     {
+      "formula": "sum |adjustment| / sale price",
+      "key": "comp_2_gross_adjustment_pct",
+      "value": 0.020689655172413793
+     },
+     {
+      "formula": "price adjusted sequentially in listed order (pct on the running price, usd added)",
+      "key": "comp_3_adjusted",
+      "value": 4149400.0
+     },
+     {
+      "formula": "sum |adjustment| / sale price",
+      "key": "comp_3_gross_adjustment_pct",
+      "value": 0.04256281407035176
+     },
+     {
+      "formula": "weighted mean of adjusted comparable prices",
+      "key": "value",
+      "value": 4177133.3333333335
+     },
+     {
+      "formula": "(max - min) / reconciled value",
+      "from": [
+       "value"
+      ],
+      "key": "adjusted_range_width_pct",
+      "value": 0.03303701102829692
+     }
+    ],
+    "low": 4122000.0,
+    "value": 4177133.3333333335,
+    "warnings": [
+     "unsourced inputs (pass {value, source} objects): comps"
+    ]
+   },
+   "high": 4260000.0,
+   "low": 4122000.0,
+   "method": "re.sales_comparison",
+   "name": "Sales comparison with adjustment grid",
+   "role": "value",
+   "status": "ok",
+   "unit": "usd",
+   "value": 4177133.3333333335,
+   "weight": 1.0
+  },
+  {
+   "approach": "income",
+   "detail": {
+    "assumptions": [
+     {
+      "name": "amortization_years",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "years",
+      "value": 30
+     },
+     {
+      "name": "loan_to_value",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "ratio",
+      "value": 0.7
+     },
+     {
+      "name": "mortgage_rate",
+      "source": {
+       "as_of": "2026-11-05",
+       "kind": "fred",
+       "note": "retrieved_at 2026-11-09T03:27:56Z; requested as_of 2026-11-09",
+       "ref": "MORTGAGE30US",
+       "transform": "percent / 100",
+       "url": "https://fred.stlouisfed.org/series/MORTGAGE30US"
+      },
+      "unit": "rate",
+      "value": 0.0718
+     },
+     {
+      "name": "noi_forecast",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "usd[]",
+      "value": [
+       242800,
+       250084,
+       257587,
+       265314,
+       273274,
+       281472,
+       289916,
+       298613,
+       307572,
+       316799
+      ]
+     },
+     {
+      "name": "selling_cost_rate",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.03
+     },
+     {
+      "name": "target_irr",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.12
+     },
+     {
+      "name": "terminal_cap_rate",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.062
+     },
+     {
+      "name": "terminal_noi_growth",
+      "source": {
+       "kind": "caller"
+      },
+      "unit": "rate",
+      "value": 0.03
+     }
+    ],
+    "components": [
+     {
+      "key": "unlevered_pv_at_target",
+      "method": "re.dcf_reversion",
+      "valuation": {
+       "components": [
+        {
+         "key": "operations",
+         "method": "common.dcf_explicit",
+         "valuation": {
+          "lines": [
+           {
+            "formula": "sum CF_t / (1+r)^t",
+            "key": "pv_explicit",
+            "value": 1530436.2150688076
+           },
+           {
+            "formula": "pv_explicit + pv_terminal",
+            "key": "value",
+            "value": 1530436.2150688076
+           }
+          ],
+          "value": 1530436.2150688076
+         }
+        }
+       ],
+       "lines": [
+        {
+         "formula": "sum (NOI_t - capex_t) / (1+r)^t",
+         "from": [
+          "noi_forecast",
+          "capex",
+          "discount_rate"
+         ],
+         "key": "pv_operations",
+         "value": 1530436.2150688076
+        },
+        {
+         "formula": "NOI_n x (1 + g)",
+         "from": [
+          "noi_forecast",
+          "terminal_noi_growth"
+         ],
+         "key": "noi_next",
+         "value": 326302.97000000003
+        },
+        {
+         "formula": "NOI_(n+1) / terminal cap rate",
+         "from": [
+          "noi_next",
+          "terminal_cap_rate"
+         ],
+         "key": "gross_reversion",
+         "value": 5262951.129032259
+        },
+        {
+         "formula": "gross reversion x (1 - selling cost)",
+         "from": [
+          "gross_reversion",
+          "selling_cost_rate"
+         ],
+         "key": "net_reversion",
+         "value": 5105062.595161291
+        },
+        {
+         "formula": "net reversion / (1+r)^n",
+         "from": [
+          "net_reversion",
+          "discount_rate"
+         ],
+         "key": "pv_reversion",
+         "value": 1643693.5267621784
+        },
+        {
+         "formula": "pv_operations + pv_reversion",
+         "from": [
+          "pv_operations",
+          "pv_reversion"
+         ],
+         "key": "value",
+         "value": 3174129.741830986
+        },
+        {
+         "formula": "pv_reversion / value",
+         "from": [
+          "pv_reversion",
+          "value"
+         ],
+         "key": "reversion_share",
+         "value": 0.517840687196995
+        }
+       ],
+       "value": 3174129.741830986,
+       "warnings": [
+        "terminal cap rate is far below the discount rate, implying very high perpetual growth"
+       ]
+      }
+     }
+    ],
+    "lines": [
+     {
+      "formula": "unlevered DCF discounted at the target equity IRR",
+      "from": [
+       "target_irr"
+      ],
+      "key": "pv_unlevered",
+      "value": 3174129.741830986
+     },
+     {
+      "formula": "debt service x annuity factor(IRR, n) + balance fraction x discount factor",
+      "from": [
+       "mortgage_rate",
+       "amortization_years",
+       "target_irr"
+      ],
+      "key": "debt_cost_factor",
+      "value": 0.7367705841709868
+     },
+     {
+      "formula": "PV_unlevered / (1 - LTV + LTV x debt cost factor): the price at which levered equity earns exactly the target IRR",
+      "from": [
+       "pv_unlevered",
+       "loan_to_value",
+       "debt_cost_factor"
+      ],
+      "key": "price",
+      "value": 3891107.5119376485
+     },
+     {
+      "formula": "LTV x price",
+      "from": [
+       "loan_to_value",
+       "price"
+      ],
+      "key": "loan",
+      "value": 2723775.2583563537
+     },
+     {
+      "formula": "price - loan",
+      "from": [
+       "price",
+       "loan"
+      ],
+      "key": "equity",
+      "value": 1167332.2535812948
+     },
+     {
+      "formula": "total equity cash returned / equity invested",
+      "from": [
+       "equity",
+       "noi_forecast"
+      ],
+      "key": "equity_multiple",
+      "value": 2.8502068804600302
+     },
+     {
+      "formula": "price solving levered IRR = target",
+      "from": [
+       "price"
+      ],
+      "key": "value",
+      "value": 3891107.5119376485
+     }
+    ],
+    "value": 3891107.5119376485,
+    "warnings": [
+     "annual debt service is the 12-payment sum treated as paid at year end; the monthly timing effect is ignored",
+     "unsourced inputs (pass {value, source} objects): amortization_years, loan_to_value, noi_forecast, selling_cost_rate, target_irr, terminal_cap_rate, terminal_noi_growth"
+    ]
+   },
+   "method": "re.target_irr_price",
+   "name": "Target-IRR / equity-multiple pricing",
+   "role": "value",
+   "status": "ok",
+   "unit": "usd",
+   "value": 3891107.5119376485,
+   "weight": 1.0
+  }
+ ],
+ "summary": {
+  "dispersion": 0.10790976880028572,
+  "max": 4354275.400175422,
+  "median": 4152566.666666667,
+  "min": 2893765.2345549916,
+  "n_methods": 12,
+  "n_ok": 10,
+  "units": [
+   "usd"
+  ],
+  "weighted_mean": 3987505.7186812526
+ }
+}

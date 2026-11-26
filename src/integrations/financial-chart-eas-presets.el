@@ -64,7 +64,7 @@ A NAME.json here shadows the package's preset of that name."
   "Keys whose lists a preset appends to.")
 
 (defconst financial-chart-presets--meta-keys
-  '(:preset :presets :doc :preset/v1)
+  '(:preset :presets :doc :preset/v1 :cohort)
   "Keys of a preset that describe it and are not merged.")
 
 (defun financial-chart-presets--directories ()

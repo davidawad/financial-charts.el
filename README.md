@@ -777,11 +777,18 @@ the package runs an external process.
 (financial-chart-resolve-cohort 'mean-reversion) ; overlay and oscillator specs
 ```
 
-Cohorts (`financial-chart-indicator-cohorts`) are data: add an entry to
-add one. Cohort members may name recipes in an external indicator
-catalog; set `financial-chart-indicator-catalog-function` to a lookup
-function and `financial-chart-describe-cohort` will check them against
-it.
+Cohorts are presets (see "Markup presets") with `"cohort": true`:
+`presets/trend-following.json`, `mean-reversion.json` and
+`momentum.json`, or your own in `financial-chart-preset-directories`.
+Price series become overlay members and pane series oscillator
+members; a series with a `"recipe"` (an external indicator catalog id)
+is a catalog member, resolved through
+`financial-chart-recipe-evaluators`. The same file works as
+`"preset": "mean-reversion"` in a composed chart. Set
+`financial-chart-indicator-catalog-function` to a lookup function and
+`financial-chart-describe-cohort` checks catalog members against it.
+`financial-chart-indicator-cohorts` is obsolete; its entries still come
+first.
 
 ## Bringing data from other packages
 

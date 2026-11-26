@@ -167,7 +167,8 @@ list the same length as BARS; nil for any bar with no :volume."
 ;; -----------------------------------------------------------------------
 ;; Indicator cohorts -- named, reusable indicator sets
 ;;
-;; A cohort is DATA: a `financial-chart-indicator-cohorts' entry names a
+;; A cohort is DATA: a preset with "cohort": true (presets/NAME.json;
+;; fc-gty.7) or an entry of the obsolete `financial-chart-indicator-cohorts' names a
 ;; reusable set of members, each either a built-in overlay fn or a
 ;; catalog recipe id. Adding a cohort or a member is a data
 ;; edit -- no new code. `financial-chart-resolve-cohort' turns a cohort
@@ -190,28 +191,77 @@ catalog members are classified from `financial-chart-recipe-evaluators'."
 (define-error 'financial-chart-unresolvable-cohort
   "financial-chart: cohort member cannot be resolved" 'financial-chart-error)
 
-(defcustom financial-chart-indicator-cohorts
-  '((trend-following
-     :doc "Price-overlay trend set: SMA20, SMA50, session VWAP."
-     :members ((:fn financial-chart-sma :args (20) :face font-lock-keyword-face)
-               (:fn financial-chart-sma :args (50) :face font-lock-type-face)
-               (:fn financial-chart-vwap :face font-lock-constant-face)))
-    (mean-reversion
-     :doc "SMA20 price overlay plus catalog RSI-14 in the oscillator sub-panel."
-     :members ((:fn financial-chart-sma :args (20) :face font-lock-keyword-face)
-               (:indicator "finance.market.rsi-14" :params (:period 14))))
-    (momentum
-     :doc "Catalog RSI-14 only, drawn in the 0-100 oscillator sub-panel."
-     :members ((:indicator "finance.market.rsi-14" :params (:period 14)))))
-  "Named indicator cohorts for price and oscillator panels.
-Each entry is (COHORT-NAME :doc DOC :members (MEMBER...)).  A MEMBER is
-either a built-in spec (:fn FN :args ARGS :face F :glyph G) -- FN a
+(defcustom financial-chart-indicator-cohorts nil
+  "Obsolete: extra named indicator cohorts, consulted before the presets.
+Cohorts are presets now (fc-gty.7): a presets/NAME.json with
+\"cohort\": true, read by `financial-chart--cohorts'.  An entry here is
+\(COHORT-NAME :doc DOC :members (MEMBER...)).  A MEMBER is either a
+built-in spec (:fn FN :args ARGS :face F :glyph G) -- FN a
 `financial-chart-*' indicator applied to bars plus ARGS -- or a
 catalog-backed spec (:indicator RECIPE-ID :params PLIST :face F :glyph G)
-resolved through `financial-chart-recipe-evaluators'.  Adding a cohort or
-a member is a pure data edit; resolve with `financial-chart-resolve-cohort'."
+resolved through `financial-chart-recipe-evaluators'."
   :type '(alist :key-type symbol :value-type plist)
   :group 'financial-chart)
+(make-obsolete-variable 'financial-chart-indicator-cohorts
+                        "a preset with \"cohort\": true (presets/NAME.json)" "0.3")
+
+(defvar financial-chart-presets-directory)
+(defvar financial-chart-preset-directories)
+
+(defun financial-chart--cohort-directories ()
+  "Preset directories searched for cohort presets, in order."
+  (append (bound-and-true-p financial-chart-preset-directories)
+          (list (if (boundp 'financial-chart-presets-directory) financial-chart-presets-directory
+                  (expand-file-name "presets" financial-chart-root)))))
+
+(defun financial-chart--preset-members (preset)
+  "Cohort members of PRESET, a parsed preset/v1: its price series as
+built-in members, its pane series as catalog members when they name a
+\"recipe\", else built-in."
+  (let ((member
+         (lambda (s)
+           (let* ((params (append (plist-get s :params) nil))
+                  (face (and (stringp (plist-get s :face)) (intern (plist-get s :face))))
+                  (recipe (plist-get s :recipe))
+                  (evaluator (and recipe (cdr (assoc recipe financial-chart-recipe-evaluators)))))
+             (append
+              (if recipe
+                  (list :indicator recipe
+                        :params (cl-loop for k in (plist-get evaluator :arg-keys) for v in params
+                                         append (list k v)))
+                (list :fn (plist-get (cdr (assq (intern (plist-get s :indicator))
+                                                financial-chart-indicator-registry))
+                                     :fn)
+                      :args params))
+              (when face (list :face face)))))))
+    (append (mapcar member (append (plist-get (plist-get preset :price) :series) nil))
+            (cl-loop for pane across (or (plist-get preset :panes) [])
+                     append (mapcar member (append (plist-get pane :series) nil))))))
+
+(defun financial-chart--cohorts ()
+  "Every cohort as (NAME :doc DOC :members MEMBERS :provenance TEXT).
+Entries of the obsolete `financial-chart-indicator-cohorts' come first
+and shadow presets of the same name; then each preset with \"cohort\":
+true, the first directory of `financial-chart--cohort-directories'
+holding a name winning."
+  (let ((out (mapcar (lambda (e) (append (list (car e)) (cdr e)
+                                         (list :provenance "defcustom `financial-chart-indicator-cohorts'")))
+                     (with-no-warnings financial-chart-indicator-cohorts))))
+    (dolist (dir (financial-chart--cohort-directories))
+      (when (file-directory-p dir)
+        (dolist (file (directory-files dir t "\\`[^.].*\\.json\\'"))
+          (let ((name (intern (file-name-sans-extension (file-name-nondirectory file)))))
+            (unless (assq name out)
+              (let ((preset (ignore-errors
+                              (with-temp-buffer
+                                (insert-file-contents file)
+                                (json-parse-buffer :object-type 'plist :array-type 'array
+                                                   :null-object nil :false-object nil)))))
+                (when (and preset (eq (plist-get preset :cohort) t))
+                  (setq out (append out (list (list name :doc (plist-get preset :doc)
+                                                    :members (financial-chart--preset-members preset)
+                                                    :provenance (format "preset %s" file))))))))))))
+    out))
 
 (defcustom financial-chart-recipe-evaluators
   '(("finance.market.sma" :fn financial-chart-sma :arg-keys (:window))
@@ -234,9 +284,9 @@ is not reachable through the front door), not a general recipe evaluator."
   "Built-in indicator functions whose cohort specs use the oscillator panel.")
 
 (defun financial-chart--cohort (name)
-  "Return cohort NAME's plist (:doc/:members) from
-`financial-chart-indicator-cohorts', or nil when NAME is undefined."
-  (cdr (assq name financial-chart-indicator-cohorts)))
+  "Return cohort NAME's plist (:doc :members :provenance) from
+`financial-chart--cohorts', or nil when NAME is undefined."
+  (cdr (assq name (financial-chart--cohorts))))
 
 (defun financial-chart--cohort-overlay-spec (member fn args &optional oscillator)
   "Build a concrete panel spec: FN curried over ARGS into a one-argument
@@ -298,8 +348,8 @@ resolved. Pure: no I/O, so builtin cohorts work without a catalog."
   (let ((cohort (financial-chart--cohort name)))
     (unless cohort
       (signal 'financial-chart-unresolvable-cohort
-              (list (format "no cohort named `%s' in \
-`financial-chart-indicator-cohorts'" name))))
+              (list (format "no cohort named `%s' (cohorts are presets with \
+\"cohort\": true)" name))))
     (let (specs)
       (dolist (member (plist-get cohort :members))
         (let ((res (financial-chart--resolve-member member)))
@@ -311,7 +361,7 @@ resolved. Pure: no I/O, so builtin cohorts work without a catalog."
       (nreverse specs))))
 
 (defun financial-chart-list-cohorts ()
-  "Return a summary of every cohort in `financial-chart-indicator-cohorts':
+  "Return a summary of every cohort of `financial-chart--cohorts':
 one (NAME :doc DOC :members N :resolvable R :oscillators O :excluded E
 :unresolvable U) per cohort.  OSCILLATORS are resolved members assigned to
 the separate panel; EXCLUDED remains as a zero-valued compatibility field.
@@ -333,7 +383,7 @@ Pure: uses static classification, not the live catalog."
        (list name :doc (plist-get plist :doc)
              :members (length members) :resolvable r :oscillators o :excluded 0
              :unresolvable u)))
-   financial-chart-indicator-cohorts))
+   (financial-chart--cohorts)))
 
 (defun financial-chart--catalog-value-oscillator-p (value)
   "Non-nil when a catalog record's VALUE alist describes a bounded
@@ -409,10 +459,7 @@ is undefined."
     (list :name name
           :doc (plist-get cohort :doc)
           :provenance
-          (format "defcustom `financial-chart-indicator-cohorts' (%s)"
-                  (or (ignore-errors
-                        (symbol-file 'financial-chart-indicator-cohorts 'defvar))
-                      "financial-chart.el"))
+          (plist-get cohort :provenance)
           :members
           (mapcar #'financial-chart--describe-member
                   (plist-get cohort :members)))))
@@ -440,7 +487,7 @@ error."
                 :detail (error-message-string err)
                 :remediation "fix the cohort member or add a \
 `financial-chart-recipe-evaluators' entry")))))
-   financial-chart-indicator-cohorts))
+   (financial-chart--cohorts)))
 
 ;; Built-in families are separate modules so additions stay isolated and
 ;; local.  All consume bar/v1 and register against the same output API.

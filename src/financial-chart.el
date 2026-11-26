@@ -104,7 +104,7 @@ from source, so releases bump one place.")
             financial-chart-render-svg financial-chart-view)
     (export financial-chart-export-svg financial-chart-export-png)
     (extend financial-chart-register-kind financial-chart-register-indicator
-            financial-chart-indicator-evaluate financial-chart-indicator-cohorts
+            financial-chart-indicator-evaluate financial-chart-register-detector
             financial-chart-recipe-evaluators)
     (health financial-chart-doctor financial-chart-doctor-checks))
   "Public entry points grouped by what a caller is doing.")
@@ -130,7 +130,7 @@ entry points.  Lists are vectors, so the result round-trips `json-encode'."
                                            :doc (plist-get (cdr s) :doc)))
                          financial-chart-shapes))
         :cohorts (financial-chart--vec (mapcar (lambda (c) (symbol-name (car c)))
-                                               financial-chart-indicator-cohorts))
+                                               (financial-chart--cohorts)))
         :indicators (financial-chart--vec
                      (mapcar (lambda (indicator)
                                (list :name (symbol-name (plist-get indicator :name))

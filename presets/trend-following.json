@@ -1,0 +1,12 @@
+{
+  "preset/v1": "trend-following",
+  "cohort": true,
+  "doc": "Price-overlay trend set: SMA20, SMA50, session VWAP.",
+  "price": {
+    "series": [
+      {"indicator": "sma", "params": [20], "face": "font-lock-keyword-face"},
+      {"indicator": "sma", "params": [50], "face": "font-lock-type-face"},
+      {"indicator": "vwap", "face": "font-lock-constant-face"}
+    ]
+  }
+}

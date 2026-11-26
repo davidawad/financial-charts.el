@@ -1,0 +1,8 @@
+{
+  "preset/v1": "momentum",
+  "cohort": true,
+  "doc": "Catalog RSI-14 only, drawn in the 0-100 oscillator sub-panel.",
+  "panes": [
+    {"series": [{"indicator": "rsi", "params": [14], "recipe": "finance.market.rsi-14"}]}
+  ]
+}

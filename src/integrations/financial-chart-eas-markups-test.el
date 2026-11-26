@@ -262,5 +262,22 @@ CHART adds top-level keys."
       (should ids)
       (dolist (id ids) (should (member id (mapcar (lambda (e) (plist-get e :id)) events)))))))
 
+(ert-deftest financial-chart-cohorts-are-presets ()
+  (let ((cohorts (financial-chart--cohorts)))
+    (dolist (name '(trend-following mean-reversion momentum))
+      (should (string-prefix-p "preset " (plist-get (cdr (assq name cohorts)) :provenance))))
+    (should (equal (plist-get (cdr (assq 'trend-following cohorts)) :members)
+                   '((:fn financial-chart-sma :args (20) :face font-lock-keyword-face)
+                     (:fn financial-chart-sma :args (50) :face font-lock-type-face)
+                     (:fn financial-chart-vwap :args nil :face font-lock-constant-face))))
+    (should (equal (plist-get (cdr (assq 'momentum cohorts)) :members)
+                   '((:indicator "finance.market.rsi-14" :params (:period 14)))))
+    ;; A cohort preset is an ordinary preset too.
+    (should (financial-chart-compose (list :bars (financial-chart-markups-test--bars) :preset "mean-reversion")))
+    (should (eq (plist-get (car (last (financial-chart-resolve-cohort 'mean-reversion))) :panel) 'oscillator))
+    ;; The obsolete defcustom still adds and shadows.
+    (let ((financial-chart-indicator-cohorts '((momentum :doc "mine" :members ((:fn financial-chart-sma :args (3)))))))
+      (should (equal (plist-get (financial-chart--cohort 'momentum) :doc) "mine")))))
+
 (provide 'financial-chart-eas-markups-test)
 ;;; financial-chart-eas-markups-test.el ends here

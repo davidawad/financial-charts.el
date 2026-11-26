@@ -99,9 +99,11 @@
     (should (< (plist-get (cadr rows) :time) 100))
     (should-not (plist-member (car out) :label-pin))))
 
-(ert-deftest financial-chart-labels-pinned-labels-stack-when-sliding-cannot-help ()
+(ert-deftest financial-chart-labels-pinned-labels-become-price-tags ()
   ;; Three S/R labels on near levels in a pane so narrow no slide fits:
-  ;; they stack instead, never overlapping, each with a leader line.
+  ;; the first keeps its line; the others become price tags at the right
+  ;; edge at (nearly) their own y, never moved onto another line, with no
+  ;; leader, and no two overlap.
   (let* ((scale '(:x0 0 :x1 10 :y0 0.0 :y1 100.0 :width 90 :height 200))
          (a (financial-chart-labels-pin
              (financial-chart-labels-test--layer
@@ -109,11 +111,23 @@
                      (:time 0 :y 52.0 :label "R 193.84 x14"))
               :align "left" :baseline "bottom" :dx 2)))
          (out (financial-chart-labels-declutter (list a) scale))
-         (rows (append (plist-get (plist-get (car out) :data) :values) nil))
-         (boxes (mapcar (lambda (r) (financial-chart-labels--box r (plist-get (car out) :mark) scale)) rows)))
-    (should (cl-loop for (b . rest) on boxes always (cl-notany (lambda (c) (financial-chart-labels--overlap-p b c)) rest)))
-    (should (equal (plist-get (cadr out) :name) "sr-leaders"))
-    (should (= (length (plist-get (plist-get (cadr out) :data) :values)) 2))))
+         (kept (append (plist-get (plist-get (car out) :data) :values) nil))
+         (tags (append (plist-get (plist-get (cadr out) :data) :values) nil)))
+    (should (equal (mapcar (lambda (l) (plist-get l :name)) out) '("sr" "sr-tags")))
+    (should (equal (mapcar (lambda (r) (plist-get r :label)) kept) '("R 185.16 x12")))
+    (should (equal (plist-get (plist-get (cadr out) :mark) :align) "left"))
+    ;; Just right of the last bar, in the margin.
+    (should (cl-every (lambda (r) (< 10 (plist-get r :time) 11)) tags))
+    ;; In the same order as their levels.
+    (should (< (plist-get (car tags) :y) (plist-get (cadr tags) :y)))
+    ;; Each tag near its own level: at most three label heights (18 price units here).
+    (should (cl-every (lambda (r) (<= (abs (- (plist-get r :y)
+                                               (if (string-prefix-p "R 189" (plist-get r :label)) 51.0 52.0)))
+                                      18.0))
+                      tags))
+    (let ((boxes (append (mapcar (lambda (r) (financial-chart-labels--box r (plist-get (car out) :mark) scale)) kept)
+                         (mapcar (lambda (r) (financial-chart-labels--box r (plist-get (cadr out) :mark) scale)) tags))))
+      (should (cl-loop for (b . rest) on boxes always (cl-notany (lambda (c) (financial-chart-labels--overlap-p b c)) rest))))))
 
 (ert-deftest financial-chart-labels-sr-labels-never-overlap-on-the-example ()
   (let* ((bars (plist-get (financial-chart-catalog-example "fibonacci") :bars))
@@ -130,8 +144,7 @@
 
 (ert-deftest financial-chart-labels-pinned-labels-stay-in-their-span ()
   ;; Two Fibonacci labels on near ratios whose zone is the right fifth of
-  ;; the pane: the second may not slide left out of the zone, so it stacks
-  ;; (with a leader) and stays inside 80..100.
+  ;; the pane: the second may not slide left out of the zone.
   (let* ((scale '(:x0 0 :x1 100 :y0 0.0 :y1 100.0 :width 800 :height 200))
          (a (financial-chart-labels-pin
              (financial-chart-labels-test--layer
@@ -139,10 +152,14 @@
                       (:time 100 :y 51.0 :span0 80 :span1 100 :label "78.6% 217.93"))
               :align "right" :baseline "bottom")))
          (out (financial-chart-labels-declutter (list a) scale))
-         (rows (append (plist-get (plist-get (car out) :data) :values) nil)))
+         (rows (append (plist-get (plist-get (car out) :data) :values) nil))
+         (tags (append (plist-get (plist-get (cadr out) :data) :values) nil)))
+    ;; The first stays in the zone on its line; the second, with no room
+    ;; in the zone, is a price tag at the edge (inside 80..100 too).
     (should (cl-every (lambda (r) (<= 80 (plist-get r :time) 100)) rows))
-    (should (/= (plist-get (cadr rows) :y) 51.0))
-    (should (equal (plist-get (cadr out) :name) "fib-leaders")))
+    (should (cl-every (lambda (r) (> (plist-get r :time) 100)) tags))
+    (should (equal (plist-get (car rows) :y) 50.0))
+    (should (equal (plist-get (cadr out) :name) "fib-tags")))
   ;; Markers are obstacles: a pinned label on one slides off it.
   (let* ((scale '(:x0 0 :x1 100 :y0 0.0 :y1 100.0 :width 800 :height 200))
          (marker '(:name "m" :mark (:type "point") :data (:values [(:time 10 :y 52.0)])))
@@ -171,6 +188,19 @@
          (out (financial-chart-labels-declutter (list fixed mover) scale))
          (y (car (financial-chart-labels-test--ys (list (cadr out))))))
     (should (< y 50.0))))
+
+(ert-deftest financial-chart-labels-tags-stack-in-order-with-the-least-nudge ()
+  ;; Three tags at 50, 50.5 and 80 in a 0..100 price, 200 px pane (2 px a
+  ;; unit, labels 12 px): the near two spread symmetrically about their
+  ;; levels a label height apart, in order; the far one stays put.
+  (let* ((scale '(:x0 0 :x1 10 :y0 0.0 :y1 100.0 :width 800 :height 200))
+         (rows (list (list :y 50.0) (list :y 50.5) (list :y 80.0))))
+    (financial-chart-labels--stack-tags rows scale 0.5)
+    (let ((ys (mapcar (lambda (r) (plist-get r :y)) rows)))
+      (should (= (nth 2 ys) 80.0))
+      (should (< (nth 0 ys) (nth 1 ys)))
+      (should (< (abs (- (- (nth 1 ys) (nth 0 ys)) 6.0)) 1e-9))
+      (should (< (abs (- (/ (+ (nth 0 ys) (nth 1 ys)) 2) 50.25)) 1e-9)))))
 
 (provide 'financial-chart-eas-labels-test)
 ;;; financial-chart-eas-labels-test.el ends here

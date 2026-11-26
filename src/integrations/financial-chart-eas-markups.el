@@ -122,7 +122,7 @@
 
 (defun financial-chart-markup--end (ctx)
   "The chart's last x position in CTX (past the bars when a series is shifted)."
-  (let ((xs (financial-chart-shift-xs ctx))) (aref xs (1- (length xs)))))
+  (let ((xs (financial-chart-shift-draw-xs ctx))) (aref xs (1- (length xs)))))
 
 (defun financial-chart-markup--points (ctx a key path n auto)
   "A's KEY, N points [AT, Y], as (X . Y)s, else AUTO's N in CTX.
@@ -409,7 +409,7 @@ from the last one to the running extreme since."
 
 (defun financial-chart-markup--extend (ctx p1 p2 extend)
   "The segment P1-P2 ((X . Y) each) extended per EXTEND in CTX, as a row."
-  (let* ((xs (financial-chart-shift-xs ctx))
+  (let* ((xs (financial-chart-shift-draw-xs ctx))
          (x1 (if (member extend '("left" "both")) (aref xs 0) (car p1)))
          (x2 (if (member extend '("right" "both")) (aref xs (1- (length xs))) (car p2))))
     (financial-chart-markup--segment-row x1 (financial-chart-markup--line p1 p2 x1)
@@ -487,7 +487,7 @@ A view of trend.auto-lines: the newest support and resistance line."
                   (let ((first (car (financial-chart-markup--events ctx a path "swing.zigzag" '(:deviation :atr)))))
                     (if first (plist-get first :index) 0))))
          (scale (financial-chart-markup--int a :scale path 1))
-         (xs (financial-chart-shift-xs ctx))
+         (xs (financial-chart-shift-draw-xs ctx))
          (colour (financial-chart-markup--colour a))
          (rows (cl-loop for k across financial-chart-fibonacci-time-zones
                         for i = (+ start (* scale k))
@@ -633,8 +633,8 @@ A line that runs off the bars would rescale the chart (fc-gty.26)."
 (defun financial-chart-markup--change-label (ctx from to)
   "The change from FROM to TO ((X . Y) each) as text: price, %, bars."
   (let* ((d (- (cdr to) (cdr from)))
-         (bars (abs (- (or (seq-position (financial-chart-shift-xs ctx) (car to) #'=) 0)
-                       (or (seq-position (financial-chart-shift-xs ctx) (car from) #'=) 0)))))
+         (bars (abs (- (or (seq-position (financial-chart-shift-draw-xs ctx) (car to) #'=) 0)
+                       (or (seq-position (financial-chart-shift-draw-xs ctx) (car from) #'=) 0)))))
     (format "%+.2f (%+.1f%%) %d bars" d (if (zerop (cdr from)) 0 (* 100.0 (/ d (cdr from)))) bars)))
 
 (defun financial-chart-markup--measure (ctx a name path)

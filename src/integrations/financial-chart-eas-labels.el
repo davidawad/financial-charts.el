@@ -200,15 +200,16 @@ ROWS are (:time :y ANCHOR :y2 NEW); nil without any."
   "The halo drawn under pinned labels: the pane's background colour.")
 
 (defun financial-chart-labels-pin (layer)
-  "LAYER, a text layer, with its labels pinned to their line: the
-placement pass keeps each on its y (a level's or a Fibonacci ratio's
-label belongs on its line) but may slide it along the line, by whole
-label widths, off another label (fc-gty.24, .25); when no slide clears
-the labels already placed, it stacks a label height or two off the line
-with a leader line back.  The others are placed
-around them.  A layer whose :label-pin is t (a hand-placed annotation's
-label) never moves at all.  It is drawn with a halo in
-`financial-chart-label-halo-color', so it reads over candles."
+  "LAYER, a text layer, with its labels pinned to their line.
+The placement pass keeps each on its y (a level's or a Fibonacci
+ratio's label belongs on its line) but may slide it along the line, by
+whole label widths, off another label, never out of its line's own
+x-span nor up or down onto another line; when no slide clears the
+labels and markers, it is drawn as a price tag in a margin right of the
+last bar at its own y, the tags stacked in order (fc-gty.30).  The
+others are placed around them.  A layer whose :label-pin is t (a
+hand-placed annotation's label) never moves at all.  It is drawn with
+a halo in `financial-chart-label-halo-color', so it reads over candles."
   (plist-put (plist-put (copy-sequence layer) :label-pin 'slide) :mark
              ;; A halo in the pane's colour keeps it readable over candles (fc-gty.28).
              (append (plist-get layer :mark)
@@ -227,6 +228,35 @@ label) never moves at all.  It is drawn with a halo in
       (cl-loop for (k v) on layer by #'cddr unless (eq k :label-pin) append (list k v))
     layer))
 
+(defun financial-chart-labels--stack-tags (rows scale price-per-px)
+  "Stack price-tag ROWS (plists with :y, changed in place) in the margin.
+In price order, each at its own y unless that overlaps the one before,
+an overlapping run centred on its own levels a label height apart: the
+smallest moves that keep every tag apart and in order, inside the pane
+of SCALE.  PRICE-PER-PX turns pixels into prices."
+  (let* ((h financial-chart-label-height)
+         (py (lambda (y) (cdr (financial-chart-labels--px scale 0 y))))
+         (items (sort (mapcar (lambda (r) (cons (funcall py (plist-get r :y)) r)) rows)
+                      (lambda (a b) (< (car a) (car b)))))
+         clusters)
+    ;; Each cluster is (START . MEMBERS), members' ideal positions in order.
+    (dolist (it items)
+      (push (cons (car it) (list it)) clusters)
+      (cl-loop while (and (cdr clusters)
+                          (let ((prev (cadr clusters)) (cur (car clusters)))
+                            (< (car cur) (+ (car prev) (* h (length (cdr prev)))))))
+               do (let* ((cur (pop clusters)) (prev (pop clusters))
+                         (members (append (cdr prev) (cdr cur)))
+                         (start (/ (cl-loop for m in members for i from 0 sum (- (car m) (* i h)))
+                                   (float (length members)))))
+                    (push (cons start members) clusters))))
+    (dolist (c clusters)
+      (let* ((n (length (cdr c)))
+             (start (max (/ h 2.0) (min (car c) (- (plist-get scale :height) (* h n) (/ h -2.0) h)))))
+        (cl-loop for m in (cdr c) for i from 0
+                 for target = (+ start (* i h))
+                 do (plist-put (cdr m) :y (- (plist-get (cdr m) :y) (* (- target (car m)) price-per-px))))))))
+
 (defun financial-chart-labels-declutter (layers scale &optional obstacles)
   "LAYERS with their text labels placed off each other and off OBSTACLES.
 SCALE is (:x0 :x1 :y0 :y1 :width :height) of the pane; OBSTACLES is
@@ -235,9 +265,10 @@ label tries its place and up to `financial-chart-label-max-steps' label
 heights up or down inside the pane, and takes the least bad (another
 label worst, then a candle body, then a line, then distance); a label
 that moved gets a leader line back to its place."
-  (let ((placed nil) (leader-segs nil)
+  (let ((placed nil) (leader-segs nil) (tag-rows nil)
         (h financial-chart-label-height)
         (price-per-px (/ (- (plist-get scale :y1) (plist-get scale :y0)) (float (plist-get scale :height)))))
+    (prog1
     (cl-loop
      for layer in layers
      append
@@ -251,7 +282,11 @@ that moved gets a leader line back to its place."
       ((plist-get layer :label-pin)
        ;; Slide along the line: same y, whole label widths left or right,
        ;; inside the pane, to the least bad place among the labels.
-       (let* ((mark (plist-get layer :mark)) leaders
+       (let* ((mark (plist-get layer :mark)) tags
+              ;; A price tag: in a margin right of the last bar, centred on its y.
+              (tag-mark (append (list :align "left" :baseline "middle" :dx 0 :dy 0)
+                                (cl-loop for (k v) on mark by #'cddr
+                                         unless (memq k '(:align :baseline :dx :dy)) append (list k v))))
               (x-per-px (/ (- (plist-get scale :x1) (plist-get scale :x0)) (float (plist-get scale :width))))
               (rows (mapcar
                      (lambda (row)
@@ -281,42 +316,34 @@ that moved gets a leader line back to its place."
                                 (d (or (car (sort (copy-sequence (or inside '(0)))
                                                   (lambda (a b) (< (funcall cost a) (funcall cost b)))))
                                        0))
-                                ;; No slide clears every label: stack it a label height or
-                                ;; two off its line instead, with a leader line back (fc-gty.25).
-                                (k (if (< (funcall cost d) 50) 0
-                                     (or (cl-loop for s from 1 to financial-chart-label-max-steps
-                                                  thereis (cl-loop for k in (list (- (* s financial-chart-label-height))
-                                                                                  (* s financial-chart-label-height))
-                                                                   for m = (financial-chart-labels--shift
-                                                                            (financial-chart-labels--shift-x box d) k)
-                                                                   when (and (>= (nth 1 m) 0)
-                                                                             (<= (nth 3 m) (plist-get scale :height))
-                                                                             (not (cl-some (lambda (p) (financial-chart-labels--overlap-p m p))
-                                                                                           (append placed (plist-get obstacles :markers))))
-                                                                             ;; Its leader crosses no label.
-                                                                             (zerop (car (financial-chart-labels--leader-cost
-                                                                                          scale (plist-put (copy-sequence row) :time
-                                                                                                           (+ (plist-get row :time) (* d x-per-px)))
-                                                                                          k m placed leader-segs price-per-px))))
-                                                                   return k))
-                                         0))))
-                           (push (financial-chart-labels--shift (financial-chart-labels--shift-x box d) k) placed)
-                           (unless (zerop k)
-                             (push (cdr (financial-chart-labels--leader-cost
-                                         scale (plist-put (copy-sequence row) :time (+ (plist-get row :time) (* d x-per-px)))
-                                         k box nil nil price-per-px))
-                                   leader-segs))
-                           (let ((row (if (zerop d) row
-                                        (plist-put (copy-sequence row) :time (+ (plist-get row :time) (* d x-per-px))))))
-                             (if (zerop k) row
-                               (let ((y (- (plist-get row :y) (* k price-per-px))))
-                                 (push (list :time (plist-get row :time) :y (plist-get row :y) :y2 y) leaders)
-                                 (plist-put (copy-sequence row) :y y)))))))
+                                ;; No slide inside its line clears the labels and markers:
+                                ;; it becomes a price tag at the pane's right edge, at its
+                                ;; own y (fc-gty.30).  Never moved up or down onto another
+                                ;; line, never with a leader.
+                                (tag (>= (funcall cost d) 50)))
+                           (if (not tag)
+                               (progn
+                                 (push (financial-chart-labels--shift-x box d) placed)
+                                 (if (zerop d) row
+                                   (plist-put (copy-sequence row) :time (+ (plist-get row :time) (* d x-per-px)))))
+                             (let* ((trow (plist-put (copy-sequence row) :time
+                                                     (+ (or (plist-get scale :x-last) (plist-get scale :x1))
+                                                        (* 6 x-per-px))))
+                                    (trow (plist-put trow :y (plist-get row :y))))
+                               ;; Placed at its own y now; all the tags are stacked
+                               ;; together, in order, once every layer is done.
+                               (push trow tags)
+                               (push trow tag-rows)
+                               nil)))))
                      (append (plist-get (plist-get layer :data) :values) nil))))
          (delq nil (list (financial-chart-labels--unpin
                           (plist-put (copy-sequence layer) :data
-                                     (plist-put (copy-sequence (plist-get layer :data)) :values (vconcat rows))))
-                         (financial-chart-labels--leaders layer (nreverse leaders))))))
+                                     (plist-put (copy-sequence (plist-get layer :data)) :values (vconcat (delq nil rows)))))
+                         (when tags
+                           (financial-chart-labels--unpin
+                            (plist-put (plist-put (plist-put (copy-sequence layer) :name (concat (plist-get layer :name) "-tags"))
+                                                  :mark tag-mark)
+                                       :data (list :values (vconcat (nreverse tags))))))))))
       (t
        (let* ((mark (plist-get layer :mark)) leaders
               (rows (mapcar
@@ -348,13 +375,15 @@ that moved gets a leader line back to its place."
                      (append (plist-get (plist-get layer :data) :values) nil))))
          (delq nil (list (plist-put (copy-sequence layer) :data
                                     (plist-put (copy-sequence (plist-get layer :data)) :values (vconcat rows)))
-                         (financial-chart-labels--leaders layer (nreverse leaders))))))))))
+                         (financial-chart-labels--leaders layer (nreverse leaders))))))))
+      (financial-chart-labels--stack-tags tag-rows scale price-per-px))))
 
-(defun financial-chart-labels-scale (layers xs width height y-range)
+(defun financial-chart-labels-scale (layers xs width height y-range &optional x-last)
   "The SCALE of `financial-chart-labels-declutter' for a pane.
 XS are its x positions, WIDTH its width (a number, else
 `financial-chart-label-assumed-width'), HEIGHT its height, Y-RANGE
-\(LOW . HIGH) its data's range or nil; the label rows of LAYERS widen it."
+\(LOW . HIGH) its data's range or nil; the label rows of LAYERS widen it.
+X-LAST is the last bar's x, where a margin for price tags begins."
   (let* ((ys (cl-loop for l in layers when (financial-chart-labels--text-layer-p l)
                       append (cl-loop for r across (plist-get (plist-get l :data) :values)
                                       when (numberp (plist-get r :y)) collect (plist-get r :y))))
@@ -364,7 +393,7 @@ XS are its x positions, WIDTH its width (a number, else
          ;; The axis rounds its domain out to about ten nice steps.
          (step (let* ((raw (/ (- hi lo) 10.0)) (mag (expt 10.0 (floor (log raw 10)))))
                  (* mag (cl-find-if (lambda (m) (>= (* m mag) raw)) '(1 2 5 10))))))
-    (list :x0 (seq-min xs) :x1 (seq-max xs)
+    (list :x0 (seq-min xs) :x1 (seq-max xs) :x-last (or x-last (seq-max xs))
           :y0 (* step (ffloor (/ lo step))) :y1 (* step (fceiling (/ hi step)))
           :width (if (numberp width) width financial-chart-label-assumed-width)
           :height (or height 200))))

@@ -661,8 +661,9 @@ of the last bar (`src/integrations/financial-chart-eas-markups.el`):
 
 Level, Fibonacci and S/R labels stay on their line and slide along it,
 by label widths but never past the line's own ends, off each other,
-markers and candles; when no slide clears them they stack a label
-height or two off the line with a leader line back. Hand-placed labels
+markers and candles. One that cannot sit on its own line is never moved
+onto another: it becomes a price tag in a margin right of the last bar,
+at its own price, the tags stacked in price order with the least nudge. Hand-placed labels
 stay put. Labels of every annotation in a pane go through one placement pass
 (`financial-chart-eas-labels.el`): in drawing order, a label whose
 estimated box meets one already placed moves up or down by a label

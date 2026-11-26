@@ -74,6 +74,10 @@ fall on a weekend continue on weekdays only."
           (push last out)))
       (nreverse out))))
 
+(defvar financial-chart-shift-gutter 0
+  "Empty bar slots added after the last bar: the margin for price tags.
+`financial-chart-compose' sets it when a pane's labels need one.")
+
 (defun financial-chart-shift-context (ctx series)
   "CTX with :xs-ext, its x positions grown as far as SERIES draw.
 SERIES come from `financial-chart-shift-series'; only values past the
@@ -85,12 +89,24 @@ last bar count, so a span too short to reach past it adds nothing."
                                     (or (cl-loop for i from (1- (length values)) downto n
                                                  when (aref values i) return (1+ (- i n)))
                                         0)))))
-    (append (list :xs-ext (vconcat xs (financial-chart-shift-future-xs xs (plist-get ctx :x-type) (or count 0))))
+    (append (list :xs-ext (vconcat xs (financial-chart-shift-future-xs
+                                       xs (plist-get ctx :x-type)
+                                       (+ (or count 0) financial-chart-shift-gutter))))
             ctx)))
 
 (defun financial-chart-shift-xs (ctx)
   "CTX's x positions, grown past the last bar when a series is shifted."
   (or (plist-get ctx :xs-ext) (plist-get ctx :xs)))
+
+(defun financial-chart-shift-draw-xs (ctx)
+  "CTX's x positions annotations draw across: `financial-chart-shift-xs'
+without the empty margin of `financial-chart-shift-gutter', so lines end
+at the last bar (or shifted series) and the margin stays for price tags."
+  (let ((xs (financial-chart-shift-xs ctx)))
+    (if (and (> financial-chart-shift-gutter 0) (plist-get ctx :xs-ext)
+             (> (length xs) financial-chart-shift-gutter))
+        (seq-subseq xs 0 (- (length xs) financial-chart-shift-gutter))
+      xs)))
 
 (defun financial-chart-shift-layer-data (ctx s)
   "The own :data of series S in CTX when it runs past the last bar, else nil."

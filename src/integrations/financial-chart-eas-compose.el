@@ -224,7 +224,8 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
                                    layers (financial-chart-shift-xs ctx) (plist-get ctx :width) (plist-get spec :height)
                                    (let ((d (plist-get spec :domain)))
                                      (cond (d (cons (elt d 0) (elt d 1)))
-                                           ((equal (plist-get spec :path) "/price") (financial-chart-annotation--range ctx)))))))
+                                           ((equal (plist-get spec :path) "/price") (financial-chart-annotation--range ctx))))
+                                   (seq-max (plist-get ctx :xs)))))
                        (financial-chart-labels-declutter
                         layers scale
                         (financial-chart-labels--merge-obstacles
@@ -327,7 +328,30 @@ Only the bottom pane labels and titles the shared x axis."
                                     i)))
    panes))
 
+(defvar financial-chart-compose-tag-margin 0.12
+  "The margin made for price tags, as a share of the bars.")
+
+(defun financial-chart-compose--tags-p (spec)
+  "Non-nil when compiled SPEC draws price tags (a \"-tags\" layer)."
+  (cl-loop for pane across (plist-get spec :vconcat)
+           thereis (cl-loop for l across (plist-get pane :layer)
+                            thereis (string-suffix-p "-tags" (or (plist-get l :name) "")))))
+
 (defun financial-chart-compose (chart)
+  "Compile CHART, a financial chart description, to a plain eas spec.
+When a label has to become a price tag (fc-gty.30) the chart is
+compiled once more with a margin of empty slots after the last bar
+\(`financial-chart-compose-tag-margin'), where the tags sit."
+  (let* ((chart (financial-chart-compose-read chart))
+         (spec (financial-chart-compose--once chart)))
+    (if (and (zerop financial-chart-shift-gutter) (financial-chart-compose--tags-p spec))
+        (let ((financial-chart-shift-gutter
+               (max 3 (ceiling (* financial-chart-compose-tag-margin
+                                  (length (financial-chart-series-get chart :bars)))))))
+          (financial-chart-compose--once chart))
+      spec)))
+
+(defun financial-chart-compose--once (chart)
   "Compile CHART, a financial chart description, to a plain eas spec.
 CHART is a plist or JSON (see `financial-chart-compose-read'); the
 commentary of this file and README.md describe its keys.  The spec

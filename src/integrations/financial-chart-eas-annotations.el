@@ -207,7 +207,7 @@ annotation's label stays where it was put."
 (defun financial-chart-annotation--level (ctx a name path)
   "Layers of level A named NAME at PATH in CTX."
   (let* ((y (financial-chart-annotation--number a :y path))
-         (xs (financial-chart-shift-xs ctx))
+         (xs (financial-chart-shift-draw-xs ctx))
          (from (if-let* ((f (financial-chart-series-get a :from)))
                    (financial-chart-annotation--x ctx f (concat path "/from"))
                  (aref xs 0)))
@@ -236,7 +236,7 @@ annotation's label stays where it was put."
                ;; Left to right, so extending keeps the drawn segment.
                (`((,x1 . ,y1) (,x2 . ,y2)) (if (<= x1 x2) (list (cons x1 y1) (cons x2 y2))
                                              (list (cons x2 y2) (cons x1 y1))))
-               (xs (financial-chart-shift-xs ctx))
+               (xs (financial-chart-shift-draw-xs ctx))
                (slope (if (= x1 x2) 0 (/ (float (- y2 y1)) (- x2 x1))))
                (`(,x1 . ,y1) (if (and (member extend '("left" "both")) (/= x1 x2))
                                  (cons (aref xs 0) (+ y1 (* slope (- (aref xs 0) x1)))) (cons x1 y1)))
@@ -344,7 +344,7 @@ Ratio 0 is TO (where the move ended), 1 is FROM.  Return (RATIO . PRICE)s."
               (financial-chart-series-fail (concat path "/levels") "INVALID_ANNOTATION"
                                            "levels are ratios such as 0.382, got %S" ratios)))
          (levels (financial-chart-fibonacci-levels (cdr from) (cdr to) ratios))
-         (xs (financial-chart-shift-xs ctx))
+         (xs (financial-chart-shift-draw-xs ctx))
          (start (min (car from) (car to)))
          (end (aref xs (1- (length xs))))
          (colour (or (financial-chart-series-get a :color) financial-chart-annotation-color))

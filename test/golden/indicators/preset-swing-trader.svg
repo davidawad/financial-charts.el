@@ -495,18 +495,18 @@
 <text x="639.18" y="155.99" font-size="11" fill="#607d8b" text-anchor="end">61.8% 112.70</text>
 <text x="639.18" y="183.2" font-size="11" fill="#607d8b" text-anchor="end">78.6% 106.51</text>
 <text x="639.18" y="217.86" font-size="11" fill="#607d8b" text-anchor="end">100.0% 98.63</text>
-<line x1="526.59" y1="175.23" x2="639.18" y2="175.23" stroke="#26a69a" stroke-width="1.5" stroke-dasharray="6,3">
+<line x1="138.12" y1="167.93" x2="639.18" y2="167.93" stroke="#26a69a" stroke-width="1.5" stroke-dasharray="6,3">
 </line>
 <line x1="470.28" y1="193.34" x2="639.18" y2="193.34" stroke="#26a69a" stroke-width="1.5" stroke-dasharray="6,3">
 </line>
 <line x1="261.98" y1="88.59" x2="639.18" y2="88.59" stroke="#26a69a" stroke-width="1.5" stroke-dasharray="6,3">
 </line>
-<line x1="138.12" y1="167.93" x2="639.18" y2="167.93" stroke="#26a69a" stroke-width="1.5" stroke-dasharray="6,3">
+<line x1="526.59" y1="175.23" x2="639.18" y2="175.23" stroke="#26a69a" stroke-width="1.5" stroke-dasharray="6,3">
 </line>
-<text x="639.18" y="171.23" font-size="11" fill="#26a69a" text-anchor="end">S 109.01 x1</text>
-<text x="639.18" y="189.34" font-size="11" fill="#26a69a" text-anchor="end">S 104.89 x1</text>
-<text x="639.18" y="84.59" font-size="11" fill="#26a69a" text-anchor="end">S 128.72 x1</text>
-<text x="639.18" y="163.93" font-size="11" fill="#26a69a" text-anchor="end">S 110.67 x1</text>
+<text x="140.12" y="163.93" font-size="11" fill="#26a69a" text-anchor="start">S 110.67 x3</text>
+<text x="472.28" y="189.34" font-size="11" fill="#26a69a" text-anchor="start">S 104.89 x2</text>
+<text x="263.98" y="84.59" font-size="11" fill="#26a69a" text-anchor="start">S 128.72 x2</text>
+<text x="528.59" y="171.23" font-size="11" fill="#26a69a" text-anchor="start">S 109.01 x1</text>
 <path d="M323.9,123.1L320.74,128.57L327.07,128.57Z" fill="#26a69a">
 </path>
 <path d="M340.8,132.33L337.63,137.8L343.96,137.8Z" fill="#26a69a">

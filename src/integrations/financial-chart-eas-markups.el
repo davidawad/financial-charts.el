@@ -205,12 +205,22 @@ close."
          (latest (make-hash-table))
          (_ (dolist (e events) (puthash (plist-get (plist-get e :evidence) :cluster) e latest)))
          (table (financial-chart-markup--index-table ctx))
-         (levels (seq-filter (lambda (e) (and (>= (plist-get (plist-get e :evidence) :touches) min-touches)
+         ;; A level's touches as of the last bar, not as of its newest pivot.
+         (params (financial-chart-detector-params "level.auto-sr"
+                                                  (cl-loop for k in '(:left :right :atr :tolerance)
+                                                           when (plist-member a k) append (list k (plist-get a k)))))
+         (touches-now (make-hash-table :test #'eq))
+         (_ (dolist (e (hash-table-values latest))
+              (let ((y (plist-get (plist-get e :geometry) :y)))
+                (puthash e (financial-chart-level-touches
+                            bars y (financial-chart-level-band bars params y (1- n))
+                            (gethash (plist-get (plist-get e :geometry) :from) table) (1- n))
+                         touches-now))))
+         (levels (seq-filter (lambda (e) (and (>= (gethash e touches-now) min-touches)
                                               (or (null window) (>= (plist-get e :index) (- n window)))))
                              (hash-table-values latest)))
          (levels (seq-take (sort levels (lambda (x y)
-                                          (let ((tx (plist-get (plist-get x :evidence) :touches))
-                                                (ty (plist-get (plist-get y :evidence) :touches)))
+                                          (let ((tx (gethash x touches-now)) (ty (gethash y touches-now)))
                                             (or (> tx ty) (and (= tx ty) (> (plist-get x :index) (plist-get y :index)))))))
                            max))
          (end (financial-chart-markup--end ctx))
@@ -222,7 +232,7 @@ close."
                                          ctx (gethash (plist-get (plist-get e :geometry) :from) table))
                                   :time2 end :y y :id (plist-get e :id)
                                   :label (format "%s %.2f x%d" (if (eq (funcall kind e) 'support) "S" "R") y
-                                                 (plist-get (plist-get e :evidence) :touches)))))))
+                                                 (gethash e touches-now)))))))
     (cl-loop for k in '(support resistance)
              for group = (seq-filter (lambda (e) (eq (funcall kind e) k)) levels)
              for colour = (or (financial-chart-series-get a :color) (plist-get ctx (if (eq k 'support) :up :down)))
@@ -246,10 +256,11 @@ close."
                                                              :x "time" :x2 "time2" :y "y"
                                                              :tooltip [(:field "label" :type "nominal")
                                                                        (:field "id" :type "nominal")]))
+                     ;; Labelled at the level's first touch, not the right edge, where
+                     ;; Fibonacci and level labels would sit on each other.
                      (financial-chart-markup--labels
-                      ctx (concat layer "-labels")
-                      (mapcar (lambda (e) (plist-put (funcall row e) :time end)) group)
-                      colour :align "right" :baseline "bottom" :dy -2)))))
+                      ctx (concat layer "-labels") (mapcar row group)
+                      colour :align "left" :baseline "bottom" :dx 2 :dy -2)))))
 
 ;;; Candlestick patterns
 

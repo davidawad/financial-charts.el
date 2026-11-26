@@ -272,18 +272,33 @@ other; levels are TO - r(TO - FROM) for RATIOS."
 
 ;;; level.auto-sr
 
+(defun financial-chart-level-touches (v y band from to)
+  "Visits of bars FROM..TO of V to the level Y within BAND: runs of
+consecutive bars whose range comes within BAND of Y count once each."
+  (let ((visits 0) (inside nil))
+    (cl-loop for i from (max 0 from) to (min to (1- (length v)))
+             for touching = (and (<= (financial-chart-swing--l v i) (+ y band))
+                                 (>= (financial-chart-swing--h v i) (- y band)))
+             do (when (and touching (not inside)) (cl-incf visits))
+             do (setq inside touching))
+    visits))
+
+(defun financial-chart-level-band (v p y i)
+  "The auto-sr band of level Y at bar I of V with params P."
+  (if (plist-get p :tolerance) (* (plist-get p :tolerance) (abs y))
+    (* (plist-get p :atr) (financial-chart-swing--atr v i))))
+
 (defun financial-chart-swing--auto-sr (v p)
   "Raw support/resistance events of V with params P: one per pivot touch."
   (let* ((pivots (sort (financial-chart-swing--pivots v (plist-get p :left) (plist-get p :right))
                        (lambda (a b) (or (< (plist-get a :confirmed) (plist-get b :confirmed))
                                          (and (= (plist-get a :confirmed) (plist-get b :confirmed))
                                               (< (plist-get a :index) (plist-get b :index)))))))
-         (tolerance (plist-get p :tolerance)) (atr (plist-get p :atr))
          clusters events)
     ;; A cluster is (ID SUM COUNT FIRST MIN MAX).
     (dolist (pv pivots)
       (let* ((y (plist-get (plist-get pv :geometry) :y)) (c (plist-get pv :confirmed))
-             (band (if tolerance (* tolerance (abs y)) (* atr (financial-chart-swing--atr v c))))
+             (band (financial-chart-level-band v p y c))
              (best (car (sort (seq-filter (lambda (k) (<= (abs (- y (/ (nth 1 k) (nth 2 k)))) band)) clusters)
                               (lambda (a b) (< (abs (- y (/ (nth 1 a) (nth 2 a)))) (abs (- y (/ (nth 1 b) (nth 2 b))))))))))
         (if best
@@ -291,11 +306,12 @@ other; levels are TO - r(TO - FROM) for RATIOS."
                   (nth 4 best) (min (nth 4 best) y) (nth 5 best) (max (nth 5 best) y))
           (setq best (list (length clusters) y 1 (plist-get pv :index) y y))
           (setq clusters (append clusters (list best))))
-        (let ((touches (nth 2 best)))
+        (let* ((pivots (nth 2 best)) (y (/ (nth 1 best) pivots))
+               (touches (financial-chart-level-touches v y band (nth 3 best) c)))
           (push (list :index (plist-get pv :index) :confirmed c :direction 'neutral
                       :strength (financial-chart-swing--clamp (/ touches 5.0))
-                      :geometry (list :y (/ (nth 1 best) touches) :from (nth 3 best) :to (plist-get pv :index))
-                      :evidence (list :cluster (nth 0 best) :touches touches
+                      :geometry (list :y y :from (nth 3 best) :to (plist-get pv :index))
+                      :evidence (list :cluster (nth 0 best) :pivots pivots :touches touches
                                       :side (plist-get (plist-get pv :evidence) :side)
                                       :spread (if (> band 0) (/ (- (nth 5 best) (nth 4 best)) band) 0.0)))
                 events))))
@@ -308,7 +324,7 @@ other; levels are TO - r(TO - FROM) for RATIOS."
                  '((:name atr :type number :default 0.5 :min 0.01 :doc "cluster band in multiples of the 14-bar ATR at the touch")
                    (:name tolerance :type number :default nil :min 0.0001 :doc "if set, the band as a fraction of price instead (not shift-invariant)")))
  :lag 'right :lookback 3 :needs '(high low close)
- :definition "Automatic support and resistance: swing pivots (TradingView Pine ta.pivothigh/ta.pivotlow) joined, in the order they are confirmed, to the nearest level whose mean is within the band (ATR x the 14-bar average true range, or TOLERANCE x price); Osler, C. (2000), \"Support for Resistance: Technical Analysis and Intraday Exchange Rates\", FRBNY Economic Policy Review 6(2), on why levels at repeated turning points matter.  An event per touch carries the level's mean and touch count so far (evidence cluster, touches, spread); the newest event of each cluster is the level as of then.  Strength: touches over 5."
+ :definition "Automatic support and resistance: swing pivots (TradingView Pine ta.pivothigh/ta.pivotlow) joined, in the order they are confirmed, to the nearest level whose mean is within the band (ATR x the 14-bar average true range, or TOLERANCE x price); Osler, C. (2000), \"Support for Resistance: Technical Analysis and Intraday Exchange Rates\", FRBNY Economic Policy Review 6(2), on why levels at repeated turning points matter.  An event per pivot joining a level carries the level's mean, its pivots and its touches so far: visits of price to within the band since the level's first pivot, a run of bars counting once (evidence cluster, pivots, touches, spread); the newest event of each cluster is the level as of then.  Strength: touches over 5."
  :invariance '(scale shift)
  :mark '(:type "level")
  :example "examples/indicators/support-resistance.json"

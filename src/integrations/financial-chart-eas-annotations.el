@@ -45,6 +45,7 @@
 (require 'financial-chart-eas-styles)
 (require 'financial-chart-eas-shift)
 (require 'financial-chart-eas-trading-time)
+(require 'financial-chart-eas-labels)
 (require 'financial-chart-detector-api)
 (require 'financial-chart-detectors-swings)
 
@@ -151,8 +152,10 @@ PATH locates AT."
                             (_ v)))))
 
 (defun financial-chart-annotation--text (ctx name rows colour &rest mark)
-  "A text layer NAME labelling ROWS (with time, y, label) in COLOUR; MARK props."
-  (list :name name :data (list :values (vconcat rows))
+  "A text layer NAME labelling ROWS (with time, y, label) in COLOUR; MARK props.
+Its labels are pinned (`financial-chart-labels-pin'): a hand-placed
+annotation's label stays where it was put."
+  (list :label-pin t :name name :data (list :values (vconcat rows))
         :mark (append (list :type "text" :color colour) mark)
         :encoding (append (list :x (financial-chart-annotation--x-enc ctx)
                                 :y (if (plist-get (car rows) :y) (financial-chart-styles-y "y") '(:value 0))
@@ -219,8 +222,9 @@ PATH locates AT."
                                              (financial-chart-series-get a :width)
                                              :x "time" :x2 "time2" :y "y"))
      (when label
-       (list (financial-chart-annotation--text ctx (concat name "-label") (list (list :time to :y y :label label))
-                                               colour :align "right" :baseline "bottom" :dy -2))))))
+       (list (financial-chart-labels-pin
+              (financial-chart-annotation--text ctx (concat name "-label") (list (list :time to :y y :label label))
+                                               colour :align "right" :baseline "bottom" :dy -2)))))))
 
 (defun financial-chart-annotation--trendline (ctx a name path)
   "Layers of trend line A named NAME at PATH in CTX."
@@ -365,9 +369,10 @@ Ratio 0 is TO (where the move ended), 1 is FROM.  Return (RATIO . PRICE)s."
                                             (list (list :time (car from) :time2 (car to)
                                                         :y (cdr from) :y2 (cdr to)))
                                             colour [3 3] 1 :x "time" :x2 "time2" :y "y" :y2 "y2")
-          (financial-chart-annotation--text ctx (concat name "-labels")
+(financial-chart-labels-pin
+           (financial-chart-annotation--text ctx (concat name "-labels")
                                             (mapcar (lambda (r) (plist-put (copy-sequence r) :time end)) rows)
-                                            colour :align "right" :baseline "bottom" :dy -1)))))
+                                            colour :align "right" :baseline "bottom" :dy -1))))))
 
 ;;; Entry point
 

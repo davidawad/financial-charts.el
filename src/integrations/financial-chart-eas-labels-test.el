@@ -55,5 +55,35 @@
     (should (> (length boxes) 20))
     (should (<= overlaps 2))))
 
+(ert-deftest financial-chart-labels-leaders-pins-and-obstacles ()
+  (let* ((scale '(:x0 0 :x1 100 :y0 0.0 :y1 100.0 :width 800 :height 200))
+         (pinned (financial-chart-labels-pin
+                  (financial-chart-labels-test--layer "lvl" '((:time 50 :y 50.0 :label "LEVEL 50.00")) :align "left")))
+         (b (financial-chart-labels-test--layer "b" '((:time 52 :y 50.5 :label "GD")) :color "#ff0000"))
+         (out (financial-chart-labels-declutter (list pinned b) scale)))
+    ;; The pinned label stays and loses its key; the other moves and gets a leader.
+    (should (equal (mapcar (lambda (l) (plist-get l :name)) out) '("lvl" "b" "b-leaders")))
+    (should-not (plist-member (car out) :label-pin))
+    (should (= (car (financial-chart-labels-test--ys (list (car out)))) 50.0))
+    (let ((leader (aref (plist-get (plist-get (nth 2 out) :data) :values) 0)))
+      (should (= (plist-get leader :y) 50.5))
+      (should (= (plist-get leader :y2) (car (financial-chart-labels-test--ys (list (cadr out))))))
+      (should (equal (plist-get (plist-get (nth 2 out) :mark) :color) "#ff0000")))
+    ;; Never more than two label heights (12 px = 6 price units here).
+    (should (<= (abs (- (car (financial-chart-labels-test--ys (list (cadr out)))) 50.5)) 12.0)))
+  ;; A label on a candle body moves off it; one on empty ground stays.
+  (let* ((scale '(:x0 0 :x1 10 :y0 0.0 :y1 100.0 :width 800 :height 200))
+         (bars (cl-loop for i below 11 collect (if (= i 5) '(:open 48.0 :close 54.0) '(:open 1.0 :close 1.0))))
+         (obstacles (financial-chart-labels-obstacles scale (number-sequence 0 10) bars nil))
+         (out (financial-chart-labels-declutter
+               (list (financial-chart-labels-test--layer "p" '((:time 5 :y 50.0 :label "H") (:time 2 :y 80.0 :label "D"))))
+               scale obstacles))
+         (ys (financial-chart-labels-test--ys (list (car out)))))
+    (should (/= (car ys) 50.0))
+    (should (= (cadr ys) 80.0)))
+  ;; Series lines are obstacles too.
+  (should (financial-chart-labels--segment-hits-box-p 0 0 10 10 '(4 4 6 6)))
+  (should-not (financial-chart-labels--segment-hits-box-p 0 0 10 0 '(4 4 6 6))))
+
 (provide 'financial-chart-eas-labels-test)
 ;;; financial-chart-eas-labels-test.el ends here

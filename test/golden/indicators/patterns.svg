@@ -506,6 +506,12 @@
 <text x="491.89" y="346.54" font-size="11" fill="#26a69a" text-anchor="middle">BuE</text>
 <text x="491.89" y="381.97" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
 <text x="531.85" y="355.62" font-size="11" fill="#26a69a" text-anchor="middle">BuE</text>
+<line x1="372.01" y1="240.3" x2="372.01" y2="263.22" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
+</line>
+<line x1="372.01" y1="252.81" x2="372.01" y2="298.65" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
+</line>
+<line x1="491.89" y1="343.05" x2="491.89" y2="365.97" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
+</line>
 <path d="M138.91,281.69L135.75,276.21L142.07,276.21Z" fill="#ef5350">
 </path>
 <path d="M218.83,174.22L215.67,168.74L221.99,168.74Z" fill="#ef5350">
@@ -539,6 +545,10 @@
 <text x="658.39" y="116.81" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
 <text x="658.39" y="81.38" font-size="11" fill="#ef5350" text-anchor="middle">GD</text>
 <text x="685.03" y="85.74" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
+<line x1="312.07" y1="145.67" x2="312.07" y2="168.59" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
+</line>
+<line x1="658.39" y1="113.3" x2="658.39" y2="90.38" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
+</line>
 <path d="M122.43,277.93L125.59,274.77L128.75,277.93L125.59,281.09Z" fill="#607d8b">
 </path>
 <path d="M175.71,241.09L178.87,237.93L182.03,241.09L178.87,244.25Z" fill="#607d8b">
@@ -575,6 +585,12 @@
 <text x="525.19" y="285.15" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
 <text x="611.77" y="194.74" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
 <text x="685.03" y="119.07" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
+<line x1="218.83" y1="158.97" x2="218.83" y2="136.05" stroke="#607d8b" stroke-width="0.6" stroke-opacity="0.6">
+</line>
+<line x1="278.77" y1="135.74" x2="278.77" y2="158.66" stroke="#607d8b" stroke-width="0.6" stroke-opacity="0.6">
+</line>
+<line x1="685.03" y1="82.23" x2="685.03" y2="128.07" stroke="#607d8b" stroke-width="0.6" stroke-opacity="0.6">
+</line>
 </g>
 <text x="5" y="18" font-size="16" fill="#0b0b0b" font-weight="600" text-anchor="start">Candlestick patterns: bullish under the bar, bearish over it</text>
 </svg>

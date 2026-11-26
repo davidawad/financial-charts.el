@@ -58,6 +58,7 @@
 (require 'financial-chart-eas-styles)
 (require 'financial-chart-eas-shift)
 (require 'financial-chart-eas-annotations)
+(require 'financial-chart-eas-labels)
 (require 'financial-chart-eas-presets)
 (require 'eas)
 
@@ -168,9 +169,11 @@ A gives \"deviation\" and \"atr\"; PATH locates A.  N must be 3."
                                     :x "time" :x2 "time2" :y "y" :y2 "y2"))
 
 (defun financial-chart-markup--labels (ctx name rows colour &rest mark)
-  "A text layer NAME of ROWS ({time, y, label}) in COLOUR; nil without ROWS."
+  "A text layer NAME of ROWS ({time, y, label}) in COLOUR; nil without ROWS.
+Its labels may move (an automatic markup's labels go around the others);
+pin them with `financial-chart-labels-pin'."
   (when rows
-    (list (apply #'financial-chart-annotation--text ctx name rows colour mark))))
+    (list (financial-chart-labels--unpin (apply #'financial-chart-annotation--text ctx name rows colour mark)))))
 
 (defun financial-chart-markup--level-layers (ctx a name start levels colour)
   "Horizontal rules NAME from START to the chart's end at LEVELS, labelled.
@@ -182,9 +185,10 @@ LEVELS are (RATIO . PRICE); A gives dash and width."
     (list (financial-chart-annotation--rule ctx name rows colour (financial-chart-series-get a :dash)
                                             (or (financial-chart-series-get a :width) 1)
                                             :x "time" :x2 "time2" :y "y")
-          (financial-chart-annotation--text ctx (concat name "-labels")
-                                            (mapcar (lambda (r) (plist-put (copy-sequence r) :time end)) rows)
-                                            colour :align "right" :baseline "bottom" :dy -1))))
+          (financial-chart-labels-pin
+           (financial-chart-annotation--text ctx (concat name "-labels")
+                                             (mapcar (lambda (r) (plist-put (copy-sequence r) :time end)) rows)
+                                             colour :align "right" :baseline "bottom" :dy -1)))))
 
 (defun financial-chart-markup--format-ratio (r)
   "Ratio R as a percent label."
@@ -260,9 +264,10 @@ close."
                                                                        (:field "id" :type "nominal")]))
                      ;; Labelled at the level's first touch, not the right edge, where
                      ;; Fibonacci and level labels would sit on each other.
-                     (financial-chart-markup--labels
-                      ctx (concat layer "-labels") (mapcar row group)
-                      colour :align "left" :baseline "bottom" :dx 2 :dy -2)))))
+                     (mapcar #'financial-chart-labels-pin
+                             (financial-chart-markup--labels
+                              ctx (concat layer "-labels") (mapcar row group)
+                              colour :align "left" :baseline "bottom" :dx 2 :dy -2))))))
 
 ;;; Candlestick patterns
 

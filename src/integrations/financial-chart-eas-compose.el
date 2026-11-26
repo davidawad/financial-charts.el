@@ -213,12 +213,17 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
                                  series)
                          (financial-chart-annotation-layers ctx pane (plist-get spec :name) (plist-get spec :path))))
          (layers (if (seq-some #'financial-chart-labels--text-layer-p layers)
-                     (financial-chart-labels-declutter
-                      layers (financial-chart-labels-scale
-                              layers (financial-chart-shift-xs ctx) (plist-get ctx :width) (plist-get spec :height)
-                              (let ((d (plist-get spec :domain)))
-                                (cond (d (cons (elt d 0) (elt d 1)))
-                                      ((equal (plist-get spec :path) "/price") (financial-chart-annotation--range ctx))))))
+                     (let ((scale (financial-chart-labels-scale
+                                   layers (financial-chart-shift-xs ctx) (plist-get ctx :width) (plist-get spec :height)
+                                   (let ((d (plist-get spec :domain)))
+                                     (cond (d (cons (elt d 0) (elt d 1)))
+                                           ((equal (plist-get spec :path) "/price") (financial-chart-annotation--range ctx)))))))
+                       (financial-chart-labels-declutter
+                        layers scale
+                        (financial-chart-labels-obstacles
+                         scale (plist-get ctx :xs)
+                         (and (equal (plist-get spec :path) "/price") (plist-get ctx :bars))
+                         (mapcar (lambda (s) (plist-get s :values)) series))))
                    layers))
          (layers (financial-chart-compose--y-domain layers (plist-get spec :domain))))
     (when-let* ((title (plist-get spec :title)))

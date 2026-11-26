@@ -14,10 +14,15 @@
 ;; scaled into the pane (the pane's width and height, its x extent and
 ;; its y range), widened by its text at `financial-chart-label-char-width'
 ;; per character and moved by the layer's align, baseline, dx and dy.
-;; In layer order, a label whose box meets one already placed is moved
-;; up or down by whole label heights (up first, at most
-;; `financial-chart-label-max-steps' each way, never out of the pane)
-;; to the first free place;
+;; In layer order each label tries its place and whole label heights
+;; up or down (at most `financial-chart-label-max-steps', 2, each way,
+;; never out of the pane) and takes the least bad: overlapping a label
+;; already placed is worst, then a candle body, then a series line, then
+;; the distance moved (fc-gty.22).  A moved label gets a thin leader line
+;; back to where it was, so it still points at its marker.  A pinned
+;; layer (`financial-chart-labels-pin': every hand-placed annotation's
+;; label, and level, Fibonacci and S/R labels, which belong on their
+;; line) keeps its labels and the others go around them;
 ;; its "y" is changed by the same amount in price units.  A label with no
 ;; free place stays where it was.  The pass knows nothing of which
 ;; annotation drew a label: levels, patterns, Fibonacci and text all go
@@ -74,35 +79,132 @@ size."
   "BOX moved DY pixels down."
   (list (nth 0 box) (+ (nth 1 box) dy) (nth 2 box) (+ (nth 3 box) dy)))
 
-(defun financial-chart-labels-declutter (layers scale)
-  "LAYERS with their text labels moved off each other (see the commentary).
-SCALE is (:x0 :x1 :y0 :y1 :width :height) of the pane."
+(defun financial-chart-labels--segment-hits-box-p (x1 y1 x2 y2 box)
+  "Non-nil when the segment (X1, Y1)-(X2, Y2) crosses BOX (X0 Y0 X1 Y1).
+Liang-Barsky clipping."
+  (let ((t0 0.0) (t1 1.0) (dx (- x2 x1)) (dy (- y2 y1)) (inside t))
+    (cl-loop for (p q) in (list (list (- dx) (- x1 (nth 0 box))) (list dx (- (nth 2 box) x1))
+                                (list (- dy) (- y1 (nth 1 box))) (list dy (- (nth 3 box) y1)))
+             while inside
+             do (cond ((zerop p) (when (< q 0) (setq inside nil)))
+                      (t (let ((r (/ q (float p))))
+                           (if (< p 0) (when (> r t0) (setq t0 r)) (when (< r t1) (setq t1 r)))
+                           (when (> t0 t1) (setq inside nil))))))
+    inside))
+
+(defun financial-chart-labels--px (scale x y)
+  "Data point (X, Y) in pane pixels under SCALE, as (PX . PY)."
+  (cons (* (/ (- x (plist-get scale :x0)) (max 1e-9 (float (- (plist-get scale :x1) (plist-get scale :x0)))))
+           (plist-get scale :width))
+        (* (/ (- (plist-get scale :y1) y) (max 1e-9 (float (- (plist-get scale :y1) (plist-get scale :y0)))))
+           (plist-get scale :height))))
+
+(defun financial-chart-labels-obstacles (scale xs bars series)
+  "Obstacles of a pane for `financial-chart-labels-declutter' under SCALE.
+XS are the bars' x positions; BARS (bar plists, or nil off the price
+pane) give candle bodies as boxes; SERIES (vectors of one value or nil
+per bar) give their lines as segments.  Return (:boxes :segments) in
+pixels."
+  (let* ((xs (vconcat xs)) (n (length xs))
+         (half (* 0.35 (/ (plist-get scale :width) (max 1.0 (float n))))))
+    (list
+     :boxes (cl-loop for b in (append bars nil) for i from 0 below n
+                     for o = (plist-get b :open) for c = (plist-get b :close)
+                     when (and (numberp o) (numberp c))
+                     collect (let ((top (financial-chart-labels--px scale (aref xs i) (max o c)))
+                                   (bot (financial-chart-labels--px scale (aref xs i) (min o c))))
+                               (list (- (car top) half) (cdr top) (+ (car top) half) (max (cdr bot) (+ (cdr top) 1)))))
+     :segments (cl-loop for values in series
+                        append (cl-loop for i from 1 below (min n (length values))
+                                        for a = (elt values (1- i)) for b = (elt values i)
+                                        when (and (numberp a) (numberp b))
+                                        collect (let ((p (financial-chart-labels--px scale (aref xs (1- i)) a))
+                                                      (q (financial-chart-labels--px scale (aref xs i) b)))
+                                                  (list (car p) (cdr p) (car q) (cdr q))))))))
+
+(defun financial-chart-labels--cost (box placed obstacles k)
+  "How bad BOX is: other labels in PLACED, then candle bodies and series
+lines of OBSTACLES, then the distance K it moved."
+  (+ (* 100 (cl-count-if (lambda (p) (financial-chart-labels--overlap-p box p)) placed))
+     (* 10 (cl-count-if (lambda (o) (financial-chart-labels--overlap-p box o)) (plist-get obstacles :boxes)))
+     (* 3 (cl-count-if (lambda (s) (financial-chart-labels--segment-hits-box-p
+                                    (nth 0 s) (nth 1 s) (nth 2 s) (nth 3 s) box))
+                       (plist-get obstacles :segments)))
+     ;; A step costs less than a candle body, more than one line.
+     (* 4 (/ (abs k) (float financial-chart-label-height)))))
+
+(defun financial-chart-labels--leaders (layer rows)
+  "A thin rule layer joining each moved label of LAYER to where it was.
+ROWS are (:time :y ANCHOR :y2 NEW); nil without any."
+  (when rows
+    (let ((enc (plist-get layer :encoding)))
+      (list :name (concat (or (plist-get layer :name) "labels") "-leaders")
+            :data (list :values (vconcat rows))
+            :mark (list :type "rule" :color (or (plist-get (plist-get layer :mark) :color) "gray")
+                        :strokeWidth 0.6 :opacity 0.6)
+            :encoding (list :x (plist-get enc :x) :y (plist-get enc :y) :y2 '(:field "y2"))))))
+
+(defun financial-chart-labels-pin (layer)
+  "LAYER, a text layer, with its labels pinned: the placement pass keeps
+them where they are (a level's or a Fibonacci ratio's label belongs on
+its line) and places the others around them."
+  (plist-put (copy-sequence layer) :label-pin t))
+
+(defun financial-chart-labels--unpin (layer)
+  "LAYER without the :label-pin key (not part of the spec)."
+  (if (plist-member layer :label-pin)
+      (cl-loop for (k v) on layer by #'cddr unless (eq k :label-pin) append (list k v))
+    layer))
+
+(defun financial-chart-labels-declutter (layers scale &optional obstacles)
+  "LAYERS with their text labels placed off each other and off OBSTACLES.
+SCALE is (:x0 :x1 :y0 :y1 :width :height) of the pane; OBSTACLES is
+`financial-chart-labels-obstacles' (candle bodies, series lines).  Each
+label tries its place and up to `financial-chart-label-max-steps' label
+heights up or down inside the pane, and takes the least bad (another
+label worst, then a candle body, then a line, then distance); a label
+that moved gets a leader line back to its place."
   (let ((placed nil)
         (h financial-chart-label-height)
         (price-per-px (/ (- (plist-get scale :y1) (plist-get scale :y0)) (float (plist-get scale :height)))))
-    (mapcar
-     (lambda (layer)
-       (if (not (financial-chart-labels--text-layer-p layer)) layer
-         (let* ((mark (plist-get layer :mark))
-                (rows (mapcar
-                       (lambda (row)
-                         (if (not (and (numberp (plist-get row :time)) (numberp (plist-get row :y)))) row
-                           (let* ((box (financial-chart-labels--box row mark scale))
-                                  (dy (cl-loop for k in (cons 0 (cl-loop for s from 1 to financial-chart-label-max-steps
-                                                                         append (list (- (* s h)) (* s h))))
-                                               for moved = (financial-chart-labels--shift box k)
-                                               ;; Stay inside the pane: a label never widens its scale.
-                                               when (and (>= (nth 1 moved) 0) (<= (nth 3 moved) (plist-get scale :height))
-                                                         (not (cl-some (lambda (p) (financial-chart-labels--overlap-p moved p))
-                                                                       placed)))
-                                               return k)))
-                             (push (financial-chart-labels--shift box (or dy 0)) placed)
-                             (if (or (null dy) (zerop dy)) row
-                               (plist-put (copy-sequence row) :y (- (plist-get row :y) (* dy price-per-px)))))))
-                       (append (plist-get (plist-get layer :data) :values) nil))))
-           (plist-put (copy-sequence layer) :data
-                      (plist-put (copy-sequence (plist-get layer :data)) :values (vconcat rows))))))
-     layers)))
+    (cl-loop
+     for layer in layers
+     append
+     (cond
+      ((not (financial-chart-labels--text-layer-p layer)) (list (financial-chart-labels--unpin layer)))
+      ((plist-get layer :label-pin)
+       (cl-loop for row across (plist-get (plist-get layer :data) :values)
+                when (and (numberp (plist-get row :time)) (numberp (plist-get row :y)))
+                do (push (financial-chart-labels--box row (plist-get layer :mark) scale) placed))
+       (list (financial-chart-labels--unpin layer)))
+      (t
+       (let* ((mark (plist-get layer :mark)) leaders
+              (rows (mapcar
+                     (lambda (row)
+                       (if (not (and (numberp (plist-get row :time)) (numberp (plist-get row :y)))) row
+                         (let* ((box (financial-chart-labels--box row mark scale))
+                                (ks (cons 0 (cl-loop for s from 1 to financial-chart-label-max-steps
+                                                     append (list (- (* s h)) (* s h)))))
+                                (inside (seq-filter (lambda (k) (let ((m (financial-chart-labels--shift box k)))
+                                                                  (and (>= (nth 1 m) 0)
+                                                                       (<= (nth 3 m) (plist-get scale :height)))))
+                                                    ks))
+                                (k (or (car (sort (copy-sequence (or inside '(0)))
+                                                  (lambda (a b)
+                                                    (< (financial-chart-labels--cost
+                                                        (financial-chart-labels--shift box a) placed obstacles a)
+                                                       (financial-chart-labels--cost
+                                                        (financial-chart-labels--shift box b) placed obstacles b)))))
+                                       0)))
+                           (push (financial-chart-labels--shift box k) placed)
+                           (if (zerop k) row
+                             (let ((y (- (plist-get row :y) (* k price-per-px))))
+                               (push (list :time (plist-get row :time) :y (plist-get row :y) :y2 y) leaders)
+                               (plist-put (copy-sequence row) :y y))))))
+                     (append (plist-get (plist-get layer :data) :values) nil))))
+         (delq nil (list (plist-put (copy-sequence layer) :data
+                                    (plist-put (copy-sequence (plist-get layer :data)) :values (vconcat rows)))
+                         (financial-chart-labels--leaders layer (nreverse leaders))))))))))
 
 (defun financial-chart-labels-scale (layers xs width height y-range)
   "The SCALE of `financial-chart-labels-declutter' for a pane.

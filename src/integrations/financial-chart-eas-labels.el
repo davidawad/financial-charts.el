@@ -197,7 +197,8 @@ ROWS are (:time :y ANCHOR :y2 NEW); nil without any."
             :encoding (list :x (plist-get enc :x) :y (plist-get enc :y) :y2 '(:field "y2"))))))
 
 (defvar financial-chart-label-halo-color "#fcfcfb"
-  "The halo drawn under pinned labels: the pane's background colour.")
+  "The halo drawn under pinned labels: the pane's background colour.
+\"none\" draws none; the chart's theme binds it (fc-gty.34).")
 
 (defun financial-chart-labels-pin (layer)
   "LAYER, a text layer, with its labels pinned to their line.
@@ -213,7 +214,9 @@ a halo in `financial-chart-label-halo-color', so it reads over candles."
   (plist-put (plist-put (copy-sequence layer) :label-pin 'slide) :mark
              ;; A halo in the pane's colour keeps it readable over candles (fc-gty.28).
              (append (plist-get layer :mark)
-                     (list :stroke financial-chart-label-halo-color :strokeWidth 3))))
+                     ;; No halo on a transparent background (fc-gty.34).
+                     (unless (member financial-chart-label-halo-color '(nil "none"))
+                       (list :stroke financial-chart-label-halo-color :strokeWidth 3)))))
 
 (defvar financial-chart-label-max-slides 4
   "Label widths a pinned label may slide along its line, each way.")

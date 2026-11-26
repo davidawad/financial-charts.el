@@ -65,7 +65,7 @@ and returns the annotation's layers.")
   (unless (member type financial-chart-annotation-types)
     (setq financial-chart-annotation-types (append financial-chart-annotation-types (list type)))))
 
-(defconst financial-chart-annotation-color "#607d8b"
+(defvar financial-chart-annotation-color "#607d8b"
   "Default colour of levels, trend lines, events, text and Fibonacci levels.")
 
 ;;; Positions

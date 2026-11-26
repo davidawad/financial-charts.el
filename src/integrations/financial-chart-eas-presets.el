@@ -154,7 +154,11 @@ A NAME.json here shadows the package's preset of that name."
              unless (memq k financial-chart-presets--meta-keys)
              do (let ((old (plist-get out k)))
                   (setq out (plist-put out k
-                                       (cond ((and (memq k financial-chart-presets--list-keys)
+                                       (cond ((and (eq k :theme) (stringp old)
+                                                   (financial-chart-presets--object-p v))
+                                              ;; An object theme over a named one keeps it as base.
+                                              (if (plist-get v :base) v (append v (list :base old))))
+                                             ((and (memq k financial-chart-presets--list-keys)
                                                    (or (vectorp v) (null v) (and (consp v) (not (keywordp (car v))))))
                                               (financial-chart-presets--append k old v))
                                              ((and (financial-chart-presets--object-p v)

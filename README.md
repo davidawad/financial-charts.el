@@ -259,6 +259,16 @@ what you declare.
   next colour no other series uses. `colors.up`/`colors.down` (or
   `financial-chart-palette-up`/`-down`) colour candles, volume and
   baseline fills.
+- **Themes**: `"theme"` is a name (`default`, `dark`, `transparent`,
+  `gruvbox`, `gruvbox-light`, `terminal`) or an object of `background`,
+  `foreground`, `grid`, `muted`, `up`, `down`, `price`, `palette` and
+  `halo` over the theme its `base` names: `{"base": "gruvbox", "up":
+  "#00e676"}`. `colors` still win over it, and a preset may set it (an
+  object over a preset's named theme keeps that as its base). Label halos
+  take the theme's background, none when it is `transparent`. With no
+  theme, images use `financial-chart-image-theme` (`default`, the package
+  palette) and text uses `financial-chart-text-theme` (`terminal`: ANSI
+  colour names, drawn in the terminal's own palette).
 - **Text**: more bars than the price pane has columns are drawn one
   aggregated candle per column (first open, high, low, last close, mean
   volume), so no bar is dropped.

@@ -37,7 +37,7 @@
   :type '(list string string)
   :group 'financial-chart-palette)
 
-(defconst financial-chart-studies-rule-color "#9e9e9e"
+(defvar financial-chart-studies-rule-color "#9e9e9e"
   "Colour of a study's reference levels.")
 
 (defun financial-chart-studies--colour (i)

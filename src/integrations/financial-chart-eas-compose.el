@@ -55,6 +55,7 @@
 (require 'financial-chart-eas-trading-time)
 (require 'financial-chart-eas-labels)
 (require 'financial-chart-eas-colours)
+(require 'financial-chart-eas-themes)
 
 (defvar financial-chart-compose-pane-height 70
   "Default height of a pane under the price pane.")
@@ -205,7 +206,7 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
                                  (if (or (plist-get fill :color) (plist-get fill :above)
                                          (plist-get fill :below))
                                      fill
-                                   (plist-put (copy-sequence fill) :color "#90a4ae"))
+                                   (plist-put (copy-sequence fill) :color financial-chart-catalog-zone-color))
                                  (format "%s-fill-%d" (plist-get spec :name) i))))
          (rules (mapcar #'financial-chart-compose--rule
                         (append (financial-chart-series-get pane :rules) nil)))
@@ -338,19 +339,30 @@ Only the bottom pane labels and titles the shared x axis."
            thereis (cl-loop for l across (plist-get pane :layer)
                             thereis (string-suffix-p "-tags" (or (plist-get l :name) "")))))
 
+(defvar eas-text-ink-terminal)
+
+(defvar financial-chart-compose--theme nil
+  "The resolved theme of the chart being composed (fc-gty.34).")
+
 (defun financial-chart-compose (chart)
   "Compile CHART, a financial chart description, to a plain eas spec.
 When a label has to become a price tag (fc-gty.30) the chart is
 compiled once more with a margin of empty slots after the last bar
 \(`financial-chart-compose-tag-margin'), where the tags sit."
-  (let* ((chart (financial-chart-compose-read chart))
-         (spec (financial-chart-compose--once chart)))
-    (if (and (zerop financial-chart-shift-gutter) (financial-chart-compose--tags-p spec))
-        (let ((financial-chart-shift-gutter
-               (max 3 (ceiling (* financial-chart-compose-tag-margin
-                                  (length (financial-chart-series-get chart :bars)))))))
-          (financial-chart-compose--once chart))
-      spec)))
+  (let* ((chart (financial-chart-presets-apply (financial-chart-compose-read chart)))
+         (theme (financial-chart-theme-resolve (financial-chart-series-get chart :theme)
+                                               financial-chart-theme-backend)))
+    (financial-chart-theme-call
+     theme
+     (lambda (theme)
+       (let* ((financial-chart-compose--theme theme)
+              (spec (financial-chart-compose--once chart)))
+         (if (and (zerop financial-chart-shift-gutter) (financial-chart-compose--tags-p spec))
+             (let ((financial-chart-shift-gutter
+                    (max 3 (ceiling (* financial-chart-compose-tag-margin
+                                       (length (financial-chart-series-get chart :bars)))))))
+               (financial-chart-compose--once chart))
+           spec))))))
 
 (defun financial-chart-compose--once (chart)
   "Compile CHART, a financial chart description, to a plain eas spec.
@@ -421,6 +433,8 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
     (append
      (list :$schema "https://vega.github.io/schema/vega-lite/v6.json")
      (when title (list :title title))
+     (when-let* ((config (financial-chart-theme-config financial-chart-compose--theme)))
+       (list :config config))
      (list :description (or (financial-chart-series-get chart :description)
                             (format "%s price%s of %d bars%s."
                                     (or (financial-chart-series-get price :style) "candles")
@@ -491,6 +505,9 @@ BACKEND is `text' (WIDTH columns, HEIGHT rows; default 80x24) or `svg'
 eas's help-echo and datum properties."
   (let* ((size (if (eq backend 'text) (list :cols (or width 80) :rows (or height 24))
                  (and width height (cons width height))))
+         (financial-chart-theme-backend backend)
+         ;; ANSI names (the "terminal" theme) draw in the terminal's palette.
+         (eas-text-ink-terminal (eq backend 'text))
          (chart (financial-chart-compose-read chart))
          (spec (financial-chart-compose chart))
          (scene (eas-compile spec :target backend :size size))
@@ -519,7 +536,6 @@ after the last bar is not theirs."
          (cols (and xs (1+ (- (floor (apply #'max xs) cw) (floor (apply #'min xs) cw))))))
     (if (and cols (> cols 0) (> n cols)) (/ n (float cols)) 1)))
 
-
 (defun financial-chart-compose-example (&optional style)
   "The example description for price STYLE (default candles), parsed.
 STYLE may also be \"calendar\": the candles example on calendar time."
@@ -541,7 +557,8 @@ STYLE may also be \"calendar\": the candles example on calendar time."
         :chart '(:bars "bar/v1 rows {time?, open, high, low, close, volume?}, oldest first"
                  :title "string" :description "string" :width "pixels, default container"
                  :x "\"trading\" (default: one slot per bar, no non-trading gaps, date ticks), \"calendar\" (dates to scale) or {scale, ticks}"
-                 :colors "{up, down, price}" :crosshair "boolean, default true"
+                 :colors "{up, down, price}: over the theme's" :crosshair "boolean, default true"
+                 :theme "a theme name or {base, background, foreground, grid, muted, up, down, price, palette, halo}; default financial-chart-image-theme, or financial-chart-text-theme in text"
                  :preset "a preset name or an array of them, merged in order under the chart (README, \"Markup presets\")"
                  :presets "{NAME: chart fragment}: inline presets, over the preset files of the same name"
                  :readout "an eas x-eas.readout component tree; default: ohlc-readout and indicator-values (README, \"Hover readout\")"
@@ -564,6 +581,7 @@ STYLE may also be \"calendar\": the candles example on calendar time."
         :candle-patterns (vconcat (mapcar (lambda (p) (list :name (car p) :label (nth 1 p)
                                                             :direction (symbol-name (nth 2 p))))
                                           (financial-chart-candle-pattern-names)))
+        :themes (financial-chart-theme-describe)
         :palette (list :series (vconcat financial-chart-palette) :up financial-chart-palette-up
                        :down financial-chart-palette-down)
         :indicators (vconcat (mapcar (lambda (e) (symbol-name (car e)))

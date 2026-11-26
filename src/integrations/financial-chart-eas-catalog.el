@@ -38,7 +38,7 @@
 (require 'financial-chart-eas-studies)
 (require 'eas)
 
-(defconst financial-chart-catalog-zone-color "#90a4ae"
+(defvar financial-chart-catalog-zone-color "#90a4ae"
   "Default colour of a zone.")
 
 (defun financial-chart-catalog--names (place)

@@ -35,9 +35,8 @@
 ;;
 ;; `financial-chart-expand' returns the merged description with every
 ;; list entry's provenance in "origin" ("preset:NAME" or "chart"): the
-;; first thing to look at when a chart is not what you expected.
-;; (The design names that key "from"; annotations already use "from"
-;; for a time, so it is "origin".)
+;; first thing to look at when a chart is not what you expected
+;; ("origin", not "from": annotations already use "from" for a time).
 
 ;;; Code:
 

@@ -153,13 +153,15 @@ A chart uses one with `"preset": "swing-trader"` or
 
 1. Lists (`series`, `studies`, `annotations`, `panes`) are appended in
    preset order, with the chart's own entries last. An entry whose id
-   already appears is replaced by the later one, not duplicated.
+   already appears is replaced by the later one in its place, not
+   duplicated.
 2. Scalars (`style`, `title`, `colors.*`): the chart wins, then the
    later preset.
 3. A preset may name presets. A cycle is `PRESET_CYCLE`, and an unknown
    name is `UNKNOWN_PRESET` at its JSON path.
 4. `expand` returns the fully merged description. Every element carries
-   `"from": "preset:swing-trader"` or `"from": "chart"`. It is pure and
+   `"origin": "preset:swing-trader"` or `"origin": "chart"`. (Not
+   `from`: annotations already use `from` for a time.) It is pure and
    cheap, and it is the first thing to call when a chart looks wrong.
 
 Cohorts become presets. Each `financial-chart-indicator-cohorts` entry

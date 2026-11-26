@@ -9,8 +9,9 @@ Run from the repository root:  test/oracles/talib-goldens
 
 1. test/fixtures/detectors/oracle-bars.json: 4000 seeded synthetic bars
    (a random walk with dojis, long shadows, gaps and trending stretches),
-   then 25 planted dark cloud covers, piercing lines, three black crows
-   and rising and falling three methods after trending context, which a
+   then 25 planted dark cloud covers, piercing lines, three black crows,
+   rising and falling three methods and morning and evening stars after
+   trending context, which a
    random walk almost never draws; prices rounded to cents so elisp and
    C read the same doubles.
 2. test/fixtures/detectors/talib.json: for each TA-Lib CDL* function a
@@ -106,10 +107,15 @@ def plant(kind, p, rng):
     if kind == "falling":
         return [b(0, 0.1, -3.1, -3), b(-2.8, -2.4, -2.9, -2.5), b(-2.5, -2.1, -2.6, -2.2),
                 b(-2.2, -1.8, -2.3, -1.9), b(-2.0, -1.95, -3.6, -3.5)]
+    if kind == "morning":
+        return [b(0, 0.1, -2.1, -2), b(-2.3, -2.2, -2.5, -2.4), b(-2.2, -0.8, -2.3, -0.9)]
+    if kind == "evening":
+        return [b(0, 2.1, -0.1, 2), b(2.3, 2.5, 2.2, 2.4), b(2.2, 2.3, 0.8, 0.9)]
     raise ValueError(kind)
 
 
-PLANTS = [("darkcloud", True), ("piercing", False), ("crows", True), ("rising", True), ("falling", False)]
+PLANTS = [("darkcloud", True), ("piercing", False), ("crows", True), ("rising", True), ("falling", False),
+          ("morning", False), ("evening", True)]
 
 
 def planted(start, n=25, seed=20261127):

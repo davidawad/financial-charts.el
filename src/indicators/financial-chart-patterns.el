@@ -62,7 +62,8 @@ See the detector swing.zigzag; DEVIATION percent defaults to 5."
   "Support and resistance levels of BARS as of the last bar, strongest first.
 The newest level.auto-sr event of each level (LEFT, RIGHT, TOLERANCE,
 ATR as the detector's parameters) touched at least MIN-TOUCHES times,
-ranked by touches then recency, MAX of them (nil for all).  Each is
+ranked by touches (visits of price to the level through the last bar)
+then recency, MAX of them (nil for all).  Each is
 \(:price :touches :kind :first :last :id): :kind `support' below the
 last close, else `resistance'; :first and :last the bar indices of its
 first and latest touch."
@@ -78,9 +79,13 @@ first and latest touch."
       (let ((k (plist-get (plist-get e :evidence) :cluster)))
         (puthash k e latest)
         (unless (gethash k first) (puthash k (plist-get e :index) first))))
-    (let* ((levels (cl-loop for k being the hash-keys of latest using (hash-values e)
+    (let* ((params (financial-chart-detector-params "level.auto-sr" (plist-get (car events) :params)))
+           (n (length v))
+           (levels (cl-loop for k being the hash-keys of latest using (hash-values e)
                             for y = (plist-get (plist-get e :geometry) :y)
-                            for touches = (plist-get (plist-get e :evidence) :touches)
+                            ;; Touches as of the last bar, not the level's newest pivot.
+                            for touches = (financial-chart-level-touches
+                                           v y (financial-chart-level-band v params y (1- n)) (gethash k first) (1- n))
                             when (>= touches min-touches)
                             collect (list :price y :touches touches
                                           :kind (if (< y last-close) 'support 'resistance)

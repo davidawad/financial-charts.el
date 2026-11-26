@@ -513,5 +513,7 @@ Prints the eas spec as JSON, or with --backend text|svg the drawing
              (kill-emacs 1)))
     (terpri)))
 
+(require 'financial-chart-eas-summarize)
+
 (provide 'financial-chart-eas-compose)
 ;;; financial-chart-eas-compose.el ends here

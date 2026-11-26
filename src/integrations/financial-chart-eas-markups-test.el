@@ -279,5 +279,29 @@ CHART adds top-level keys."
     (let ((financial-chart-indicator-cohorts '((momentum :doc "mine" :members ((:fn financial-chart-sma :args (3)))))))
       (should (equal (plist-get (financial-chart--cohort 'momentum) :doc) "mine")))))
 
+(ert-deftest financial-chart-summarize-reads-the-chart ()
+  (let* ((chart (financial-chart-catalog-example "preset-swing-trader"))
+         (d (financial-chart-summarize chart))
+         (bars (financial-chart-markups-test--bars)))
+    (should (equal (plist-get d :bars-id) (financial-chart-bars-id (car (financial-chart-compose--bars chart)))))
+    (should (= (length (plist-get d :bars-id)) 16))
+    (should (equal (plist-get (plist-get d :last) :time) "2026-06-19"))
+    ;; Levels nearest first, with the drawn ids.
+    (let ((levels (append (plist-get d :levels) nil)))
+      (should levels)
+      (should (cl-every (lambda (l) (string-prefix-p "level.auto-sr@" (plist-get l :id))) levels))
+      (should (apply #'<= (mapcar (lambda (l) (abs (plist-get l :distance_pct))) levels))))
+    (should (equal (plist-get (plist-get (plist-get d :series_state) :rsi) :state) "overbought"))
+    (should (member (plist-get (plist-get (plist-get d :series_state) :sma-7) :state) '("up" "down" "flat")))
+    (should (cl-every (lambda (e) (<= (plist-get e :bars_ago) 20)) (plist-get d :recent_events)))
+    (should (string-match-p "\\`Close 134.76" (plist-get d :text)))
+    ;; A few hundred tokens.
+    (should (< (length (eas-json-encode d)) 2400))
+    ;; Same bars, same id; other bars, another.
+    (should-not (equal (financial-chart-bars-id (car (financial-chart-compose--bars (list :bars bars))))
+                       (financial-chart-bars-id (cdr (car (financial-chart-compose--bars (list :bars bars)))))))
+    (should (eq (plist-get (financial-chart-summarize-verb chart) :ok) t))
+    (should (equal (plist-get (financial-chart-summarize-verb (list :bars [])) :reason) "NO_BARS"))))
+
 (provide 'financial-chart-eas-markups-test)
 ;;; financial-chart-eas-markups-test.el ends here

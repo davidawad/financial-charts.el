@@ -241,6 +241,20 @@ default open high low close)."
      v)
     v))
 
+;;; Bars identity
+
+(defun financial-chart-bars-id (bars)
+  "A content hash of BARS: the first 16 hex digits of the SHA-256 of their
+canonical rows (time, open, high, low, close, volume), so the same bars
+have the same id however they were read."
+  (substring
+   (secure-hash 'sha256
+                (mapconcat (lambda (b)
+                             (mapconcat (lambda (k) (format "%S" (plist-get b k)))
+                                        '(:time :open :high :low :close :volume) ","))
+                           (append bars nil) "\n"))
+   0 16))
+
 ;;; The verb
 
 (cl-defun financial-chart-detect (name bars &optional params &key since limit)

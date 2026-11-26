@@ -546,6 +546,25 @@ events confirmed by k), price invariance (scaling prices, and shifting
 them unless the definition is a percent, changes no event), determinism
 and the TA-Lib oracle. `financial-chart-register-detector` adds one.
 
+## Reading a chart without looking at it
+
+`(financial-chart-summarize CHART)` (or `financial-chart-summarize-verb`,
+chart/v1 with its cost) returns a scene digest of a few hundred
+tokens: the bars' content hash (`financial-chart-bars-id`), the last
+close, the support/resistance levels nearest first with side, distance
+and touches, the nearest Fibonacci level and swing, the events of the
+last 20 bars (`:since`) with how many bars ago, each series' last value
+and state (RSI `overbought`/`oversold`/`neutral` against its reference
+levels, ADX `trending`/`ranging`, anything else `up`/`down`/`flat` by
+its 5-bar slope; `financial-chart-series-state-functions` adds more),
+each recent detector's evidence status, and one paragraph of text:
+
+```text
+Close 134.76, above every level; nearest support 128.72 (2 touches, -4.48%).
+Nearest Fibonacci level 0% at 135.47. rsi 97.64 overbought. sma-7 up,
+sma-20 up, sma-50 up. Last event: pattern.bearish-harami 4 bars ago (untested).
+```
+
 ## Automatic levels, candlestick patterns and drawing tools
 
 The annotation `type`s that draw them, plus drawing tools computed as

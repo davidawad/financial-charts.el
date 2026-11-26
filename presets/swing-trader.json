@@ -1,0 +1,74 @@
+{
+  "doc": "SMA 7/20/50, Fibonacci retracement of the main swing, automatic support and resistance, candlestick patterns (all but plain doji and marubozu); volume and RSI panes.",
+  "price": {
+    "style": "candles",
+    "series": [
+      {
+        "indicator": "sma",
+        "params": [
+          7
+        ]
+      },
+      {
+        "indicator": "sma",
+        "params": [
+          20
+        ]
+      },
+      {
+        "indicator": "sma",
+        "params": [
+          50
+        ],
+        "dash": [
+          4,
+          2
+        ]
+      }
+    ],
+    "annotations": [
+      {
+        "type": "fibonacci"
+      },
+      {
+        "type": "support-resistance",
+        "max": 4
+      },
+      {
+        "type": "patterns",
+        "only": [
+          "hammer",
+          "inverted-hammer",
+          "hanging-man",
+          "shooting-star",
+          "dragonfly-doji",
+          "gravestone-doji",
+          "bullish-engulfing",
+          "bearish-engulfing",
+          "bullish-harami",
+          "bearish-harami",
+          "piercing-line",
+          "dark-cloud-cover",
+          "morning-star",
+          "evening-star",
+          "three-white-soldiers",
+          "three-black-crows",
+          "rising-three-methods",
+          "falling-three-methods",
+          "tweezer-bottom",
+          "tweezer-top"
+        ]
+      }
+    ]
+  },
+  "panes": [
+    {
+      "study": "volume",
+      "height": 50
+    },
+    {
+      "study": "rsi",
+      "height": 80
+    }
+  ]
+}

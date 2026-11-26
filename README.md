@@ -476,7 +476,93 @@ Failures carry `:code` and the JSON `:path`: `UNKNOWN_STUDY`,
 `STUDY_MISPLACED` (an oscillator in the price pane or the reverse),
 `INVALID_STUDY`, `INDICATOR_FAILED` (bad `params`), `INVALID_ZONE`,
 `INVALID_SHIFT`, `UNKNOWN_ANNOTATION`, `INVALID_ANNOTATION`,
-`NO_SUCH_BAR` (a marker's `at` names no bar) and `INVALID_TIME`.
+`NO_SUCH_BAR` (a marker's `at` names no bar), `INVALID_TIME`,
+`NO_VOLUME` (an anchored VWAP without volume), `UNKNOWN_PRESET` and
+`INVALID_PRESET`.
+
+## Automatic levels, candlestick patterns and drawing tools
+
+More annotation `type`s, the markups of a charting site, each found from
+the bars you supply (`src/integrations/financial-chart-eas-markups.el`;
+the detectors are pure functions in `src/indicators/financial-chart-patterns.el`):
+
+```json
+{"bars": [...],
+ "price": {"style": "candles",
+           "series": [{"indicator": "sma", "params": [7]}],
+           "annotations": [{"type": "support-resistance", "max": 4, "bands": true},
+                           {"type": "patterns", "only": ["hammer", "bullish-engulfing", "morning-star"]},
+                           {"type": "fibonacci"},
+                           {"type": "fib-extension"},
+                           {"type": "anchored-vwap", "anchor": "low"}]}}
+```
+
+| type | draws | keys |
+|---|---|---|
+| `support-resistance` | swing highs and lows (a high above the `left` bars before it and not below the `right` after it, default 3) within `tolerance` (fraction of price, default 0.01) or `atr` times the 14-bar ATR join one level; the `max` (4) with the most touches (at least `touches`, 1), most recent first, are drawn from their first touch, labelled `S 106.20 x3` / `R ...` in the up/down colour | `left right tolerance atr max touches window bands` |
+| `patterns` | candlestick patterns, bullish under the bar (up colour), bearish over it (down colour), neutral as a diamond; `labels` `short` (`H`, `BuE`, `MS`, ...), `name` or `none`; hover gives the name | `only labels color` |
+| `zigzag` | pivots alternating high/low at a `deviation` % reversal (5); `labels` adds HH/HL/LH/LL | `deviation labels` |
+| `auto-trendlines` | lines through the last two swing lows (support) and highs (resistance), extended right | `left right kind extend` |
+| `fib-extension` | `levels` (0, 0.618, 1, 1.272, 1.618, 2, 2.618) of the move `from`→`to` projected from `then`, or of the last three confirmed zigzag pivots | `from to then points deviation levels` |
+| `fib-timezones` | vertical lines 0, 1, 2, 3, 5, 8, 13, ... bars (times `scale`) from `at`, or from the first zigzag pivot | `at scale deviation` |
+| `channel` | a parallel channel on `from`/`to` through `through` ([AT, Y]) or `offset` (price), else the least-squares channel of the last `window` closes wide enough for every high and low; a dashed middle line | `from to through offset window extend` |
+| `pitchfork` | Andrews' pitchfork: the median line from the first of `points` through the middle of the other two, and its parallels through them | `points deviation` |
+| `anchored-vwap` | VWAP from the bar `at`, or `anchor` `low` (lowest low, default), `high` or `first` of the last `window` bars; needs volume | `at anchor window` |
+| `measure` | a box `from` → `to` labelled with the change, percent and bar count | `from to` |
+| `measured-move` | the leg `from` → `to` repeated from `then` (or the last three confirmed zigzag pivots) to a target level | `from to then points deviation` |
+
+Candlestick patterns (`(financial-chart-candle-patterns BARS [NAMES])`
+returns `(INDEX NAME DIRECTION)`): `hammer`, `inverted-hammer`,
+`hanging-man`, `shooting-star`, `doji`, `dragonfly-doji`,
+`gravestone-doji`, `bullish-engulfing`, `bearish-engulfing`,
+`bullish-harami`, `bearish-harami`, `piercing-line`,
+`dark-cloud-cover`, `morning-star`, `evening-star`,
+`three-white-soldiers`, `three-black-crows`, `rising-three-methods`,
+`falling-three-methods`, `tweezer-bottom`, `tweezer-top`,
+`bullish-marubozu`, `bearish-marubozu`. A reversal pattern only counts
+after the trend it reverses (the close before it against the close
+`financial-chart-candle-trend-bars`, 5, earlier). The other detectors:
+`financial-chart-swing-points`, `financial-chart-zigzag`,
+`financial-chart-support-resistance` and `financial-chart-anchored-vwap`.
+`examples/indicators/` has one chart per type.
+
+## Markup presets
+
+A chart names presets and gets their studies, series, annotations and
+panes without writing them out:
+
+```json
+{"bars": [...], "preset": ["swing-trader", "anchored-vwap"],
+ "price": {"series": [{"indicator": "ema", "params": [9]}]}}
+```
+
+A preset is a chart fragment, `NAME.json` in
+`financial-chart-presets-directory` (default `presets/` of this
+package; point it at your own directory) or inline in the chart's
+`"presets": {"NAME": {...}}`, which wins over a file of the same name.
+Presets merge in order and the chart last: in `price` and in each pane,
+`studies`, `series`, `annotations`, `fills`, `rules` and `zones` append,
+`panes` append, and any other key takes the later value, so the chart's
+own keys win. A fragment may name its own `preset`; `doc` describes it.
+Shipped:
+
+| preset | what it adds |
+|---|---|
+| `swing-trader` | SMA 7/20/50, Fibonacci retracement, support/resistance, candlestick patterns (no plain doji or marubozu); volume and RSI panes |
+| `trend` | EMA 20/50 with the gap shaded, SuperTrend, auto trend lines, a labelled zigzag; ADX and MACD panes |
+| `reversal` | Bollinger Bands, support/resistance zones, reversal patterns; RSI and stochastic panes |
+| `fibonacci` | retracement, extension and time zones |
+| `anchored-vwap` | VWAP anchored at the lowest low and at the highest high |
+
+`(financial-chart-presets-list)` and `(financial-chart-compose-describe)`
+(`:presets`) list them. `UNKNOWN_PRESET` names a missing one,
+`INVALID_PRESET` a bad name, fragment or cycle, with its JSON path
+(`/preset/1`). `examples/indicators/preset-swing-trader.json` is the
+swing-trader preset on the example bars:
+
+```sh
+fc-compose examples/indicators/preset-swing-trader.json --backend text --cols 100 --rows 40
+```
 
 ## Options risk profile
 

@@ -6,6 +6,7 @@
                           ("examples" "examples/*.json")
                           ("examples/compose" "examples/compose/*.json")
                           ("examples/indicators" "examples/indicators/*.json")
+                          ("presets" "presets/*.json")
                           ("examples/order-book" "examples/order-book/*.json")
                           ("examples/3d" "examples/3d/*.json")
                           ("test/fixtures/3d/market" "test/fixtures/3d/market/*.json")

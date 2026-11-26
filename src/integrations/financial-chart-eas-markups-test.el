@@ -1,0 +1,198 @@
+;;; financial-chart-eas-markups-test.el --- automatic levels, patterns, drawing tools and presets -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; fc-gty: the markup annotations of `financial-chart-eas-markups' and
+;; the presets of `financial-chart-eas-presets' on composed charts.
+
+;;; Code:
+
+(require 'ert)
+(require 'financial-chart-test-support)
+(require 'financial-chart)
+
+(defun financial-chart-markups-test--bars ()
+  "The catalog examples' 100 bars."
+  (plist-get (financial-chart-catalog-example "fibonacci") :bars))
+
+(defun financial-chart-markups-test--layers (annotations &optional chart)
+  "Price-pane layers named after an annotation for ANNOTATIONS on the example bars.
+CHART adds top-level keys."
+  (let ((spec (financial-chart-compose
+               (append chart (list :bars (financial-chart-markups-test--bars)
+                                   :price (list :annotations annotations))))))
+    (cl-remove-if-not (lambda (l) (string-match-p "annotation" (or (plist-get l :name) "")))
+                      (append (plist-get (aref (plist-get spec :vconcat) 0) :layer) nil))))
+
+(defun financial-chart-markups-test--named (layers name)
+  "The layer of LAYERS called NAME."
+  (cl-find name layers :key (lambda (l) (plist-get l :name)) :test #'equal))
+
+(defun financial-chart-markups-test--rows (layer)
+  "LAYER's own data rows."
+  (append (plist-get (plist-get layer :data) :values) nil))
+
+(defmacro financial-chart-markups-test--fails (code path &rest body)
+  "Assert BODY signals `financial-chart-invalid-chart' with CODE and PATH."
+  (declare (indent 2))
+  `(let ((err (should-error (progn ,@body) :type 'financial-chart-invalid-chart)))
+     (should (equal (list (plist-get (cddr err) :code) (plist-get (cddr err) :path)) (list ,code ,path)))))
+
+(ert-deftest financial-chart-markups-every-type-is-registered-and-described ()
+  (dolist (type (mapcar #'car financial-chart-markup-types))
+    (should (member type financial-chart-annotation-types))
+    (should (seq-contains-p (plist-get (plist-get (financial-chart-compose-describe) :annotations) :types)
+                            type)))
+  (should (= (length (plist-get (financial-chart-compose-describe) :candle-patterns))
+             (length financial-chart-candle-pattern-names))))
+
+(ert-deftest financial-chart-markups-support-resistance-draws-ranked-levels ()
+  (let* ((layers (financial-chart-markups-test--layers [(:type "support-resistance" :max 3 :bands t)]))
+         (levels (financial-chart-support-resistance
+                  (car (financial-chart-compose--bars (list :bars (financial-chart-markups-test--bars))))
+                  :max 3))
+         (rows (financial-chart-markups-test--rows
+                (financial-chart-markups-test--named layers "price-annotation-0-support"))))
+    (should levels)
+    (should (= (length rows) (length (seq-filter (lambda (l) (eq (plist-get l :kind) 'support)) levels))))
+    (should (string-match-p "\\`S [0-9.]+ x[0-9]+\\'" (plist-get (car rows) :label)))
+    (should (financial-chart-markups-test--named layers "price-annotation-0-support-bands"))
+    (should (equal (plist-get (plist-get (financial-chart-markups-test--named layers "price-annotation-0-support") :mark)
+                              :color)
+                   financial-chart-palette-up))
+    (financial-chart-markups-test--fails "INVALID_ANNOTATION" "/price/annotations/0/max"
+      (financial-chart-markups-test--layers [(:type "support-resistance" :max 0)]))
+    (financial-chart-markups-test--fails "INVALID_ANNOTATION" "/price/annotations/0/atr"
+      (financial-chart-markups-test--layers [(:type "support-resistance" :atr 1 :tolerance 0.01)]))))
+
+(ert-deftest financial-chart-markups-patterns-mark-bars-by-direction ()
+  (let* ((layers (financial-chart-markups-test--layers [(:type "patterns")]))
+         (bull (financial-chart-markups-test--named layers "price-annotation-0-bullish"))
+         (bear (financial-chart-markups-test--named layers "price-annotation-0-bearish"))
+         (bars (vconcat (financial-chart-markups-test--bars))))
+    (should (equal (plist-get (plist-get bull :mark) :shape) "triangle-up"))
+    (should (equal (plist-get (plist-get bear :mark) :shape) "triangle-down"))
+    ;; Bullish marks sit under their bar's low.
+    (dolist (row (financial-chart-markups-test--rows bull))
+      (should (< (plist-get row :y) (plist-get (aref bars (plist-get row :time)) :low)))
+      (should (assoc (plist-get row :name) financial-chart-candle-pattern-names)))
+    (let ((only (financial-chart-markups-test--layers [(:type "patterns" :only ["doji"] :labels "name")])))
+      (should (seq-every-p (lambda (r) (equal (plist-get r :label) "doji"))
+                           (financial-chart-markups-test--rows
+                            (financial-chart-markups-test--named only "price-annotation-0-neutral"))))
+      (should-not (financial-chart-markups-test--named only "price-annotation-0-bullish")))
+    (should-not (financial-chart-markups-test--named
+                 (financial-chart-markups-test--layers [(:type "patterns" :labels "none")])
+                 "price-annotation-0-bullish-labels"))
+    (financial-chart-markups-test--fails "INVALID_ANNOTATION" "/price/annotations/0/only/1"
+      (financial-chart-markups-test--layers [(:type "patterns" :only ["hammer" "rising-hammer"])]))
+    (financial-chart-markups-test--fails "INVALID_ANNOTATION" "/price/annotations/0/labels"
+      (financial-chart-markups-test--layers [(:type "patterns" :labels "long")]))))
+
+(ert-deftest financial-chart-markups-zigzag-and-auto-trendlines ()
+  (let* ((layers (financial-chart-markups-test--layers [(:type "zigzag" :deviation 4 :labels t)
+                                                        (:type "auto-trendlines" :left 2)]))
+         (zig (financial-chart-markups-test--rows (financial-chart-markups-test--named layers "price-annotation-0")))
+         (support (car (financial-chart-markups-test--rows
+                        (financial-chart-markups-test--named layers "price-annotation-1-support")))))
+    (should (> (length zig) 2))
+    ;; Legs join end to start.
+    (cl-loop for (a b) on zig while b do (should (equal (plist-get a :time2) (plist-get b :time))))
+    (should (seq-every-p (lambda (r) (member (plist-get r :label) '("HH" "HL" "LH" "LL")))
+                         (financial-chart-markups-test--rows
+                          (financial-chart-markups-test--named layers "price-annotation-0-labels"))))
+    ;; Extended right to the last bar.
+    (should (= (plist-get support :time2) 99))
+    (financial-chart-markups-test--fails "INVALID_ANNOTATION" "/price/annotations/0/deviation"
+      (financial-chart-markups-test--layers [(:type "zigzag" :deviation -1)]))))
+
+(ert-deftest financial-chart-markups-fib-extension-and-time-zones ()
+  (let* ((layers (financial-chart-markups-test--layers
+                  [(:type "fib-extension" :from ["2026-03-18" 128.72] :to ["2026-05-08" 104.89]
+                    :then ["2026-05-22" 111.95] :levels [1 1.618])
+                   (:type "fib-timezones" :at "2026-02-02")]))
+         (ext (financial-chart-markups-test--rows (financial-chart-markups-test--named layers "price-annotation-0")))
+         (zones (financial-chart-markups-test--rows (financial-chart-markups-test--named layers "price-annotation-1"))))
+    (should (equal (mapcar (lambda (r) (/ (round (* 100 (plist-get r :y))) 100.0)) ext)
+                   (list (/ (round (* 100 (+ 111.95 (- 104.89 128.72)))) 100.0)
+                         (/ (round (* 100 (+ 111.95 (* 1.618 (- 104.89 128.72))))) 100.0))))
+    (should (equal (mapcar (lambda (r) (plist-get r :time)) zones) '(0 1 2 3 5 8 13 21 34 55 89)))
+    (financial-chart-markups-test--fails "INVALID_ANNOTATION" "/price/annotations/0/then"
+      (financial-chart-markups-test--layers [(:type "fib-extension" :from ["2026-03-18" 1] :to ["2026-05-08" 2])]))
+    ;; Without points it uses the last confirmed zigzag pivots.
+    (should (financial-chart-markups-test--layers [(:type "fib-extension" :deviation 4)]))))
+
+(ert-deftest financial-chart-markups-channel-and-pitchfork ()
+  (let* ((layers (financial-chart-markups-test--layers
+                  [(:type "channel" :from ["2026-05-08" 104] :to ["2026-06-01" 117] :offset 5 :extend "none")
+                   (:type "channel" :window 30)
+                   (:type "pitchfork" :points [["2026-04-17" 114] ["2026-05-07" 105] ["2026-05-22" 112]])]))
+         (fixed (financial-chart-markups-test--rows (financial-chart-markups-test--named layers "price-annotation-0")))
+         (fork (financial-chart-markups-test--rows (financial-chart-markups-test--named layers "price-annotation-2"))))
+    (should (equal (mapcar (lambda (r) (list (plist-get r :y) (plist-get r :y2))) fixed)
+                   '((104.0 117.0) (109.0 122.0))))
+    (should (= (length (financial-chart-markups-test--rows
+                        (financial-chart-markups-test--named layers "price-annotation-1"))) 2))
+    ;; Median line from the first point through the middle of the others.
+    (should (= (length fork) 3))
+    (should (= (plist-get (car fork) :y) 114))
+    (financial-chart-markups-test--fails "INVALID_ANNOTATION" "/price/annotations/0/through"
+      (financial-chart-markups-test--layers [(:type "channel" :from ["2026-05-08" 104] :to ["2026-06-01" 117])]))
+    (financial-chart-markups-test--fails "INVALID_ANNOTATION" "/price/annotations/0/points"
+      (financial-chart-markups-test--layers [(:type "pitchfork" :points [["2026-04-17" 114]])]))))
+
+(ert-deftest financial-chart-markups-anchored-vwap-measure-measured-move ()
+  (let* ((layers (financial-chart-markups-test--layers
+                  [(:type "anchored-vwap" :at "2026-05-01")
+                   (:type "measure" :from ["2026-03-18" 128.72] :to ["2026-05-08" 104.89])
+                   (:type "measured-move" :from ["2026-05-08" 104.89] :to ["2026-05-22" 111.95]
+                    :then ["2026-05-21" 109.6])]))
+         (vwap (financial-chart-markups-test--rows (financial-chart-markups-test--named layers "price-annotation-0")))
+         (label (car (financial-chart-markups-test--rows
+                      (financial-chart-markups-test--named layers "price-annotation-1-label"))))
+         (target (car (financial-chart-markups-test--rows
+                       (financial-chart-markups-test--named layers "price-annotation-2-target")))))
+    (should (= (plist-get (car vwap) :time) 64))
+    (should (= (length vwap) 36))
+    (should (string-match-p "\\`-23\\.83 (-18\\.5%) 37 bars\\'" (plist-get label :label)))
+    (should (< (abs (- (plist-get target :y) (+ 109.6 (- 111.95 104.89)))) 1e-9))
+    (financial-chart-markups-test--fails "NO_VOLUME" "/price/annotations/0"
+      (financial-chart-compose
+       (list :bars (vconcat (mapcar (lambda (b) (cl-loop for (k v) on b by #'cddr unless (eq k :volume) append (list k v)))
+                                    (financial-chart-markups-test--bars)))
+             :price '(:annotations [(:type "anchored-vwap")]))))))
+
+(ert-deftest financial-chart-presets-merge-files-inline-and-the-chart ()
+  (let* ((chart (financial-chart-presets-apply
+                 (list :bars [] :preset ["swing-trader" "mine"]
+                       :presets '(:mine (:price (:annotations [(:type "zigzag")] :style "line")
+                                         :panes [(:study "macd")]))
+                       :price '(:style "hollow" :series [(:indicator "ema" :params [9])]))))
+         (price (plist-get chart :price)))
+    ;; The chart's own scalar keys win; lists append in order.
+    (should (equal (plist-get price :style) "hollow"))
+    (should (equal (mapcar (lambda (s) (aref (plist-get s :params) 0)) (plist-get price :series))
+                   '(7 20 50 9)))
+    (should (equal (mapcar (lambda (a) (plist-get a :type)) (plist-get price :annotations))
+                   '("fibonacci" "support-resistance" "patterns" "zigzag")))
+    (should (equal (mapcar (lambda (p) (plist-get p :study)) (plist-get chart :panes))
+                   '("volume" "rsi" "macd")))
+    (should-not (plist-get chart :doc))
+    ;; Every shipped preset compiles.
+    (dolist (name (financial-chart-presets-list))
+      (should (financial-chart-compose (list :bars (financial-chart-markups-test--bars) :preset name))))
+    (should (member "swing-trader" (financial-chart-presets-list)))))
+
+(ert-deftest financial-chart-presets-fail-with-their-path ()
+  (financial-chart-markups-test--fails "UNKNOWN_PRESET" "/preset/1"
+    (financial-chart-compose (list :bars (financial-chart-markups-test--bars) :preset ["trend" "nope"])))
+  (financial-chart-markups-test--fails "UNKNOWN_PRESET" "/preset"
+    (financial-chart-compose (list :bars (financial-chart-markups-test--bars) :preset "../trend")))
+  (financial-chart-markups-test--fails "INVALID_PRESET" "/preset"
+    (financial-chart-compose (list :bars (financial-chart-markups-test--bars) :preset 3)))
+  (financial-chart-markups-test--fails "INVALID_PRESET" "/preset/preset"
+    (financial-chart-compose (list :bars (financial-chart-markups-test--bars) :preset "a"
+                                   :presets '(:a (:preset "a"))))))
+
+(provide 'financial-chart-eas-markups-test)
+;;; financial-chart-eas-markups-test.el ends here

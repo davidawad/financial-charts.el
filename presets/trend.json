@@ -1,0 +1,20 @@
+{
+  "doc": "Trend following: EMA 20/50 with the gap shaded, SuperTrend, automatic trend lines and a zigzag; ADX and MACD panes.",
+  "price": {
+    "style": "candles",
+    "series": [
+      {"indicator": "ema", "params": [20]},
+      {"indicator": "ema", "params": [50]}
+    ],
+    "fills": [{"between": ["ema-20", "ema-50"], "above": "#26a69a", "below": "#ef5350"}],
+    "studies": ["supertrend"],
+    "annotations": [
+      {"type": "auto-trendlines"},
+      {"type": "zigzag", "deviation": 5, "labels": true}
+    ]
+  },
+  "panes": [
+    {"study": "adx", "height": 80},
+    {"study": "macd", "height": 80}
+  ]
+}

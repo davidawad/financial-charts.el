@@ -1,0 +1,18 @@
+{
+  "doc": "Reversal setups: Bollinger Bands, support and resistance zones, reversal candlestick patterns; RSI and stochastic panes.",
+  "price": {
+    "style": "candles",
+    "studies": ["bollinger"],
+    "annotations": [
+      {"type": "support-resistance", "bands": true, "max": 4},
+      {"type": "patterns", "only": ["hammer", "inverted-hammer", "hanging-man", "shooting-star",
+                                    "bullish-engulfing", "bearish-engulfing", "morning-star", "evening-star",
+                                    "piercing-line", "dark-cloud-cover", "tweezer-top", "tweezer-bottom",
+                                    "dragonfly-doji", "gravestone-doji"]}
+    ]
+  },
+  "panes": [
+    {"study": "rsi", "height": 80},
+    {"study": "stochastic", "height": 80}
+  ]
+}

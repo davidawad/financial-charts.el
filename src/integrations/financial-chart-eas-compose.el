@@ -50,6 +50,8 @@
 (require 'financial-chart-overlay-indicators)
 (require 'financial-chart-eas-catalog)
 (require 'financial-chart-eas-annotations)
+(require 'financial-chart-eas-markups)
+(require 'financial-chart-eas-presets)
 (require 'financial-chart-eas-trading-time)
 
 (defvar financial-chart-compose-pane-height 70
@@ -308,7 +310,7 @@ commentary of this file and README.md describe its keys.  The spec
 carries the bars and every derived series inline, so it renders with
 eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
 `financial-chart-invalid-chart' with :code and :path on a bad CHART."
-  (pcase-let* ((chart (financial-chart-compose-read chart))
+  (pcase-let* ((chart (financial-chart-presets-apply (financial-chart-compose-read chart)))
                (`(,bars ,xs ,x-type) (financial-chart-compose--bars chart))
                (chart (financial-chart-catalog-expand chart bars))
                (ctx (financial-chart-compose--context chart bars xs x-type))
@@ -452,6 +454,8 @@ STYLE may also be \"calendar\": the candles example on calendar time."
                  :title "string" :description "string" :width "pixels, default container"
                  :x "\"trading\" (default: one slot per bar, no non-trading gaps, date ticks), \"calendar\" (dates to scale) or {scale, ticks}"
                  :colors "{up, down, price}" :crosshair "boolean, default true"
+                 :preset "a preset name or an array of them, merged in order under the chart (README, \"Markup presets\")"
+                 :presets "{NAME: chart fragment}: inline presets, over the preset files of the same name"
                  :readout "an eas x-eas.readout component tree; default: ohlc-readout and indicator-values (README, \"Hover readout\")"
                  :price "{style, field, color, width, dash, baseline, above, below, height, series, fills, rules, studies, zones, annotations}"
                  :panes "[{series, fills, rules, volume, title, domain, height, id, study, studies, zones, annotations}]")
@@ -465,8 +469,12 @@ STYLE may also be \"calendar\": the candles example on calendar time."
         :study "a name or {study, params, id, levels}; a pane may be one study: {\"study\": \"rsi\", \"levels\": [80, 20]}"
         :zones "[{from, to, color, opacity}]: a band shaded between two levels"
         :annotations (list :types (vconcat financial-chart-annotation-types)
-                           :keys "type at y from to label color dash width extend window levels opacity"
+                           :keys "type at y from to then through offset points label labels color dash width extend window levels opacity left right tolerance atr max touches bands only deviation kind anchor scale"
                            :at "a bar's time (ISO date or epoch ms; on trading time a date with no bar takes the nearest), or its index when bars have no time")
+        :presets (financial-chart-presets-describe)
+        :candle-patterns (vconcat (mapcar (lambda (p) (list :name (car p) :label (nth 1 p)
+                                                            :direction (symbol-name (nth 2 p))))
+                                          financial-chart-candle-pattern-names))
         :palette (list :series (vconcat financial-chart-palette) :up financial-chart-palette-up
                        :down financial-chart-palette-down)
         :indicators (vconcat (mapcar (lambda (e) (symbol-name (car e)))

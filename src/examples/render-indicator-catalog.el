@@ -7,7 +7,8 @@
 ;;; Commentary:
 
 ;; Writes examples/indicators/NAME.json: one composed chart per study
-;; of `financial-chart-studies' and one per kind of annotation, over the
+;; of `financial-chart-studies', one per kind of annotation and one per
+;; shipped preset worth showing, over the
 ;; same 100 synthetic daily bars (a seeded random walk, so the files
 ;; never change by accident).  Run from the repository root:
 ;;
@@ -82,17 +83,57 @@
      [(:study "rsi" :height 80 :annotations [(:type "event" :at "2026-04-16")])])
     ("fibonacci" "Fibonacci retracement of the largest swing"
      (:annotations [(:type "fibonacci")])
-     []))
-  "(NAME TITLE PRICE PANES) for each example; PRICE adds to candles.")
+     [])
+    ("support-resistance" "Automatic support and resistance from clustered swing pivots"
+     (:annotations [(:type "support-resistance" :bands t)])
+     [])
+    ("patterns" "Candlestick patterns: bullish under the bar, bearish over it"
+     (:annotations [(:type "patterns")])
+     [])
+    ("zigzag" "Zigzag at 4% with higher/lower high/low labels"
+     (:annotations [(:type "zigzag" :deviation 4 :labels t)])
+     [])
+    ("auto-trendlines" "Trend lines through the last two swing lows and highs"
+     (:annotations [(:type "auto-trendlines" :left 2)])
+     [])
+    ("fib-extension" "Fibonacci extension of the last three zigzag pivots"
+     (:annotations [(:type "fib-extension" :deviation 4)])
+     [])
+    ("fib-timezones" "Fibonacci time zones from the first zigzag pivot"
+     (:annotations [(:type "fib-timezones")])
+     [])
+    ("channel" "Linear regression channel of the last 40 bars"
+     (:annotations [(:type "channel" :window 40)])
+     [])
+    ("pitchfork" "Andrews' pitchfork on three pivots"
+     (:annotations [(:type "pitchfork" :points [["2026-02-03" 98.63] ["2026-03-18" 128.72] ["2026-05-08" 104.89]])])
+     [])
+    ("anchored-vwap" "VWAP anchored at the lowest low and at an earnings date"
+     (:annotations [(:type "anchored-vwap" :anchor "low" :label "AVWAP low")
+                    (:type "anchored-vwap" :at "2026-04-16" :label "AVWAP earnings" :color "#9c27b0")])
+     [(:study "volume" :height 50)])
+    ("measure" "A price range: change, percent and bars"
+     (:annotations [(:type "measure" :from ["2026-03-18" 128.72] :to ["2026-05-08" 104.89])])
+     [])
+    ("measured-move" "A measured move: the first leg repeated from the pullback"
+     (:annotations [(:type "measured-move" :from ["2026-05-08" 104.89] :to ["2026-05-22" 111.95]
+                    :then ["2026-05-21" 109.6])])
+     [])
+    ("preset-swing-trader" "The swing-trader preset: SMA 7/20/50, Fibonacci, support/resistance, patterns, RSI"
+     nil [] (:preset "swing-trader")))
+  "(NAME TITLE PRICE PANES [TOP]) for each example; PRICE adds to candles.
+TOP adds top-level keys, such as a \"preset\".")
 
 (let* ((root (expand-file-name "../.." (file-name-directory (or load-file-name buffer-file-name))))
        (dir (expand-file-name "examples/indicators" root))
        (bars (vconcat (render-indicator-catalog--bars 100))))
   (make-directory dir t)
-  (pcase-dolist (`(,name ,title ,price ,panes) render-indicator-catalog--charts)
-    (let ((chart (list :title title :bars bars
-                       :price (append (unless (plist-get price :style) (list :style "candles")) price)
-                       :panes panes)))
+  (pcase-dolist (`(,name ,title ,price ,panes ,top) render-indicator-catalog--charts)
+    (let ((chart (append (list :title title)
+                         top
+                         (list :bars bars
+                               :price (append (unless (plist-get price :style) (list :style "candles")) price)
+                               :panes panes))))
       (financial-chart-compose chart)
       (with-temp-file (expand-file-name (concat name ".json") dir)
         (insert (eas-json-pretty chart) "\n"))

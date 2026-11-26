@@ -1,0 +1,9 @@
+{
+  "doc": "VWAP anchored at the lowest low and at the highest high of the bars.",
+  "price": {
+    "annotations": [
+      {"type": "anchored-vwap", "anchor": "low", "label": "AVWAP low", "color": "#26a69a"},
+      {"type": "anchored-vwap", "anchor": "high", "label": "AVWAP high", "color": "#ef5350"}
+    ]
+  }
+}

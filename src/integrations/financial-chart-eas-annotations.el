@@ -26,6 +26,9 @@
 ;;               (or the last "window" bars), "levels" ratios
 ;;
 ;; Each takes "label", "color", "dash" and "width" where they apply.
+;; `financial-chart-annotation-register' adds a type; the automatic
+;; levels, candlestick patterns and drawing tools of
+;; `financial-chart-eas-markups' register that way.
 ;; On a trading-time axis a time names the bar at it, or the nearest
 ;; bar (a weekend event lands on Friday's or Monday's); a time outside
 ;; the bars (and the slots of forward shifts) is NO_SUCH_BAR.
@@ -43,9 +46,21 @@
 (require 'financial-chart-eas-shift)
 (require 'financial-chart-eas-trading-time)
 
-(defconst financial-chart-annotation-types
+(defvar financial-chart-annotation-types
   '("buy" "sell" "level" "trendline" "event" "text" "box" "fibonacci")
-  "Annotation types of a composed chart.")
+  "Annotation types of a composed chart.
+`financial-chart-annotation-register' adds one.")
+
+(defvar financial-chart-annotation-handlers nil
+  "Registered annotation types as (TYPE . FN).
+FN is called with CTX, the annotation, its layer name and its JSON path,
+and returns the annotation's layers.")
+
+(defun financial-chart-annotation-register (type fn)
+  "Draw annotations of TYPE with FN (see `financial-chart-annotation-handlers')."
+  (setf (alist-get type financial-chart-annotation-handlers nil nil #'equal) fn)
+  (unless (member type financial-chart-annotation-types)
+    (setq financial-chart-annotation-types (append financial-chart-annotation-types (list type)))))
 
 (defconst financial-chart-annotation-color "#607d8b"
   "Default colour of levels, trend lines, events, text and Fibonacci levels.")
@@ -379,6 +394,8 @@ PATH locates PANE."
        ("text" (financial-chart-annotation--label ctx a layer-name at))
        ("box" (financial-chart-annotation--box ctx a layer-name at))
        ("fibonacci" (financial-chart-annotation--fibonacci ctx a layer-name at))
+       ((and (pred stringp) (guard (assoc type financial-chart-annotation-handlers)))
+        (funcall (cdr (assoc type financial-chart-annotation-handlers)) ctx a layer-name at))
        ('nil (financial-chart-series-fail at "INVALID_ANNOTATION"
                                           "An annotation is an object with a \"type\" (%s), got %S"
                                           (string-join financial-chart-annotation-types ", ") a))

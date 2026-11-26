@@ -655,7 +655,7 @@ of the last bar (`src/integrations/financial-chart-eas-markups.el`):
 | `fib-timezones` | vertical lines 0, 1, 2, 3, 5, 8, 13, ... bars (times `scale`) from `at`, or from the first zigzag pivot | `at scale deviation` |
 | `pitchfork` | Andrews' pitchfork on `points`, else the last `swing.abc` leg | `points deviation atr` |
 | `measured-move` | the leg `from` → `to` repeated from `then`, else from the last `swing.abc` leg | `from to then points deviation` |
-| `channel` | a parallel channel on `from`/`to` through `through` or `offset`, else `channel.regression` as of the last bar | `from to through offset window extend` |
+| `channel` | a parallel channel on `from`/`to` through `through` or `offset`, else `channel.regression` as of the last bar; its lines are cut to the bars' price range (so they never rescale the chart) unless `"clip": false` | `from to through offset window extend clip` |
 | `anchored-vwap` | VWAP from the bar `at`, or `anchor` `low` (default), `high` or `first` of the last `window` bars; needs volume | `at anchor window` |
 | `measure` | a box `from` → `to` labelled with the change, percent and bar count | `from to` |
 

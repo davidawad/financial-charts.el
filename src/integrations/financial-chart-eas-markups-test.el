@@ -384,5 +384,22 @@ CHART adds top-level keys."
     (financial-chart-markups-test--fails "INVALID_ANNOTATION" "/price/annotations/0/extend"
       (financial-chart-markups-test--layers (vector (append a '(:extend "yes")))))))
 
+(ert-deftest financial-chart-markups-channel-is-cut-to-the-bars ()
+  (should (equal (financial-chart-markup--clip-row '(:time 0 :time2 10 :y 0.0 :y2 20.0) 5.0 15.0)
+                 '(:time 2.5 :time2 7.5 :y 5.0 :y2 15.0)))
+  (should-not (financial-chart-markup--clip-row '(:time 0 :time2 10 :y 30.0 :y2 40.0) 5.0 15.0))
+  (let* ((bars (financial-chart-markups-test--bars))
+         (v (append bars nil))
+         (lo (apply #'min (mapcar (lambda (b) (plist-get b :low)) v)))
+         (hi (apply #'max (mapcar (lambda (b) (plist-get b :high)) v)))
+         ;; A steep hand-drawn channel running far off the bars.
+         (a '(:type "channel" :from ["2026-02-02" 60] :to ["2026-06-19" 200] :offset 30))
+         (ys (lambda (layers) (cl-loop for r in (financial-chart-markups-test--rows
+                                                 (financial-chart-markups-test--named layers "price-annotation-0"))
+                                       append (list (plist-get r :y) (plist-get r :y2))))))
+    (should (cl-every (lambda (y) (<= lo y hi)) (funcall ys (financial-chart-markups-test--layers (vector a)))))
+    (should (cl-some (lambda (y) (> y hi))
+                     (funcall ys (financial-chart-markups-test--layers (vector (append a '(:clip :false)))))))))
+
 (provide 'financial-chart-eas-markups-test)
 ;;; financial-chart-eas-markups-test.el ends here

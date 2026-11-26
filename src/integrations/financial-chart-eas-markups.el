@@ -38,7 +38,7 @@
 ;;                       else from the last swing.abc leg
 ;;
 ;; and drawing tools computed as of the last bar: channel (parallel or
-;; regression), anchored-vwap (VWAP from "at" or "anchor": low|high)
+;; regression; cut to the bars' price range unless "clip": false), anchored-vwap (VWAP from "at" or "anchor": low|high)
 ;; and measure (a price range box).
 ;;
 ;; A bad one signals `financial-chart-invalid-chart' with :code and the
@@ -502,6 +502,24 @@ A view of trend.auto-lines: the newest support and resistance line."
 
 ;;; Channels and pitchforks
 
+(defun financial-chart-markup--clip-row (row lo hi)
+  "Segment ROW (:time :time2 :y :y2) cut to prices LO..HI, or nil when
+none of it lies there."
+  (let* ((x1 (float (plist-get row :time))) (x2 (float (plist-get row :time2)))
+         (y1 (float (plist-get row :y))) (y2 (float (plist-get row :y2)))
+         (at (lambda (y) (if (= y1 y2) x1 (+ x1 (* (- x2 x1) (/ (- y y1) (- y2 y1))))))))
+    (cond ((or (and (< y1 lo) (< y2 lo)) (and (> y1 hi) (> y2 hi))) nil)
+          (t (let ((c1 (cond ((< y1 lo) (cons (funcall at lo) lo)) ((> y1 hi) (cons (funcall at hi) hi)) (t (cons x1 y1))))
+                   (c2 (cond ((< y2 lo) (cons (funcall at lo) lo)) ((> y2 hi) (cons (funcall at hi) hi)) (t (cons x2 y2)))))
+               (list :time (car c1) :time2 (car c2) :y (cdr c1) :y2 (cdr c2)))))))
+
+(defun financial-chart-markup--clip-rows (ctx a rows)
+  "ROWS cut to the bars' price range of CTX, unless A says \"clip\": false.
+A line that runs off the bars would rescale the chart (fc-gty.26)."
+  (if (and (plist-member a :clip) (memq (plist-get a :clip) '(nil :false))) rows
+    (let ((range (financial-chart-annotation--range ctx)))
+      (delq nil (mapcar (lambda (r) (financial-chart-markup--clip-row r (car range) (cdr range))) rows)))))
+
 (defun financial-chart-markup--channel (ctx a name path)
   "Layers of the channel annotation A named NAME at PATH in CTX."
   (pcase-let* ((given (or (financial-chart-series-get a :from) (financial-chart-series-get a :to)))
@@ -537,10 +555,12 @@ A view of trend.auto-lines: the newest support and resistance line."
                (colour (financial-chart-markup--colour a))
                (label (financial-chart-series-get a :label)))
     (append
-     (list (financial-chart-markup--segments ctx name (list base (funcall shift base offset)) colour
-                                             (financial-chart-series-get a :dash)
+     (list (financial-chart-markup--segments ctx name
+                                             (financial-chart-markup--clip-rows ctx a (list base (funcall shift base offset)))
+                                             colour (financial-chart-series-get a :dash)
                                              (or (financial-chart-series-get a :width) 1.5))
-           (financial-chart-markup--segments ctx (concat name "-mid") (list (funcall shift base (/ offset 2.0)))
+           (financial-chart-markup--segments ctx (concat name "-mid")
+                                             (financial-chart-markup--clip-rows ctx a (list (funcall shift base (/ offset 2.0))))
                                              colour [4 3] 1))
      (when label
        (financial-chart-markup--labels ctx (concat name "-label")

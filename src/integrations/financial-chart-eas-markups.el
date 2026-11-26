@@ -581,20 +581,23 @@ A view of trend.auto-lines: the newest support and resistance line."
                                     do (setq best i)
                                     finally return best)))))
          (values (financial-chart-anchored-vwap bars index))
-         (colour (or (financial-chart-series-get a :color) "#ff9800"))
+         (colour (or (financial-chart-series-get a :color) financial-chart-annotation-color))
          (label (or (financial-chart-series-get a :label) "AVWAP"))
          (rows (cl-loop for v in values for i from 0
                         when v collect (list :time (financial-chart-markup--bar-x ctx i) :y v :label label))))
     (append
      (list (list :name name :data (list :values (vconcat rows))
+                 ;; In the legend, in a colour of its own unless given one.
+                 :legend (list :label label :auto (not (financial-chart-series-get a :color)))
                  :mark (financial-chart-styles-line-mark "line" colour (or (financial-chart-series-get a :width) 1.5)
                                                          (financial-chart-series-get a :dash))
                  :encoding (list :x (financial-chart-annotation--x-enc ctx) :y (financial-chart-styles-y "y")
                                  :tooltip [(:field "label" :type "nominal")
                                            (:field "y" :type "quantitative" :format ".2f")])))
      (when rows
-       (financial-chart-markup--labels ctx (concat name "-label") (last rows) colour
-                                       :align "left" :dx 3)))))
+       (mapcar (lambda (l) (plist-put l :legend-member name))
+               (financial-chart-markup--labels ctx (concat name "-label") (last rows) colour
+                                               :align "left" :dx 3))))))
 
 ;;; Measures
 

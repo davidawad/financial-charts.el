@@ -186,6 +186,12 @@ COLOURS is (UP . DOWN)."
                              collect (financial-chart-catalog--study
                                       item place bars colours
                                       (if single path (format "%s/studies/%d" path i)))))
+         ;; A study's own colours are its defaults, not the caller's choice.
+         (fragments (mapcar (lambda (f)
+                              (plist-put (copy-sequence f) :series
+                                         (mapcar (lambda (s) (if (plist-get s :color) (plist-put (copy-sequence s) :study-colour t) s))
+                                                 (plist-get f :series))))
+                            fragments))
          (gather (lambda (key) (vconcat (append (mapcan (lambda (f) (copy-sequence (plist-get f key))) fragments)
                                                 (append (financial-chart-series-get pane key) nil))))))
     (if (not (or fragments (financial-chart-series-get pane :zones))) pane

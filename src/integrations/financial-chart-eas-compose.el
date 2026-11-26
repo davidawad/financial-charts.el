@@ -54,6 +54,7 @@
 (require 'financial-chart-eas-presets)
 (require 'financial-chart-eas-trading-time)
 (require 'financial-chart-eas-labels)
+(require 'financial-chart-eas-colours)
 
 (defvar financial-chart-compose-pane-height 70
   "Default height of a pane under the price pane.")
@@ -208,10 +209,16 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
                                  (format "%s-fill-%d" (plist-get spec :name) i))))
          (rules (mapcar #'financial-chart-compose--rule
                         (append (financial-chart-series-get pane :rules) nil)))
+         ;; Annotation lines with a legend entry (an anchored VWAP) join the
+         ;; series' legend in a colour of their own.
+         (annotations (financial-chart-colours-legend
+                       (financial-chart-annotation-layers ctx pane (plist-get spec :name) (plist-get spec :path))
+                       legend))
+         (legend (cdr annotations))
          (layers (append fills (plist-get spec :base) rules
                          (mapcar (lambda (s) (financial-chart-compose--series-layer ctx s legend))
                                  series)
-                         (financial-chart-annotation-layers ctx pane (plist-get spec :name) (plist-get spec :path))))
+                         (car annotations)))
          (layers (if (seq-some #'financial-chart-labels--text-layer-p layers)
                      (let ((scale (financial-chart-labels-scale
                                    layers (financial-chart-shift-xs ctx) (plist-get ctx :width) (plist-get spec :height)
@@ -338,6 +345,10 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
                                                     (financial-chart-compose--pane-series
                                                      pane bars (if (< p 0) "/price" (format "/panes/%d" p)))))))
                (all-series (financial-chart-shift-series all-series (length bars)))
+               ;; Each pane's overlays in colours of their own (fc-gty.23).
+               (distinct (financial-chart-colours-distinct all-series))
+               (all-series (car distinct))
+               (remaps (cdr distinct))
                (ctx (financial-chart-trading-context (financial-chart-shift-context ctx all-series)))
                (style (financial-chart-styles-price (financial-chart-compose--pane-context ctx -1 n)
                                                     price))
@@ -375,7 +386,8 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
                                 :fills (cl-loop for fill in (append (financial-chart-series-get pane :fills) nil)
                                                 for i from 0
                                                 collect (financial-chart-series-fill
-                                                         fill all-series bars (format "%s/fills/%d" path i)))))))
+                                                         (financial-chart-colours-remap-fill fill p all-series remaps)
+                                                         all-series bars (format "%s/fills/%d" path i)))))))
                (hits (mapcar (lambda (e) (format "%s-hit" (plist-get e :name))) entries))
                (title (financial-chart-series-get chart :title)))
     (append

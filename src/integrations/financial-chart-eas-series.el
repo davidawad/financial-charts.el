@@ -198,6 +198,9 @@ Each carries :id :label :key :palette :values and ITEM's styling
                 (setq s (plist-put (copy-sequence s) :shift shift)))
               (append (list :style (or style (plist-get s :default-style))
                             :color (financial-chart-series-get item :color)
+                            ;; A colour the caller chose, which keeps it (fc-gty.23).
+                            :chosen-colour (and (financial-chart-series-get item :color)
+                                                (not (financial-chart-series-get item :study-colour)))
                             :width (financial-chart-series-get item :width)
                             :dash (financial-chart-series-get item :dash)
                             :above (financial-chart-series-get item :above)

@@ -52,6 +52,7 @@
 (require 'financial-chart-detector-api)
 (require 'financial-chart-detectors-candles)
 (require 'financial-chart-detectors-swings)
+(require 'financial-chart-detectors-tools)
 (require 'financial-chart-eas-series)
 (require 'financial-chart-eas-styles)
 (require 'financial-chart-eas-shift)
@@ -479,38 +480,20 @@ A view of trend.auto-lines: the newest support and resistance line."
 
 ;;; Channels and pitchforks
 
-(defun financial-chart-markup--regression (ctx window)
-  "The least-squares line of CTX's closes over the last WINDOW bars.
-Return (P1 P2 OFFSET): two points on it and the largest distance of a
-high or low from it."
-  (let* ((bars (vconcat (plist-get ctx :bars))) (n (length bars))
-         (start (if window (max 0 (- n window)) 0))
-         (is (number-sequence start (1- n)))
-         (m (float (length is)))
-         (xm (/ (apply #'+ is) m))
-         (ym (/ (apply #'+ (mapcar (lambda (i) (plist-get (aref bars i) :close)) is)) m))
-         (sxx (apply #'+ (mapcar (lambda (i) (expt (- i xm) 2)) is)))
-         (slope (if (zerop sxx) 0
-                  (/ (apply #'+ (mapcar (lambda (i) (* (- i xm) (- (plist-get (aref bars i) :close) ym))) is))
-                     sxx)))
-         (at (lambda (i) (+ ym (* slope (- i xm)))))
-         (offset (apply #'max (mapcar (lambda (i)
-                                        (max (- (plist-get (aref bars i) :high) (funcall at i))
-                                             (- (funcall at i) (plist-get (aref bars i) :low))))
-                                      is))))
-    (list (cons (financial-chart-markup--bar-x ctx start) (funcall at start))
-          (cons (financial-chart-markup--bar-x ctx (1- n)) (funcall at (1- n)))
-          offset)))
-
 (defun financial-chart-markup--channel (ctx a name path)
   "Layers of the channel annotation A named NAME at PATH in CTX."
   (pcase-let* ((given (or (financial-chart-series-get a :from) (financial-chart-series-get a :to)))
                (`(,p1 ,p2 ,offset)
                 (if (not given)
-                    (pcase-let ((`(,p1 ,p2 ,off) (financial-chart-markup--regression
-                                                  ctx (financial-chart-markup--int a :window path nil 2))))
-                      ;; The regression line is the middle; offset each way.
-                      (list (cons (car p1) (- (cdr p1) off)) (cons (car p2) (- (cdr p2) off)) (* 2 off)))
+                    ;; The newest channel.regression event: the channel as of the last bar.
+                    (let* ((e (car (last (financial-chart-markup--events ctx a path "channel.regression" '(:window)))))
+                           (table (financial-chart-markup--index-table ctx))
+                           (pts (mapcar (lambda (p) (financial-chart-markup--event-point ctx table p))
+                                        (plist-get (plist-get e :geometry) :points))))
+                      (unless e
+                        (financial-chart-series-fail (concat path "/window") "INVALID_ANNOTATION"
+                                                     "Too few bars for a regression channel"))
+                      (list (nth 0 pts) (nth 1 pts) (- (cdr (nth 2 pts)) (cdr (nth 0 pts)))))
                   (let* ((p1 (financial-chart-annotation--point ctx (financial-chart-series-get a :from)
                                                                 (concat path "/from")))
                          (p2 (financial-chart-annotation--point ctx (financial-chart-series-get a :to)
@@ -690,7 +673,9 @@ A bad parameter is INVALID_ANNOTATION at PATH/KEY."
     ("fib-extension" "fib.extension" (:deviation :atr :levels) :from)
     ("pitchfork" "swing.abc" (:deviation :atr) :points)
     ("measured-move" "swing.abc" (:deviation :atr) :from)
-    ("fibonacci" "fib.retracement" (:window :levels) :from))
+    ("fibonacci" "fib.retracement" (:window :levels) :from)
+    ("channel" "channel.regression" (:window) :from)
+    ("anchored-vwap" "vwap.anchored" (:anchor :window) :at))
   "Annotation types drawn from a detector: (TYPE DETECTOR PARAM-KEYS [MANUAL-KEY]).
 With MANUAL-KEY present the annotation is hand-placed instead.")
 
@@ -730,7 +715,12 @@ With MANUAL-KEY present the annotation is hand-placed instead.")
               :direction (pcase type ("buy" "bullish") ("sell" "bearish") (_ "neutral"))
               :strength 1.0
               :geometry (financial-chart-detector--geometry v (plist-get raw :geometry))
-              :evidence (list :label (or (financial-chart-series-get a :label) :null)))))))
+              :evidence (append
+                         (list :label (or (financial-chart-series-get a :label) :null))
+                         (when (equal type "measure")
+                           (let ((pts (plist-get (plist-get raw :geometry) :points)))
+                             (list :change_pct (* 100.0 (/ (- (cdr (cadr pts)) (cdr (car pts))) (cdr (car pts))))
+                                   :bars (- (car (cadr pts)) (car (car pts))))))))))))
 
 (defun financial-chart-chart-events (chart)
   "Every event a chart description's annotations show, as event/v1 data.

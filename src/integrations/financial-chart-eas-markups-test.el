@@ -10,6 +10,7 @@
 (require 'ert)
 (require 'financial-chart-test-support)
 (require 'financial-chart)
+(require 'financial-chart-detectors-harness-test)
 
 (defun financial-chart-markups-test--bars ()
   "The catalog examples' 100 bars."
@@ -302,6 +303,31 @@ CHART adds top-level keys."
                        (financial-chart-bars-id (cdr (car (financial-chart-compose--bars (list :bars bars)))))))
     (should (eq (plist-get (financial-chart-summarize-verb chart) :ok) t))
     (should (equal (plist-get (financial-chart-summarize-verb (list :bars [])) :reason) "NO_BARS"))))
+
+(ert-deftest financial-chart-markups-tool-detectors ()
+  (let* ((bars (car (financial-chart-compose--bars (list :bars (financial-chart-markups-test--bars)))))
+         (crosses (financial-chart-detect "vwap.anchored" bars))
+         (vwap (financial-chart-anchored-vwap bars 64)))
+    (should crosses)
+    ;; Each cross flips the close's side of the VWAP.
+    (should (cl-every (lambda (e) (equal (plist-get e :direction)
+                                         (if (> (plist-get (plist-get e :evidence) :distance) 0) "bullish" "bearish")))
+                      crosses))
+    ;; With the first bar as anchor the VWAP is the plain anchored VWAP.
+    (let ((e (car (financial-chart-detect "vwap.anchored" bars '(:anchor "first")))))
+      (should (financial-chart-harness-test--close
+               (plist-get (plist-get e :geometry) :y) (nth (plist-get e :index) (financial-chart-anchored-vwap bars 0)))))
+    (should (numberp (car (last vwap))))
+    (let ((c (car (last (financial-chart-detect "channel.regression" bars '(:window 30))))))
+      (should (= (plist-get c :index) 99))
+      (should (= (length (plist-get (plist-get c :geometry) :points)) 4))
+      (should (<= 0 (plist-get (plist-get c :evidence) :position) 1))))
+  (let ((m (seq-find (lambda (e) (equal (plist-get e :detector) "constant.measure"))
+                     (financial-chart-chart-events
+                      (list :bars (financial-chart-markups-test--bars)
+                            :price '(:annotations [(:type "measure" :from ["2026-03-18" 128.72] :to ["2026-05-08" 104.89])]))))))
+    (should (= (plist-get (plist-get m :evidence) :bars) 37))
+    (should (< (abs (- (plist-get (plist-get m :evidence) :change_pct) -18.513)) 0.01))))
 
 (provide 'financial-chart-eas-markups-test)
 ;;; financial-chart-eas-markups-test.el ends here

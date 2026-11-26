@@ -529,6 +529,8 @@ emacs -Q --batch -L "$EAS/src" -L "$FC/src" -l financial-chart -f financial-char
 | `fib.extension` | extension levels of each A-B-C |
 | `level.auto-sr` | pivots clustered into levels (`atr` band, or `tolerance` of price), one event per touch |
 | `trend.auto-lines` | lines through consecutive swing lows and highs |
+| `channel.regression` | the least-squares channel of the last `window` closes, as of each bar |
+| `vwap.anchored` | closes crossing the VWAP anchored at the lowest low (`anchor` `low`, `high` or `first`) |
 
 Candle shapes are measured as TA-Lib measures them (body and shadow
 against the 10-bar averages), and with `"trend": 0` every candle
@@ -592,7 +594,7 @@ of the last bar (`src/integrations/financial-chart-eas-markups.el`):
 | `fib-timezones` | vertical lines 0, 1, 2, 3, 5, 8, 13, ... bars (times `scale`) from `at`, or from the first zigzag pivot | `at scale deviation` |
 | `pitchfork` | Andrews' pitchfork on `points`, else the last `swing.abc` leg | `points deviation atr` |
 | `measured-move` | the leg `from` → `to` repeated from `then`, else from the last `swing.abc` leg | `from to then points deviation` |
-| `channel` | a parallel channel on `from`/`to` through `through` or `offset`, else the least-squares channel of the last `window` closes | `from to through offset window extend` |
+| `channel` | a parallel channel on `from`/`to` through `through` or `offset`, else `channel.regression` as of the last bar | `from to through offset window extend` |
 | `anchored-vwap` | VWAP from the bar `at`, or `anchor` `low` (default), `high` or `first` of the last `window` bars; needs volume | `at anchor window` |
 | `measure` | a box `from` → `to` labelled with the change, percent and bar count | `from to` |
 

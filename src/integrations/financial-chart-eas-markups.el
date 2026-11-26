@@ -28,7 +28,8 @@
 ;;   auto-trendlines     trend.auto-lines: the newest support and
 ;;                       resistance lines
 ;;   fib-extension       fib.extension of the last zigzag A-B-C, or of
-;;                       "from" -> "to" projected from "then"
+;;                       "from" -> "to" projected from "then"; levels
+;;                       beyond the bars' range only with "extend": true
 ;;   fib-timezones       vertical lines at Fibonacci bar counts from "at"
 ;;                       (default: the first zigzag pivot)
 ;;   pitchfork           Andrews' pitchfork on "points", else the last
@@ -462,7 +463,15 @@ A view of trend.auto-lines: the newest support and resistance line."
                (move (- (cdr to) (cdr from)))
                (levels (mapcar (lambda (r) (cons (financial-chart-markup--format-ratio r) (+ (cdr then) (* r move))))
                                ratios))
+               ;; Levels beyond the bars' range would rescale the chart: they are
+               ;; left out unless "extend": true asks for them (fc-gty.24).
+               (range (financial-chart-annotation--range ctx))
+               (levels (if (financial-chart-series-get a :extend) levels
+                         (seq-filter (lambda (l) (<= (car range) (cdr l) (cdr range))) levels)))
                (colour (financial-chart-markup--colour a)))
+    (unless (memq (financial-chart-series-get a :extend) '(nil t :false))
+      (financial-chart-series-fail (concat path "/extend") "INVALID_ANNOTATION"
+                                   "extend is true or false, got %S" (financial-chart-series-get a :extend)))
     (append
      (list (financial-chart-markup--segments
             ctx (concat name "-legs")

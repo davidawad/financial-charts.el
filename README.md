@@ -651,7 +651,7 @@ of the last bar (`src/integrations/financial-chart-eas-markups.el`):
 | `zigzag` | `swing.zigzag`: the confirmed pivots joined, the running leg dashed; `labels` adds HH/HL/LH/LL | `deviation atr labels` |
 | `auto-trendlines` | `trend.auto-lines`: the newest support and resistance line, extended right | `left right kind extend` |
 | `fibonacci` | `fib.retracement` as of the last bar, or `from`→`to` | `from to window levels` |
-| `fib-extension` | `levels` of the move `from`→`to` projected from `then`, else the last zigzag A-B-C | `from to then points deviation atr levels` |
+| `fib-extension` | `levels` of the move `from`→`to` projected from `then`, else the last zigzag A-B-C; levels beyond the bars' range are left out (they would rescale the chart) unless `"extend": true` | `from to then points deviation atr levels extend` |
 | `fib-timezones` | vertical lines 0, 1, 2, 3, 5, 8, 13, ... bars (times `scale`) from `at`, or from the first zigzag pivot | `at scale deviation` |
 | `pitchfork` | Andrews' pitchfork on `points`, else the last `swing.abc` leg | `points deviation atr` |
 | `measured-move` | the leg `from` → `to` repeated from `then`, else from the last `swing.abc` leg | `from to then points deviation` |
@@ -659,7 +659,9 @@ of the last bar (`src/integrations/financial-chart-eas-markups.el`):
 | `anchored-vwap` | VWAP from the bar `at`, or `anchor` `low` (default), `high` or `first` of the last `window` bars; needs volume | `at anchor window` |
 | `measure` | a box `from` → `to` labelled with the change, percent and bar count | `from to` |
 
-Labels of every annotation in a pane go through one placement pass
+Level, Fibonacci and S/R labels stay on their line and slide along it,
+by label widths, off each other and off candles; hand-placed labels
+stay put. Labels of every annotation in a pane go through one placement pass
 (`financial-chart-eas-labels.el`): in drawing order, a label whose
 estimated box meets one already placed moves up or down by a label
 height or two, inside the pane, to the first free place.

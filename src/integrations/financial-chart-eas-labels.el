@@ -145,10 +145,20 @@ ROWS are (:time :y ANCHOR :y2 NEW); nil without any."
             :encoding (list :x (plist-get enc :x) :y (plist-get enc :y) :y2 '(:field "y2"))))))
 
 (defun financial-chart-labels-pin (layer)
-  "LAYER, a text layer, with its labels pinned: the placement pass keeps
-them where they are (a level's or a Fibonacci ratio's label belongs on
-its line) and places the others around them."
-  (plist-put (copy-sequence layer) :label-pin t))
+  "LAYER, a text layer, with its labels pinned to their line: the
+placement pass keeps each on its y (a level's or a Fibonacci ratio's
+label belongs on its line) but may slide it along the line, by whole
+label widths, off another label (fc-gty.24, .25).  The others are placed
+around them.  A layer whose :label-pin is t (a hand-placed annotation's
+label) never moves at all."
+  (plist-put (copy-sequence layer) :label-pin 'slide))
+
+(defvar financial-chart-label-max-slides 4
+  "Label widths a pinned label may slide along its line, each way.")
+
+(defun financial-chart-labels--shift-x (box dx)
+  "BOX moved DX pixels right."
+  (list (+ (nth 0 box) dx) (nth 1 box) (+ (nth 2 box) dx) (nth 3 box)))
 
 (defun financial-chart-labels--unpin (layer)
   "LAYER without the :label-pin key (not part of the spec)."
@@ -172,11 +182,41 @@ that moved gets a leader line back to its place."
      append
      (cond
       ((not (financial-chart-labels--text-layer-p layer)) (list (financial-chart-labels--unpin layer)))
-      ((plist-get layer :label-pin)
+      ((eq (plist-get layer :label-pin) t)
        (cl-loop for row across (plist-get (plist-get layer :data) :values)
                 when (and (numberp (plist-get row :time)) (numberp (plist-get row :y)))
                 do (push (financial-chart-labels--box row (plist-get layer :mark) scale) placed))
        (list (financial-chart-labels--unpin layer)))
+      ((plist-get layer :label-pin)
+       ;; Slide along the line: same y, whole label widths left or right,
+       ;; inside the pane, to the least bad place among the labels.
+       (let* ((mark (plist-get layer :mark))
+              (x-per-px (/ (- (plist-get scale :x1) (plist-get scale :x0)) (float (plist-get scale :width))))
+              (rows (mapcar
+                     (lambda (row)
+                       (if (not (and (numberp (plist-get row :time)) (numberp (plist-get row :y)))) row
+                         (let* ((box (financial-chart-labels--box row mark scale))
+                                (w (+ 6 (- (nth 2 box) (nth 0 box))))
+                                (ds (cons 0 (cl-loop for k from 1 to financial-chart-label-max-slides
+                                                     append (list (- (* k w)) (* k w)))))
+                                (inside (seq-filter (lambda (d) (let ((m (financial-chart-labels--shift-x box d)))
+                                                                  (and (>= (nth 0 m) 0)
+                                                                       (<= (nth 2 m) (plist-get scale :width)))))
+                                                    ds))
+                                (cost (lambda (d) (financial-chart-labels--cost
+                                                   (financial-chart-labels--shift-x box d) placed obstacles
+                                                   ;; A slide costs a quarter of a step: labels stay on their line.
+                                                   (* 0.25 financial-chart-label-height (/ (abs d) (float w))))))
+                                (d (or (car (sort (copy-sequence (or inside '(0)))
+                                                  (lambda (a b) (< (funcall cost a) (funcall cost b)))))
+                                       0)))
+                           (push (financial-chart-labels--shift-x box d) placed)
+                           (if (zerop d) row
+                             (plist-put (copy-sequence row) :time (+ (plist-get row :time) (* d x-per-px)))))))
+                     (append (plist-get (plist-get layer :data) :values) nil))))
+         (list (financial-chart-labels--unpin
+                (plist-put (copy-sequence layer) :data
+                           (plist-put (copy-sequence (plist-get layer :data)) :values (vconcat rows)))))))
       (t
        (let* ((mark (plist-get layer :mark)) leaders
               (rows (mapcar

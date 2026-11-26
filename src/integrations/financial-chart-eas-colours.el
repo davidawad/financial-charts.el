@@ -30,7 +30,7 @@
 (require 'seq)
 (require 'financial-chart-eas-palette)
 
-(defvar financial-chart-colours-min-distance 60
+(defvar financial-chart-colours-min-distance 90
   "Colours closer than this (RGB distance) count as the same on a chart.")
 
 (defun financial-chart-colours--rgb (hex)

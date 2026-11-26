@@ -114,7 +114,7 @@ CHART adds top-level keys."
 (ert-deftest financial-chart-markups-fib-extension-and-time-zones ()
   (let* ((layers (financial-chart-markups-test--layers
                   [(:type "fib-extension" :from ["2026-03-18" 128.72] :to ["2026-05-08" 104.89]
-                    :then ["2026-05-22" 111.95] :levels [1 1.618])
+                    :then ["2026-05-22" 111.95] :levels [1 1.618] :extend t)
                    (:type "fib-timezones" :at "2026-02-02")]))
          (ext (financial-chart-markups-test--rows (financial-chart-markups-test--named layers "price-annotation-0")))
          (zones (financial-chart-markups-test--rows (financial-chart-markups-test--named layers "price-annotation-1"))))
@@ -366,6 +366,23 @@ CHART adds top-level keys."
                                         :data)
                              :problems)
                  [(:index 1 :field "time" :problem "earlier than the bar before")])))
+
+(ert-deftest financial-chart-markups-fib-extension-clips-to-the-bars ()
+  (let* ((bars (financial-chart-markups-test--bars))
+         (range (let ((v (append bars nil)))
+                  (cons (apply #'min (mapcar (lambda (b) (plist-get b :low)) v))
+                        (apply #'max (mapcar (lambda (b) (plist-get b :high)) v)))))
+         (a '(:type "fib-extension" :from ["2026-03-18" 128.72] :to ["2026-05-08" 104.89] :then ["2026-05-22" 111.95]))
+         (ys (lambda (layers) (mapcar (lambda (r) (plist-get r :y))
+                                      (financial-chart-markups-test--rows (financial-chart-markups-test--named layers "price-annotation-0")))))
+         (clipped (funcall ys (financial-chart-markups-test--layers (vector a))))
+         (all (funcall ys (financial-chart-markups-test--layers (vector (append a '(:extend t)))))))
+    ;; 1.618 and beyond fall below the bars: left out unless extend.
+    (should (cl-every (lambda (y) (<= (car range) y (cdr range))) clipped))
+    (should (< (length clipped) (length all)))
+    (should (= (length all) 7))
+    (financial-chart-markups-test--fails "INVALID_ANNOTATION" "/price/annotations/0/extend"
+      (financial-chart-markups-test--layers (vector (append a '(:extend "yes")))))))
 
 (provide 'financial-chart-eas-markups-test)
 ;;; financial-chart-eas-markups-test.el ends here

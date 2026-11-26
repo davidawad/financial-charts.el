@@ -85,5 +85,19 @@
   (should (financial-chart-labels--segment-hits-box-p 0 0 10 10 '(4 4 6 6)))
   (should-not (financial-chart-labels--segment-hits-box-p 0 0 10 0 '(4 4 6 6))))
 
+(ert-deftest financial-chart-labels-pinned-labels-slide-along-their-line ()
+  (let* ((scale '(:x0 0 :x1 100 :y0 0.0 :y1 100.0 :width 800 :height 200))
+         (a (financial-chart-labels-pin
+             (financial-chart-labels-test--layer "a" '((:time 100 :y 50.0 :label "61.8% 112.70")
+                                                       (:time 100 :y 51.0 :label "50.0% 117.05"))
+                                                 :align "right" :baseline "bottom")))
+         (out (financial-chart-labels-declutter (list a) scale))
+         (rows (append (plist-get (plist-get (car out) :data) :values) nil)))
+    ;; Both stay on their y; the second slid left off the first.
+    (should (equal (mapcar (lambda (r) (plist-get r :y)) rows) '(50.0 51.0)))
+    (should (= (plist-get (car rows) :time) 100))
+    (should (< (plist-get (cadr rows) :time) 100))
+    (should-not (plist-member (car out) :label-pin))))
+
 (provide 'financial-chart-eas-labels-test)
 ;;; financial-chart-eas-labels-test.el ends here

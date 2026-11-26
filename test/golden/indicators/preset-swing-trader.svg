@@ -489,10 +489,10 @@
 <line x1="87.44" y1="220.86" x2="633.55" y2="58.91" stroke="#607d8b" stroke-width="1" stroke-dasharray="3,3">
 </line>
 <text x="639.18" y="55.91" font-size="11" fill="#607d8b" text-anchor="end">0.0% 135.47</text>
-<text x="639.18" y="94.13" font-size="11" fill="#607d8b" text-anchor="end">23.6% 126.78</text>
-<text x="639.18" y="117.78" font-size="11" fill="#607d8b" text-anchor="end">38.2% 121.40</text>
+<text x="576.48" y="94.13" font-size="11" fill="#607d8b" text-anchor="end">23.6% 126.78</text>
+<text x="513.78" y="117.78" font-size="11" fill="#607d8b" text-anchor="end">38.2% 121.40</text>
 <text x="639.18" y="136.88" font-size="11" fill="#607d8b" text-anchor="end">50.0% 117.05</text>
-<text x="639.18" y="155.99" font-size="11" fill="#607d8b" text-anchor="end">61.8% 112.70</text>
+<text x="513.78" y="155.99" font-size="11" fill="#607d8b" text-anchor="end">61.8% 112.70</text>
 <text x="639.18" y="183.2" font-size="11" fill="#607d8b" text-anchor="end">78.6% 106.51</text>
 <text x="639.18" y="217.86" font-size="11" fill="#607d8b" text-anchor="end">100.0% 98.63</text>
 <line x1="138.12" y1="167.93" x2="639.18" y2="167.93" stroke="#26a69a" stroke-width="1.5" stroke-dasharray="6,3">
@@ -503,10 +503,10 @@
 </line>
 <line x1="526.59" y1="175.23" x2="639.18" y2="175.23" stroke="#26a69a" stroke-width="1.5" stroke-dasharray="6,3">
 </line>
-<text x="140.12" y="163.93" font-size="11" fill="#26a69a" text-anchor="start">S 110.67 x3</text>
-<text x="472.28" y="189.34" font-size="11" fill="#26a69a" text-anchor="start">S 104.89 x2</text>
+<text x="255.77" y="163.93" font-size="11" fill="#26a69a" text-anchor="start">S 110.67 x3</text>
+<text x="356.63" y="189.34" font-size="11" fill="#26a69a" text-anchor="start">S 104.89 x2</text>
 <text x="263.98" y="84.59" font-size="11" fill="#26a69a" text-anchor="start">S 128.72 x2</text>
-<text x="528.59" y="171.23" font-size="11" fill="#26a69a" text-anchor="start">S 109.01 x1</text>
+<text x="355.1" y="171.23" font-size="11" fill="#26a69a" text-anchor="start">S 109.01 x1</text>
 <path d="M323.9,123.1L320.74,128.57L327.07,128.57Z" fill="#26a69a">
 </path>
 <path d="M340.8,132.33L337.63,137.8L343.96,137.8Z" fill="#26a69a">
@@ -529,17 +529,17 @@
 </path>
 <text x="323.9" y="141.83" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="340.8" y="151.07" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
-<text x="352.06" y="171.11" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
-<text x="352.06" y="189.46" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
-<text x="368.94" y="165" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
+<text x="352.06" y="135.5" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
+<text x="352.06" y="165.72" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
+<text x="368.94" y="153.13" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="419.62" y="200.21" font-size="11" fill="#26a69a" text-anchor="middle">H</text>
 <text x="436.5" y="200.52" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="453.39" y="205.97" font-size="11" fill="#26a69a" text-anchor="middle">BuE</text>
 <text x="453.39" y="224.32" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
 <text x="487.18" y="210.67" font-size="11" fill="#26a69a" text-anchor="middle">BuE</text>
-<line x1="352.06" y1="143.24" x2="352.06" y2="155.11" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
+<line x1="352.06" y1="143.24" x2="352.06" y2="119.5" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
 </line>
-<line x1="352.06" y1="149.72" x2="352.06" y2="173.46" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
+<line x1="368.94" y1="149" x2="368.94" y2="137.13" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
 </line>
 <line x1="453.39" y1="196.45" x2="453.39" y2="208.32" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
 </line>
@@ -563,25 +563,27 @@
 </path>
 <path d="M616.66,70.6L613.5,65.13L619.83,65.13Z" fill="#ef5350">
 </path>
-<text x="155" y="142.39" font-size="11" fill="#ef5350" text-anchor="middle">GD</text>
+<text x="155" y="154.25" font-size="11" fill="#ef5350" text-anchor="middle">GD</text>
 <text x="222.56" y="98.6" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
 <text x="267.61" y="62.56" font-size="11" fill="#ef5350" text-anchor="middle">BeE</text>
 <text x="290.12" y="72.49" font-size="11" fill="#ef5350" text-anchor="middle">GD</text>
 <text x="301.38" y="97.11" font-size="11" fill="#ef5350" text-anchor="middle">BeE</text>
-<text x="498.44" y="157.29" font-size="11" fill="#ef5350" text-anchor="middle">BeE</text>
+<text x="498.44" y="169.16" font-size="11" fill="#ef5350" text-anchor="middle">BeE</text>
 <text x="515.33" y="138.65" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
 <text x="594.14" y="74.95" font-size="11" fill="#ef5350" text-anchor="middle">GD</text>
-<text x="594.14" y="68.48" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
+<text x="594.14" y="92.21" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
 <text x="616.66" y="70.73" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
-<line x1="155" y1="163.25" x2="155" y2="151.39" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
-</line>
 <line x1="267.61" y1="83.43" x2="267.61" y2="71.56" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
 </line>
 <line x1="290.12" y1="93.36" x2="290.12" y2="81.49" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
 </line>
 <line x1="301.38" y1="94.24" x2="301.38" y2="106.11" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
 </line>
+<line x1="498.44" y1="166.29" x2="498.44" y2="178.16" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
+</line>
 <line x1="515.33" y1="159.52" x2="515.33" y2="147.65" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
+</line>
+<line x1="594.14" y1="77.48" x2="594.14" y2="101.21" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
 </line>
 <line x1="616.66" y1="67.86" x2="616.66" y2="79.73" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
 </line>

@@ -592,15 +592,23 @@ long when bullish and short when bearish, net of `costs-bps` each way;
 the baseline is as many random entries in the same bars with the same
 directions (`draws` times), and `p` the share of draws doing as well.
 The out-of-sample split is fixed before the run, and detectors run
-together are corrected for data snooping with the max statistic over
-the family (after White 2000's Reality Check, with a random-entry
-null): `reality_check_p`. `verdict` is `edge` (out-of-sample excess,
-`reality_check_p` < 0.05, 30 or more trades), `noise` or `untested`.
+together are corrected for data snooping: each detector's trades become
+a per-bar return series (cash when flat), a stationary bootstrap
+(Politis and Romano 1994, mean block `:mean-block` bars) resamples
+them, and two tests read it, White's (2000) Reality Check and Hansen's
+(2005) SPA with consistent recentring. A record carries the family's
+p-values (`family_tests`), its own against the family's max-statistic
+null (`reality_check_p`, `spa_p`) and the random-entry one
+(`random_entry_p`). `verdict` is `edge` (out-of-sample excess,
+`spa_p` and `random_entry_p` < 0.05, 30 or more trades), `noise` or
+`untested`. `:actions '(("TSM" (:time "2024-07-15" :split 10)
+(:time "2025-03-13" :dividend 0.68)))` back-adjusts a bars set for
+splits and dividends first (`financial-chart-adjust-bars`, pure).
 The verdict shows in `financial-chart-detectors-describe`, in
 `summarize`, in the readout (`H 0.30 noise`), and a `patterns`
 annotation draws a detector whose verdict is `noise` faded unless it
-says `"show_noise": true`. Prices are used as the bars give them:
-adjust for corporate actions upstream (market-data.el).
+says `"show_noise": true`. Without `:actions` prices are used as the
+bars give them.
 
 ## Markups in a live view
 

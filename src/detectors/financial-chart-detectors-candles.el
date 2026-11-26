@@ -185,6 +185,7 @@ or nil), :oracle, :oracle-sign, :definition, :deviations, :example and
       :oracle-sign ,(plist-get spec :oracle-sign)
       :deviations ,(plist-get spec :deviations)
       :invariance '(scale shift)
+      :variants (when ',trend '(((:trend 0) scale shift) ((:trend 4) scale shift)))
       :mark '(:type "marker" :label ,(plist-get spec :label))
       :example "examples/indicators/patterns.json"
       :doc ,(format "%s candlestick pattern" name))))
@@ -406,6 +407,7 @@ or nil), :oracle, :oracle-sign, :definition, :deviations, :example and
  :lag 0 :lookback 6 :needs '(open high low close)
  :definition "Tweezer bottom (Nison 1991, ch. 7): in a downtrend a black bar and a white bar with matching lows.  No TA-Lib function; the lows match within TA-Lib's \"equal\" tolerance (0.05 x 5-bar average range)."
  :oracle nil :invariance '(scale shift)
+ :variants '(((:trend 0) scale shift))
  :mark '(:type "marker" :label "TB") :example "examples/indicators/patterns.json"
  :doc "tweezer-bottom candlestick pattern")
 
@@ -423,6 +425,7 @@ or nil), :oracle, :oracle-sign, :definition, :deviations, :example and
  :lag 0 :lookback 6 :needs '(open high low close)
  :definition "Tweezer top (Nison 1991, ch. 7): in an uptrend a white bar and a black bar with matching highs, within TA-Lib's \"equal\" tolerance.  No TA-Lib function."
  :oracle nil :invariance '(scale shift)
+ :variants '(((:trend 0) scale shift))
  :mark '(:type "marker" :label "TT") :example "examples/indicators/patterns.json"
  :doc "tweezer-top candlestick pattern")
 

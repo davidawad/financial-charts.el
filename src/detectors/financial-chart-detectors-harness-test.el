@@ -15,6 +15,9 @@
 ;;   invariance   scaling prices (and shifting them, where declared)
 ;;                changes no event: same ids, strength and evidence,
 ;;                geometry transformed
+;;
+;; Truncation and invariance run on the defaults and on each of an
+;; entry's :variants, with the invariance each declares.
 ;;   determinism  two runs encode to the same JSON
 ;;   oracle       with :oracle-params an entry equals its TA-Lib
 ;;                function bar for bar on the oracle bars; with its
@@ -99,29 +102,37 @@
         (let ((ids (mapcar (lambda (e) (plist-get e :id)) (financial-chart-detect name bars))))
           (should (= (length ids) (length (delete-dups (copy-sequence ids))))))))))
 
+(defun financial-chart-harness-test--cases (name)
+  "Detector NAME's parameter sets to test: ((PARAMS . INVARIANCE) ...).
+Its defaults with its :invariance, then each of its :variants."
+  (let ((e (financial-chart-detector name)))
+    (cons (cons nil (plist-get e :invariance)) (plist-get e :variants))))
+
 (ert-deftest financial-chart-harness-no-look-ahead ()
   (let* ((bars (financial-chart-harness-test--bars 500))
          (cuts (number-sequence 15 499 41)))
     (dolist (name (financial-chart-detector-names))
-      (let ((full (financial-chart-detect name bars)))
-        (dolist (k cuts)
-          (should (equal (list name k (financial-chart-detect name (seq-subseq bars 0 (1+ k))))
-                         (list name k (seq-filter (lambda (e) (<= (plist-get e :confirmed_index) k)) full)))))))))
+      (pcase-dolist (`(,params . ,_) (financial-chart-harness-test--cases name))
+        (let ((full (financial-chart-detect name bars params)))
+          (dolist (k cuts)
+            (should (equal (list name params k (financial-chart-detect name (seq-subseq bars 0 (1+ k)) params))
+                           (list name params k (seq-filter (lambda (e) (<= (plist-get e :confirmed_index) k)) full))))))))))
 
 (ert-deftest financial-chart-harness-price-invariance ()
   (let ((bars (financial-chart-harness-test--bars 600)))
     (dolist (name (financial-chart-detector-names))
+     (pcase-dolist (`(,params . ,invariance) (financial-chart-harness-test--cases name))
       (dolist (transform (list (cons 'scale (lambda (y) (* 4.0 y)))
                                (cons 'scale (lambda (y) (* 0.37 y)))
                                (cons 'shift (lambda (y) (+ y 250.0)))))
-        (when (memq (car transform) (plist-get (financial-chart-detector name) :invariance))
+        (when (memq (car transform) invariance)
           (let* ((fn (cdr transform))
                  (moved (vconcat (mapcar (lambda (b) (cl-loop for (k v) on b by #'cddr
                                                               append (list k (if (memq k '(:open :high :low :close))
                                                                                  (funcall fn v) v))))
                                          bars)))
-                 (a (financial-chart-detect name bars))
-                 (b (financial-chart-detect name moved)))
+                 (a (financial-chart-detect name bars params))
+                 (b (financial-chart-detect name moved params)))
             (should (equal (list name (car transform) (mapcar (lambda (e) (plist-get e :id)) b))
                            (list name (car transform) (mapcar (lambda (e) (plist-get e :id)) a))))
             (cl-loop for x in a for y in b
@@ -133,7 +144,7 @@
                                                   (financial-chart-harness-test--same (plist-get x :evidence) (plist-get y :evidence))
                                                   (financial-chart-harness-test--same
                                                    (financial-chart-harness-test--map-y (plist-get x :geometry) fn)
-                                                   (plist-get y :geometry)))))))))))))
+                                                   (plist-get y :geometry))))))))))))))
 
 (ert-deftest financial-chart-harness-determinism ()
   (let ((bars (financial-chart-harness-test--bars 400)))

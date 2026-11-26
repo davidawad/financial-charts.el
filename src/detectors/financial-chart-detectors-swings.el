@@ -99,6 +99,7 @@
  :lag 'right :lookback 3 :needs '(high low)
  :definition "Swing high/low (pivot): a high above the LEFT highs before it and not below the RIGHT highs after it, a low mirrored, known RIGHT bars later.  TradingView Pine ta.pivothigh / ta.pivotlow (leftbars, rightbars); the local extrema of Lo, Mamaysky and Wang (2000), \"Foundations of Technical Analysis\", Journal of Finance 55(4).  Strength: the smaller prominence over its neighbours in average ranges."
  :invariance '(scale shift)
+ :variants '(((:left 2 :right 5) scale shift))
  :mark '(:type "marker" :label "P")
  :example "examples/indicators/auto-trendlines.json"
  :doc "swing highs and lows")
@@ -163,6 +164,7 @@ the 14-bar average true range when ATR is set) confirms it."
  :lag 'variable :lookback 1 :needs '(high low close)
  :definition "Zig Zag (TradingView built-in Zig Zag; Merrill, A. 1977, \"Filtered Waves\"): pivots alternate high and low, each confirmed on the bar price reverses DEVIATION percent from it (or ATR times the 14-bar average true range).  The last, still running extreme is not an event.  Percent thresholds are scale- but not shift-invariant.  Strength: the leg to it in thresholds, over 3."
  :invariance '(scale)
+ :variants '(((:atr 2.0) scale shift) ((:deviation 3) scale))
  :mark '(:type "line")
  :example "examples/indicators/zigzag.json"
  :doc "alternating confirmed pivots")
@@ -196,6 +198,7 @@ With RATIOS, add extension levels C + r(B - A)."
  :lag 'variable :lookback 1 :needs '(high low close)
  :definition "A-B-C leg: three consecutive confirmed Zig Zag pivots (TradingView Zig Zag), the input of Andrews' pitchfork (Mikula, P. 2000, \"The Best Trendline Methods of Alan Andrews\"), the measured move (Bulkowski, T. 2005, \"Encyclopedia of Chart Patterns\", 2nd ed.) and the Fibonacci extension.  Confirmed with C.  Strength: closeness of the B-C retracement of A-B to 0.618."
  :invariance '(scale)
+ :variants '(((:atr 2.0) scale shift))
  :mark '(:type "line")
  :example "examples/indicators/pitchfork.json"
  :doc "three-pivot legs of the zigzag")
@@ -213,6 +216,7 @@ With RATIOS, add extension levels C + r(B - A)."
  :lag 'variable :lookback 1 :needs '(high low close)
  :definition "Fibonacci extension (TradingView \"Trend-Based Fib Extension\" drawing tool): levels C + r x (B - A) for the last confirmed Zig Zag pivots A, B, C.  Confirmed with C."
  :invariance '(scale)
+ :variants '(((:atr 2.0 :levels [1 1.618]) scale shift))
  :mark '(:type "levels")
  :example "examples/indicators/fib-extension.json"
  :doc "extension levels of each A-B-C leg")
@@ -266,6 +270,7 @@ other; levels are TO - r(TO - FROM) for RATIOS."
  :lag 0 :lookback 0 :needs '(high low)
  :definition "Fibonacci retracement (TradingView \"Fib Retracement\" drawing tool, auto-anchored): levels TO - r x (TO - FROM) of the swing between the highest high and the lowest low of the last WINDOW bars, from whichever came first.  An event each bar the swing changes; the latest is the swing as of the last bar.  Strength: the swing in average ranges, over 10."
  :invariance '(scale shift)
+ :variants '(((:window 30) scale shift))
  :mark '(:type "levels")
  :example "examples/indicators/fibonacci.json"
  :doc "the window's high-low swing and its retracement levels")
@@ -326,6 +331,7 @@ consecutive bars whose range comes within BAND of Y count once each."
  :lag 'right :lookback 3 :needs '(high low close)
  :definition "Automatic support and resistance: swing pivots (TradingView Pine ta.pivothigh/ta.pivotlow) joined, in the order they are confirmed, to the nearest level whose mean is within the band (ATR x the 14-bar average true range, or TOLERANCE x price); Osler, C. (2000), \"Support for Resistance: Technical Analysis and Intraday Exchange Rates\", FRBNY Economic Policy Review 6(2), on why levels at repeated turning points matter.  An event per pivot joining a level carries the level's mean, its pivots and its touches so far: visits of price to within the band since the level's first pivot, a run of bars counting once (evidence cluster, pivots, touches, spread); the newest event of each cluster is the level as of then.  Strength: touches over 5."
  :invariance '(scale shift)
+ :variants '(((:atr 1.0 :left 2 :right 2) scale shift) ((:tolerance 0.01) scale))
  :mark '(:type "level")
  :example "examples/indicators/support-resistance.json"
  :doc "clustered pivot levels, one event per touch")
@@ -360,6 +366,7 @@ A line through each pair of consecutive swing lows or swing highs."
  :lag 'right :lookback 3 :needs '(high low)
  :definition "Automatic trend lines (Edwards, R. and Magee, J. 1948, \"Technical Analysis of Stock Trends\", ch. 14; TradingView auto trendlines): a support line through each two consecutive swing lows and a resistance line through each two consecutive swing highs (Pine ta.pivotlow/ta.pivothigh), confirmed with the second pivot.  Evidence slope is in average ranges per bar; strength 4 x |slope|, clamped."
  :invariance '(scale shift)
+ :variants '(((:left 5 :right 2) scale shift))
  :mark '(:type "line")
  :example "examples/indicators/auto-trendlines.json"
  :doc "support and resistance lines through consecutive pivots")

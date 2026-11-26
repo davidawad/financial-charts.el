@@ -84,6 +84,8 @@ METADATA keys:
   :oracle-sign    non-nil when the oracle's sign is the event's direction
   :deviations  strings: where and why it differs from the oracle
   :invariance  (scale shift): price transforms that leave events unchanged
+  :variants    ((PARAMS . INVARIANCE) ...): more parameter sets the
+               harness tests, each with the transforms it is invariant to
   :mark        how a view draws it, e.g. (:type marker :below t :label \"H\")
   :example     a chart under the package root that draws it
   :doc         one line"
@@ -344,6 +346,11 @@ TradingView), a :lag, typed :params, an explicit :invariance and an
             (unless (and (plist-member e :invariance)
                          (cl-subsetp (plist-get e :invariance) '(scale shift)))
               (cons name ":invariance is not a subset of (scale shift)"))
+            (cl-loop for (params . inv) in (plist-get e :variants)
+                     for bad = (or (condition-case err (progn (financial-chart-detector-params name params) nil)
+                                     (financial-chart-invalid-detection (cadr err)))
+                                   (unless (cl-subsetp inv '(scale shift)) "invariance not a subset of (scale shift)"))
+                     when bad return (cons name (format ":variants %S: %s" params bad)))
             (unless (and (stringp (plist-get e :example))
                          (file-readable-p (expand-file-name (plist-get e :example) root)))
               (cons name (format ":example %S is not a readable file" (plist-get e :example)))))))))

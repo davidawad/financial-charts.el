@@ -76,6 +76,7 @@ first full window (every bar so far when WINDOW is null, from bar 1)."
  :lag 0 :lookback 1 :needs '(high low close)
  :definition "Linear regression channel (TradingView \"Regression Trend\" drawing tool; Raff, G. 1991, \"Trading the Regression Channel\", Technical Analysis of Stocks & Commodities 9(1)): the least-squares line of the last WINDOW closes, moved up and down by the largest distance of a high or low from it.  An event per bar; geometry points are the lower line's two ends then the upper's.  Evidence: slope and width in average ranges, the close's position in the channel (0 lower, 1 upper).  Strength: 10 x |slope| in ranges per bar, clamped."
  :invariance '(scale shift)
+ :variants '(((:window 30) scale shift))
  :mark '(:type "channel")
  :example "examples/indicators/channel.json"
  :doc "the regression channel as of each bar")
@@ -136,6 +137,7 @@ anchored at the current anchor."
  :lag 0 :lookback 1 :needs '(high low close volume)
  :definition "Anchored VWAP cross (Shannon, B. 2023, \"Maximum Trading Gains with Anchored VWAP\"; TradingView \"Anchored VWAP\" drawing tool): the volume-weighted typical price from the anchor bar, re-anchored when a lower low (or higher high) appears; an event on each close that crosses it.  Bullish crossing up.  Evidence: the close's distance from the VWAP in average ranges and the anchor's age in bars.  Strength: that distance, clamped."
  :invariance '(scale shift)
+ :variants '(((:anchor "high" :window 50) scale shift) ((:anchor "first") scale shift))
  :mark '(:type "marker")
  :example "examples/indicators/anchored-vwap.json"
  :doc "closes crossing the anchored VWAP")

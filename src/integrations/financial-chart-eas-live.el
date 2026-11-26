@@ -118,6 +118,9 @@ short label and strength, coloured UP for bullish and DOWN for bearish."
 Resolving strips x-eas from a view's spec, so `eas-view-open-functions'
 keeps them here.")
 
+(defvar financial-chart-live--charts (make-hash-table :test #'equal)
+  "View id to the chart description (without bars) it was composed from.")
+
 (defun financial-chart-live--remember (view source)
   "Keep the x-eas.markups of SOURCE, the spec VIEW opened with."
   (let ((spec (cond ((and (listp source) (keywordp (car source))) source)
@@ -125,7 +128,27 @@ keeps them here.")
                      (ignore-errors (eas-json-parse source))))))
     (if-let* ((markups (plist-get (plist-get spec :x-eas) :markups)))
         (puthash (eas-view-id view) markups financial-chart-live--markups)
-      (remhash (eas-view-id view) financial-chart-live--markups))))
+      (remhash (eas-view-id view) financial-chart-live--markups))
+    (if-let* ((chart (plist-get (plist-get spec :x-eas) :chart)))
+        (puthash (eas-view-id view) chart financial-chart-live--charts)
+      (remhash (eas-view-id view) financial-chart-live--charts))))
+
+(defun financial-chart-live-view-chart (id)
+  "The chart description behind live view ID, bars rebuilt from its rows, or nil.
+The rows are the view's current data, so pushed bars are included."
+  (when-let* ((view (gethash id eas-views))
+              (chart (gethash id financial-chart-live--charts)))
+    (let* ((rows (append (eas-data-rows (eas-view-data view)) nil))
+           (bars (vconcat (mapcar (lambda (r)
+                                    (append (list :open (plist-get r :open) :high (plist-get r :high)
+                                                  :low (plist-get r :low) :close (plist-get r :close))
+                                            (when (numberp (plist-get r :volume)) (list :volume (plist-get r :volume)))
+                                            (let ((time (or (plist-get r :date)
+                                                            (and (equal (plist-get chart :x) "calendar")
+                                                                 (plist-get r :time)))))
+                                              (when (numberp time) (list :time time)))))
+                                  (seq-filter (lambda (r) (numberp (plist-get r :close))) rows)))))
+      (append (list :bars bars) chart))))
 
 (add-hook 'eas-view-open-functions #'financial-chart-live--remember)
 

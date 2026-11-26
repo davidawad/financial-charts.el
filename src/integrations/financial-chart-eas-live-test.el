@@ -58,5 +58,21 @@
     (should (memq (plist-get (nth 3 rows) :status) '(pass skip)))
     (should (seq-find (lambda (r) (equal (plist-get r :name) "markups:registry")) (financial-chart-doctor-checks)))))
 
+(ert-deftest financial-chart-live-summarize-a-view ()
+  (let ((eas-views (make-hash-table :test 'equal)) (inhibit-message t)
+        (chart (financial-chart-catalog-example "preset-swing-trader")))
+    (eas-view-open (financial-chart-compose chart) :id "fc:sum" :target 'text :size '(:cols 100 :rows 40))
+    (let ((from-view (financial-chart-summarize "fc:sum"))
+          (from-chart (financial-chart-summarize chart)))
+      ;; The view's rows rebuild the same bars and the same digest.
+      (should (equal (plist-get from-view :bars-id) (plist-get from-chart :bars-id)))
+      (should (equal (plist-get from-view :text) (plist-get from-chart :text))))
+    (let ((answer (eas-agent "summarize" "fc:sum")))
+      (should (eq (plist-get answer :ok) t))
+      (should (string-prefix-p "Close 134.76" (plist-get (plist-get answer :data) :text))))
+    ;; A view that is not a composed chart.
+    (eas-view-open "line" :id "plain" :bindings (eas-template-example "line") :target 'text)
+    (should (equal (plist-get (financial-chart-summarize-verb "plain") :reason) "NOT_A_FINANCIAL_CHART"))))
+
 (provide 'financial-chart-eas-live-test)
 ;;; financial-chart-eas-live-test.el ends here

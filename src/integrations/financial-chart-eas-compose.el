@@ -394,7 +394,11 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
             (readout (or (financial-chart-series-get chart :readout)
                          (financial-chart-compose--readout ctx price panes entries all-series markups))))
        (list :x-eas (append (list :readout readout)
-                            (when markups (list :markups markups))))))))
+                            (when markups (list :markups markups))
+                            ;; The description without its bars: a live view rebuilds
+                            ;; the chart from it and its rows (`financial-chart-summarize').
+                            (list :chart (cl-loop for (k v) on chart by #'cddr
+                                                  unless (eq k :bars) append (list k v)))))))))
 
 (defun financial-chart-compose--readout (ctx price panes entries series &optional markups)
   "The hover readout of a composed chart: its x-eas.readout (fc-gy6).

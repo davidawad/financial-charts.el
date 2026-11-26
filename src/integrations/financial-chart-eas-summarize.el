@@ -102,11 +102,23 @@ Default: the newest record in `financial-chart-evidence-directory'.")
   "X to 2 decimals."
   (and (numberp x) (/ (fround (* (float x) 100)) 100.0)))
 
+(declare-function financial-chart-live-view-chart "financial-chart-eas-live" (id))
+
+(defun financial-chart-summarize--source (chart)
+  "CHART as a description: an open view's name gives the chart behind it."
+  (or (and (stringp chart) (boundp 'eas-views) (gethash chart eas-views)
+           (or (financial-chart-live-view-chart chart)
+               (financial-chart-series-fail "" "NOT_A_FINANCIAL_CHART"
+                                            "View %s was not composed by financial-chart" chart)))
+      (financial-chart-compose-read chart)))
+
 (cl-defun financial-chart-summarize (chart &key (since 20) (max-events 8))
-  "A scene digest of CHART (a plist, JSON text or file): what it shows.
-SINCE is how many bars back counts as recent (20); MAX-EVENTS caps the
-recent events (8).  Pure."
-  (let* ((chart (financial-chart-presets-apply (financial-chart-compose-read chart)))
+  "A scene digest of CHART: what it shows.
+CHART is a description (a plist, JSON text or file) or the name of an
+open eas view of a composed chart, read from its current rows.  SINCE is
+how many bars back counts as recent (20); MAX-EVENTS caps the recent
+events (8).  Pure for a description."
+  (let* ((chart (financial-chart-presets-apply (financial-chart-summarize--source chart)))
          (bars (car (financial-chart-compose--bars chart)))
          (v (vconcat bars)) (n (length v))
          (last-bar (aref v (1- n)))
@@ -220,7 +232,8 @@ recent events (8).  Pure."
      " ")))
 
 (defun financial-chart-summarize-verb (chart &optional since)
-  "`financial-chart-summarize' of CHART in the chart/v1 envelope with its cost."
+  "`financial-chart-summarize' of CHART (a description or a view's name) in
+the chart/v1 envelope with its cost."
   (let ((start (float-time)))
     (condition-case err
         (let ((digest (financial-chart-summarize chart :since (or since 20))))
@@ -232,6 +245,28 @@ recent events (8).  Pure."
                    :reason (or (plist-get (cddr err) :code) (symbol-name (car err)))
                    :message (if (stringp (cadr err)) (cadr err) (error-message-string err))
                    :evidence (list :path (or (plist-get (cddr err) :path) :null)))))))
+
+(defun financial-chart-summarize--agent-verb (pos opts)
+  "Answer summarize VIEW (first of POS) for the eas agent door; OPTS :since."
+  (let* ((id (format "%s" (eas-agent-arg-required pos 0 "a view id (see views)" "summarize")))
+         (answer (financial-chart-summarize-verb id (eas-agent-arg-number opts :since))))
+    (if (eq (plist-get answer :ok) t)
+        (eas-agent-ok (plist-get answer :data) (eas-agent-live-cmd "markups" id))
+      (eas-agent-fail (plist-get answer :reason) (plist-get answer :evidence) nil
+                      (eas-agent-live-cmd "views")))))
+
+(declare-function eas-agent-register-verb "eas-agent-core")
+(declare-function eas-agent-ok "eas-agent-core")
+(declare-function eas-agent-fail "eas-agent-core")
+(declare-function eas-agent-live-cmd "eas-agent-core")
+(declare-function eas-agent-arg-required "eas-agent-core")
+(declare-function eas-agent-arg-number "eas-agent-core")
+
+(with-eval-after-load 'eas-agent-core
+  (eas-agent-register-verb
+   "summarize" #'financial-chart-summarize--agent-verb :live t
+   :doc "Scene digest of a financial-chart VIEW: levels, Fibonacci, recent events, series states"
+   :usage "summarize VIEW [--since N]" :options '(:since)))
 
 (provide 'financial-chart-eas-summarize)
 ;;; financial-chart-eas-summarize.el ends here

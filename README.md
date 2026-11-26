@@ -557,7 +557,9 @@ and the TA-Lib oracle. `financial-chart-register-detector` adds one.
 ## Reading a chart without looking at it
 
 `(financial-chart-summarize CHART)` (or `financial-chart-summarize-verb`,
-chart/v1 with its cost) returns a scene digest of a few hundred
+chart/v1 with its cost; CHART may also be the name of an open view of
+a composed chart, read from its current rows, and the eas door has
+`summarize VIEW`) returns a scene digest of a few hundred
 tokens: the bars' content hash (`financial-chart-bars-id`), the last
 close, the support/resistance levels nearest first with side, distance
 and touches, the nearest Fibonacci level and swing, the events of the

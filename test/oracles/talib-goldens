@@ -8,8 +8,11 @@
 Run from the repository root:  test/oracles/talib-goldens
 
 1. test/fixtures/detectors/oracle-bars.json: 4000 seeded synthetic bars
-   (a random walk with dojis, long shadows, gaps and trending stretches,
-   prices rounded to cents so elisp and C read the same doubles).
+   (a random walk with dojis, long shadows, gaps and trending stretches),
+   then 25 planted dark cloud covers, piercing lines, three black crows
+   and rising and falling three methods after trending context, which a
+   random walk almost never draws; prices rounded to cents so elisp and
+   C read the same doubles.
 2. test/fixtures/detectors/talib.json: for each TA-Lib CDL* function a
    detector names as its :oracle, its lookback and every non-zero output
    as [index, value].
@@ -72,11 +75,63 @@ def bars(n=4000, seed=20261126):
     return out
 
 
+def bar(o, h, lo, c, rng):
+    return {"open": round(o, 2), "high": round(h, 2), "low": round(lo, 2), "close": round(c, 2),
+            "volume": int(500000 + rng.random() * 1000000)}
+
+
+def context(p, n, up, rng):
+    """N ordinary bars trending UP (or down) from P; return (bars, last close)."""
+    out = []
+    for _ in range(n):
+        step = 0.6 if up else -0.6
+        o, c = p, p + step + rng.gauss(0, 0.05)
+        out.append(bar(o, max(o, c) + 0.3, min(o, c) - 0.3, c, rng))
+        p = c
+    return out, p
+
+
+def plant(kind, p, rng):
+    """One planted pattern of KIND from price P, as TA-Lib defines it."""
+    b = lambda o, h, lo, c: bar(p + o, p + h, p + lo, p + c, rng)
+    if kind == "darkcloud":
+        return [b(0, 2.2, -0.1, 2), b(2.5, 2.6, 0.6, 0.7)]
+    if kind == "piercing":
+        return [b(0, 0.1, -2.2, -2), b(-2.5, -0.6, -2.6, -0.7)]
+    if kind == "crows":
+        return [b(-1, 0.2, -1.1, 0), b(0, 0.1, -1, -1), b(-0.5, -0.4, -1.5, -1.5), b(-1, -0.9, -2, -2)]
+    if kind == "rising":
+        return [b(0, 3.1, -0.1, 3), b(2.8, 2.9, 2.4, 2.5), b(2.5, 2.6, 2.1, 2.2), b(2.2, 2.3, 1.8, 1.9),
+                b(2.0, 3.6, 1.95, 3.5)]
+    if kind == "falling":
+        return [b(0, 0.1, -3.1, -3), b(-2.8, -2.4, -2.9, -2.5), b(-2.5, -2.1, -2.6, -2.2),
+                b(-2.2, -1.8, -2.3, -1.9), b(-2.0, -1.95, -3.6, -3.5)]
+    raise ValueError(kind)
+
+
+PLANTS = [("darkcloud", True), ("piercing", False), ("crows", True), ("rising", True), ("falling", False)]
+
+
+def planted(start, n=25, seed=20261127):
+    """N plants of each rare pattern after 12 trending context bars each (fc-gty.11)."""
+    rng = random.Random(seed)
+    out, p = [], start
+    for _ in range(n):
+        for kind, up in PLANTS:
+            ctx, p = context(p, 12, up, rng)
+            out += ctx
+            pl = plant(kind, p, rng)
+            out += pl
+            p = pl[-1]["close"]
+    return out
+
+
 def main():
     root = Path(__file__).resolve().parents[2]
     fixtures = root / "test" / "fixtures" / "detectors"
     fixtures.mkdir(parents=True, exist_ok=True)
     b = bars()
+    b += planted(b[-1]["close"])
     (fixtures / "oracle-bars.json").write_text(json.dumps(b, indent=0) + "\n")
     arr = {k: np.array([x[k] for x in b], dtype=float) for k in ("open", "high", "low", "close")}
     goldens = {"talib": talib.__version__, "bars": "oracle-bars.json", "functions": {}}

@@ -183,6 +183,8 @@ PARAMS-OF gives a detector's parameters."
        (let* ((g (plist-get (plist-get gold :functions) (intern (concat ":" fn))))
               (theirs (mapcar (lambda (h) (cons (aref h 0) (aref h 1))) (plist-get g :hits))))
          (should g)
+         ;; Enough bars fire for the comparison to mean something.
+         (should (equal (list fn (>= (length theirs) 20)) (list fn t)))
          (should (equal (list fn (plist-get g :lookback))
                         (list fn (plist-get (financial-chart-detector (car names)) :lookback))))
          ;; Under the oracle's parameters: bar for bar.

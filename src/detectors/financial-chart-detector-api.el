@@ -51,6 +51,25 @@
   "Registered detectors as (NAME . PLIST), NAME a symbol such as `pattern.hammer'.
 PLIST holds :fn and the metadata of `financial-chart-register-detector'.")
 
+(defvar financial-chart-detector--generation 0
+  "Counts registrations, so a re-registered detector's memo entries die.")
+
+(defvar financial-chart-detect-memo t
+  "Non-nil memoizes `financial-chart-detect' on (bars-id, detector, params,
+registration).  Memoized events are shared: do not modify them.")
+
+(defvar financial-chart-detect-memo-size 256
+  "How many detections the memo keeps; the oldest go first.")
+
+(defvar financial-chart-detect--memo (make-hash-table :test #'equal)
+  "Memoized detections: key to events.")
+
+(defvar financial-chart-detect--memo-order nil
+  "Memo keys, newest first.")
+
+(defvar financial-chart-detect--last-cached nil
+  "Non-nil when the last `financial-chart-detect' was answered from the memo.")
+
 (defconst financial-chart-detector-param-types
   '(integer number boolean string choice numbers)
   "Parameter types a detector may declare.")
@@ -92,7 +111,9 @@ METADATA keys:
   (unless (and (symbolp name) (functionp fn) (zerop (% (length metadata) 2)))
     (financial-chart-detection-fail "" "INVALID_DETECTOR"
                                     "register needs a symbol, a function and a keyword plist"))
-  (setf (alist-get name financial-chart-detector-registry) (append (list :fn fn) metadata))
+  (setf (alist-get name financial-chart-detector-registry)
+        (append (list :fn fn :generation (cl-incf financial-chart-detector--generation)) metadata))
+  (clrhash financial-chart-detect--memo)
   name)
 
 (defun financial-chart-detector (name)
@@ -257,6 +278,48 @@ have the same id however they were read."
                            (append bars nil) "\n"))
    0 16))
 
+;;; Checking bars (M0)
+
+(defun financial-chart-check-bars (bars)
+  "Problems with BARS before anything is computed: a list of
+\(:index I :field F :problem TEXT), empty when the bars are sound.
+Checks numbers, high >= low, open and close within high..low, times
+rising and not repeated, and volume not negative."
+  (let ((v (vconcat bars)) problems prev)
+    (dotimes (i (length v))
+      (let* ((b (aref v i))
+             (num (lambda (k) (let ((x (plist-get b k))) (and (numberp x) x))))
+             (o (funcall num :open)) (h (funcall num :high)) (l (funcall num :low)) (c (funcall num :close))
+             (time (plist-get b :time)) (vol (plist-get b :volume))
+             (add (lambda (field text) (push (list :index i :field field :problem text) problems))))
+        (dolist (k '(:open :high :low :close))
+          (unless (funcall num k) (funcall add (substring (symbol-name k) 1) "not a number")))
+        (when (and h l (< h l)) (funcall add "high" "below the low"))
+        (when (and o h l (or (> o h) (< o l))) (funcall add "open" "outside high..low"))
+        (when (and c h l (or (> c h) (< c l))) (funcall add "close" "outside high..low"))
+        (when (and (numberp vol) (< vol 0)) (funcall add "volume" "negative"))
+        (when (and time prev)
+          (let ((a (if (stringp prev) prev (format "%020d" prev)))
+                (z (if (stringp time) time (format "%020d" time))))
+            (cond ((equal a z) (funcall add "time" "repeats the bar before"))
+                  ((string< z a) (funcall add "time" "earlier than the bar before")))))
+        (setq prev time)))
+    (nreverse problems)))
+
+(defun financial-chart-check-bars-verb (bars)
+  "`financial-chart-check-bars' in the chart/v1 envelope with the bars' id."
+  (let ((problems (financial-chart-check-bars bars)) (v (vconcat bars)))
+    (append (list :contract "chart/v1" :ok (if problems :false t))
+            (when problems (list :reason "INVALID_BAR"
+                                 :evidence (list :path (format "/bars/%d/%s" (plist-get (car problems) :index)
+                                                               (plist-get (car problems) :field)))))
+            (list :data (list :bars-id (if (> (length v) 0) (financial-chart-bars-id v) :null)
+                              :n (length v)
+                              :first (if (> (length v) 0) (financial-chart-detector--time v 0) :null)
+                              :last (if (> (length v) 0) (financial-chart-detector--time v (1- (length v))) :null)
+                              :problems (vconcat (seq-take problems 20)))
+                  :next (vector "(financial-chart-detect NAME BARS)")))))
+
 ;;; The verb
 
 (cl-defun financial-chart-detect (name bars &optional params &key since limit)
@@ -270,9 +333,20 @@ or after a time (a string); LIMIT keeps the last LIMIT.  Signal
          (name (if (stringp name) (intern name) name))
          (params (financial-chart-detector-params name params))
          (v (financial-chart-detector--bars bars (plist-get entry :needs)))
-         (events (if (zerop (length v)) nil
-                   (financial-chart-detector--finish name params v (funcall (plist-get entry :fn) v params))))
+         (key (and financial-chart-detect-memo (> (length v) 0)
+                   (list (financial-chart-bars-id v) name params (plist-get entry :generation))))
+         (cached (and key (gethash key financial-chart-detect--memo)))
+         (events (cond ((zerop (length v)) nil)
+                       (cached (car cached))
+                       (t (financial-chart-detector--finish name params v (funcall (plist-get entry :fn) v params)))))
          (n (length v)))
+    (setq financial-chart-detect--last-cached (and cached t))
+    (when (and key (not cached))
+      (puthash key (list events) financial-chart-detect--memo)
+      (push key financial-chart-detect--memo-order)
+      (when (> (length financial-chart-detect--memo-order) financial-chart-detect-memo-size)
+        (remhash (car (last financial-chart-detect--memo-order)) financial-chart-detect--memo)
+        (setq financial-chart-detect--memo-order (butlast financial-chart-detect--memo-order))))
     (when since
       (setq events (seq-filter (lambda (e)
                                  (if (integerp since) (>= (plist-get e :confirmed_index) (- n since))
@@ -293,7 +367,8 @@ Return (:contract \"chart/v1\" :ok t :data (:events [...]) :next [...]
                 :data (list :detector (format "%s" name) :events (vconcat events))
                 :next (vector (format "(financial-chart-detector-describe '%s)" name))
                 :cost (list :ms (round (* 1000 (- (float-time) start))) :bars (length bars)
-                            :events (length events))))
+                            :events (length events)
+                            :cached (if financial-chart-detect--last-cached t :false))))
       (financial-chart-invalid-detection
        (list :contract "chart/v1" :ok :false :reason (plist-get (cddr err) :code)
              :message (cadr err) :evidence (list :path (plist-get (cddr err) :path))

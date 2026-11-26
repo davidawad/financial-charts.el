@@ -492,7 +492,13 @@ that return events, and drawn as views of those events
 (financial-chart-detect-verb "swing.zigzag" BARS '(:deviation 4))   ; chart/v1 envelope
 (financial-chart-chart-events "chart.json")   ; every event a chart's annotations show
 (financial-chart-detectors-describe)          ; params, lag, definition, oracle, invariance
+(financial-chart-check-chart "chart.json")    ; bars, presets, annotation params, before computing
+(financial-chart-check-bars-verb BARS)        ; bars problems and their content hash (bars-id)
 ```
+
+Detection is memoized on (bars-id, detector, params, registration)
+(`financial-chart-detect-memo`, the last 256), so a redraw of the same
+bars recomputes nothing; the verb's `cost` says `cached`.
 
 ```sh
 emacs -Q --batch -L "$EAS/src" -L "$FC/src" -l financial-chart -f financial-chart-detect-main -- \

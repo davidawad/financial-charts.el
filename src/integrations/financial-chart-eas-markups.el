@@ -788,6 +788,55 @@ FILE is a JSON array of bars or a chart with \"bars\".  Exit 1 on failure."
       (terpri)
       (unless (eq (plist-get answer :ok) t) (kill-emacs 1)))))
 
+(defun financial-chart-check-chart (chart)
+  "Validate CHART (a plist, JSON text or file) before computing anything.
+Return the chart/v1 envelope: the bars' id and problems
+\(`financial-chart-check-bars'), presets that do not expand, unknown
+annotation types and bad detector parameters, each with its JSON path."
+  (let (problems bars expanded)
+    (condition-case err
+        (let ((c (financial-chart-compose-read chart)))
+          (setq bars (append (financial-chart-series-get c :bars) nil))
+          (dolist (p (financial-chart-check-bars bars))
+            (push (list :path (format "/bars/%d/%s" (plist-get p :index) (plist-get p :field))
+                        :code "INVALID_BAR" :problem (plist-get p :problem))
+                  problems))
+          (setq expanded (financial-chart-presets-apply c)))
+      (financial-chart-invalid-chart
+       (push (list :path (plist-get (cddr err) :path) :code (plist-get (cddr err) :code) :problem (cadr err))
+             problems)))
+    (when expanded
+      (cl-loop
+       for (ppath . pane) in (cons (cons "/price" (financial-chart-series-get expanded :price))
+                                   (seq-map-indexed (lambda (p i) (cons (format "/panes/%d" i) p))
+                                                    (append (financial-chart-series-get expanded :panes) nil)))
+       do (cl-loop
+           for a in (append (financial-chart-series-get pane :annotations) nil) for i from 0
+           for path = (format "%s/annotations/%d" ppath i)
+           for type = (financial-chart-series-get a :type)
+           for spec = (assoc type financial-chart-markup-detectors)
+           do (cond
+               ((not (member type financial-chart-annotation-types))
+                (push (list :path (concat path "/type") :code "UNKNOWN_ANNOTATION"
+                            :problem (format "Unknown annotation type %S" type))
+                      problems))
+               ((and spec (not (and (nth 3 spec) (financial-chart-series-get a (nth 3 spec)))))
+                (condition-case err
+                    (financial-chart-detector-params
+                     (nth 1 spec) (cl-loop for k in (nth 2 spec) when (plist-member a k) append (list k (plist-get a k))))
+                  (financial-chart-invalid-detection
+                   (push (list :path (concat path (string-remove-prefix "/params" (plist-get (cddr err) :path)))
+                               :code "INVALID_ANNOTATION" :problem (cadr err))
+                         problems))))))))
+    (setq problems (nreverse problems))
+    (append (list :contract "chart/v1" :ok (if problems :false t))
+            (when problems (list :reason (plist-get (car problems) :code)
+                                 :evidence (list :path (plist-get (car problems) :path))))
+            (list :data (list :bars-id (if bars (financial-chart-bars-id bars) :null) :n (length bars)
+                              :problems (vconcat problems))
+                  :next (if problems ["(financial-chart-expand CHART)"]
+                          ["(financial-chart-compose CHART)" "(financial-chart-summarize CHART)"])))))
+
 ;;; Registration
 
 (defconst financial-chart-markup-types

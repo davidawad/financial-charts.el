@@ -329,5 +329,43 @@ CHART adds top-level keys."
     (should (= (plist-get (plist-get m :evidence) :bars) 37))
     (should (< (abs (- (plist-get (plist-get m :evidence) :change_pct) -18.513)) 0.01))))
 
+(ert-deftest financial-chart-detect-memo-and-check ()
+  (let* ((bars (car (financial-chart-compose--bars (list :bars (financial-chart-markups-test--bars)))))
+         (financial-chart-detect-memo t))
+    (clrhash financial-chart-detect--memo)
+    (let ((a (financial-chart-detect "swing.pivot" bars)))
+      (should-not financial-chart-detect--last-cached)
+      (should (eq (financial-chart-detect "swing.pivot" (copy-sequence bars)) a))
+      (should financial-chart-detect--last-cached)
+      (should (eq (plist-get (plist-get (financial-chart-detect-verb "swing.pivot" bars) :cost) :cached) t))
+      ;; Other params, other bars: computed.
+      (financial-chart-detect "swing.pivot" bars '(:left 2))
+      (should-not financial-chart-detect--last-cached)
+      (financial-chart-detect "swing.pivot" (seq-take bars 50))
+      (should-not financial-chart-detect--last-cached)
+      ;; Re-registering a detector forgets its memo.
+      (let ((entry (financial-chart-detector 'swing.pivot)))
+        (apply #'financial-chart-register-detector 'swing.pivot (plist-get entry :fn)
+               (cl-loop for (k v) on entry by #'cddr unless (memq k '(:fn :generation)) append (list k v))))
+      (financial-chart-detect "swing.pivot" bars)
+      (should-not financial-chart-detect--last-cached)))
+  ;; check: bars, presets, annotations, before computing.
+  (should (eq (plist-get (financial-chart-check-chart (financial-chart-catalog-example "preset-swing-trader")) :ok) t))
+  (let* ((bars (vconcat (financial-chart-markups-test--bars)))
+         (bad (vconcat (list (plist-put (copy-sequence (aref bars 0)) :high 1.0)) (seq-drop bars 1)))
+         (answer (financial-chart-check-chart (list :bars bad :preset "trend"
+                                              :price '(:annotations [(:type "zigzag" :deviation -1) (:type "nope")])))))
+    (should (eq (plist-get answer :ok) :false))
+    (should (equal (mapcar (lambda (p) (plist-get p :path)) (plist-get (plist-get answer :data) :problems))
+                   '("/bars/0/high" "/bars/0/open" "/bars/0/close"
+                     "/price/annotations/2/deviation" "/price/annotations/3/type"))))
+  (should (equal (plist-get (financial-chart-check-chart (list :bars [] :preset "nope")) :reason) "UNKNOWN_PRESET"))
+  (should (equal (plist-get (plist-get (financial-chart-check-bars-verb
+                                         (list '(:open 1 :high 2 :low 0 :close 1 :time "2026-01-02")
+                                               '(:open 1 :high 2 :low 0 :close 1 :time "2026-01-01")))
+                                        :data)
+                             :problems)
+                 [(:index 1 :field "time" :problem "earlier than the bar before")])))
+
 (provide 'financial-chart-eas-markups-test)
 ;;; financial-chart-eas-markups-test.el ends here

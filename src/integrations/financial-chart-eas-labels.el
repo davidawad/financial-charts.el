@@ -122,10 +122,41 @@ pixels."
                                                       (q (financial-chart-labels--px scale (aref xs i) b)))
                                                   (list (car p) (cdr p) (car q) (cdr q))))))))
 
+(defun financial-chart-labels-layer-obstacles (scale layers)
+  "Obstacles drawn by LAYERS under SCALE: rule rows (levels, trend lines)
+as segments, point marks (pattern markers, pivots) as small boxes.
+Return (:segments :markers) in pixels, for `financial-chart-labels-declutter'."
+  (let (segments markers)
+    (dolist (l layers)
+      (let ((type (plist-get (plist-get l :mark) :type))
+            (rows (plist-get (plist-get l :data) :values)))
+        (when (vectorp rows)
+          (cl-loop for r across rows
+                   for x = (plist-get r :time) for y = (plist-get r :y)
+                   when (and (numberp x) (numberp y))
+                   do (pcase type
+                        ("rule" (let ((p (financial-chart-labels--px scale x y))
+                                      (q (financial-chart-labels--px scale (or (plist-get r :time2) x)
+                                                                     (or (plist-get r :y2) y))))
+                                  (when (numberp (plist-get r :time2))
+                                    (push (list (car p) (cdr p) (car q) (cdr q)) segments))))
+                        ("point" (let ((p (financial-chart-labels--px scale x y)))
+                                   (push (list (- (car p) 5) (- (cdr p) 5) (+ (car p) 5) (+ (cdr p) 5)) markers))))))))
+    (list :segments segments :markers markers)))
+
+(defun financial-chart-labels--merge-obstacles (a b)
+  "Obstacles A and B together."
+  (list :boxes (append (plist-get a :boxes) (plist-get b :boxes))
+        :segments (append (plist-get a :segments) (plist-get b :segments))
+        :markers (append (plist-get a :markers) (plist-get b :markers))))
+
 (defun financial-chart-labels--cost (box placed obstacles k)
   "How bad BOX is: other labels in PLACED, then candle bodies and series
-lines of OBSTACLES, then the distance K it moved."
+lines of OBSTACLES, with markers almost as bad as labels, then the
+distance K it moved."
   (+ (* 100 (cl-count-if (lambda (p) (financial-chart-labels--overlap-p box p)) placed))
+     ;; A label over a marker hides the signal it names.
+     (* 50 (cl-count-if (lambda (m) (financial-chart-labels--overlap-p box m)) (plist-get obstacles :markers)))
      (* 10 (cl-count-if (lambda (o) (financial-chart-labels--overlap-p box o)) (plist-get obstacles :boxes)))
      (* 3 (cl-count-if (lambda (s) (financial-chart-labels--segment-hits-box-p
                                     (nth 0 s) (nth 1 s) (nth 2 s) (nth 3 s) box))
@@ -201,9 +232,19 @@ that moved gets a leader line back to its place."
                                 (w (+ 6 (- (nth 2 box) (nth 0 box))))
                                 (ds (cons 0 (cl-loop for k from 1 to financial-chart-label-max-slides
                                                      append (list (- (* k w)) (* k w)))))
+                                ;; Inside the pane and inside the label's own line
+                                ;; (its :span0..:span1): a level's label never leaves it.
+                                (lo (max 0 (if (numberp (plist-get row :span0))
+                                               (car (financial-chart-labels--px scale (plist-get row :span0) 0))
+                                             0)))
+                                (hi (min (plist-get scale :width)
+                                         (if (numberp (plist-get row :span1))
+                                             (car (financial-chart-labels--px scale (plist-get row :span1) 0))
+                                           (plist-get scale :width))))
                                 (inside (seq-filter (lambda (d) (let ((m (financial-chart-labels--shift-x box d)))
-                                                                  (and (>= (nth 0 m) 0)
-                                                                       (<= (nth 2 m) (plist-get scale :width)))))
+                                                                  (or (zerop d)
+                                                                      (and (>= (nth 0 m) (- lo 1))
+                                                                           (<= (nth 2 m) (+ hi 1))))))
                                                     ds))
                                 (cost (lambda (d) (financial-chart-labels--cost
                                                    (financial-chart-labels--shift-x box d) placed obstacles
@@ -214,7 +255,7 @@ that moved gets a leader line back to its place."
                                        0))
                                 ;; No slide clears every label: stack it a label height or
                                 ;; two off its line instead, with a leader line back (fc-gty.25).
-                                (k (if (< (funcall cost d) 100) 0
+                                (k (if (< (funcall cost d) 50) 0
                                      (or (cl-loop for s from 1 to financial-chart-label-max-steps
                                                   thereis (cl-loop for k in (list (- (* s financial-chart-label-height))
                                                                                   (* s financial-chart-label-height))
@@ -223,7 +264,7 @@ that moved gets a leader line back to its place."
                                                                    when (and (>= (nth 1 m) 0)
                                                                              (<= (nth 3 m) (plist-get scale :height))
                                                                              (not (cl-some (lambda (p) (financial-chart-labels--overlap-p m p))
-                                                                                           placed)))
+                                                                                           (append placed (plist-get obstacles :markers)))))
                                                                    return k))
                                          0))))
                            (push (financial-chart-labels--shift (financial-chart-labels--shift-x box d) k) placed)

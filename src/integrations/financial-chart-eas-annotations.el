@@ -223,7 +223,7 @@ annotation's label stays where it was put."
                                              :x "time" :x2 "time2" :y "y"))
      (when label
        (list (financial-chart-labels-pin
-              (financial-chart-annotation--text ctx (concat name "-label") (list (list :time to :y y :label label))
+              (financial-chart-annotation--text ctx (concat name "-label") (list (list :time to :y y :label label :span0 from :span1 to))
                                                colour :align "right" :baseline "bottom" :dy -2)))))))
 
 (defun financial-chart-annotation--trendline (ctx a name path)
@@ -348,7 +348,7 @@ Ratio 0 is TO (where the move ended), 1 is FROM.  Return (RATIO . PRICE)s."
          (start (min (car from) (car to)))
          (end (aref xs (1- (length xs))))
          (colour (or (financial-chart-series-get a :color) financial-chart-annotation-color))
-         (rows (mapcar (lambda (l) (list :time start :time2 end :y (cdr l)
+         (rows (mapcar (lambda (l) (list :time start :time2 end :y (cdr l) :span0 start :span1 end
                                          :label (format "%s%% %.2f" (/ (round (* 1000 (car l))) 10.0) (cdr l))))
                        levels))
          (sorted (sort (mapcar #'cdr levels) #'<)))

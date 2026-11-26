@@ -227,10 +227,13 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
                                            ((equal (plist-get spec :path) "/price") (financial-chart-annotation--range ctx)))))))
                        (financial-chart-labels-declutter
                         layers scale
-                        (financial-chart-labels-obstacles
-                         scale (plist-get ctx :xs)
-                         (and (equal (plist-get spec :path) "/price") (plist-get ctx :bars))
-                         (mapcar (lambda (s) (plist-get s :values)) series))))
+                        (financial-chart-labels--merge-obstacles
+                         (financial-chart-labels-obstacles
+                          scale (plist-get ctx :xs)
+                          (and (equal (plist-get spec :path) "/price") (plist-get ctx :bars))
+                          (mapcar (lambda (s) (plist-get s :values)) series))
+                         ;; Level and trend lines and markers count too (fc-gty.27).
+                         (financial-chart-labels-layer-obstacles scale layers))))
                    layers))
          (layers (financial-chart-compose--y-domain layers (plist-get spec :domain))))
     (when-let* ((title (plist-get spec :title)))

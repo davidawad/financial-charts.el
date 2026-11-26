@@ -660,7 +660,9 @@ of the last bar (`src/integrations/financial-chart-eas-markups.el`):
 | `measure` | a box `from` → `to` labelled with the change, percent and bar count | `from to` |
 
 Level, Fibonacci and S/R labels stay on their line and slide along it,
-by label widths, off each other and off candles; hand-placed labels
+by label widths but never past the line's own ends, off each other,
+markers and candles; when no slide clears them they stack a label
+height or two off the line with a leader line back. Hand-placed labels
 stay put. Labels of every annotation in a pane go through one placement pass
 (`financial-chart-eas-labels.el`): in drawing order, a label whose
 estimated box meets one already placed moves up or down by a label

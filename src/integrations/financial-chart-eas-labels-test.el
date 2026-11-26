@@ -128,5 +128,33 @@
     (should (> (length boxes) 1))
     (should (cl-loop for (b . rest) on boxes always (cl-notany (lambda (c) (financial-chart-labels--overlap-p b c)) rest)))))
 
+(ert-deftest financial-chart-labels-pinned-labels-stay-in-their-span ()
+  ;; Two Fibonacci labels on near ratios whose zone is the right fifth of
+  ;; the pane: the second may not slide left out of the zone, so it stacks
+  ;; (with a leader) and stays inside 80..100.
+  (let* ((scale '(:x0 0 :x1 100 :y0 0.0 :y1 100.0 :width 800 :height 200))
+         (a (financial-chart-labels-pin
+             (financial-chart-labels-test--layer
+              "fib" '((:time 100 :y 50.0 :span0 80 :span1 100 :label "61.8% 197.96")
+                      (:time 100 :y 51.0 :span0 80 :span1 100 :label "78.6% 217.93"))
+              :align "right" :baseline "bottom")))
+         (out (financial-chart-labels-declutter (list a) scale))
+         (rows (append (plist-get (plist-get (car out) :data) :values) nil)))
+    (should (cl-every (lambda (r) (<= 80 (plist-get r :time) 100)) rows))
+    (should (/= (plist-get (cadr rows) :y) 51.0))
+    (should (equal (plist-get (cadr out) :name) "fib-leaders")))
+  ;; Markers are obstacles: a pinned label on one slides off it.
+  (let* ((scale '(:x0 0 :x1 100 :y0 0.0 :y1 100.0 :width 800 :height 200))
+         (marker '(:name "m" :mark (:type "point") :data (:values [(:time 10 :y 52.0)])))
+         (a (financial-chart-labels-pin
+             (financial-chart-labels-test--layer "sr" '((:time 8 :y 50.0 :span0 8 :span1 100 :label "R 185.18 x12"))
+                                                 :align "left" :baseline "bottom")))
+         (out (financial-chart-labels-declutter
+               (list marker a) scale (financial-chart-labels-layer-obstacles scale (list marker a))))
+         (row (aref (plist-get (plist-get (cadr out) :data) :values) 0))
+         (box (financial-chart-labels--box row (plist-get (cadr out) :mark) scale)))
+    (should-not (financial-chart-labels--overlap-p
+                 box (car (plist-get (financial-chart-labels-layer-obstacles scale (list marker)) :markers))))))
+
 (provide 'financial-chart-eas-labels-test)
 ;;; financial-chart-eas-labels-test.el ends here

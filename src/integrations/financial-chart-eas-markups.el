@@ -180,7 +180,7 @@ pin them with `financial-chart-labels-pin'."
   "Horizontal rules NAME from START to the chart's end at LEVELS, labelled.
 LEVELS are (RATIO . PRICE); A gives dash and width."
   (let* ((end (financial-chart-markup--end ctx))
-         (rows (mapcar (lambda (l) (list :time start :time2 end :y (cdr l)
+         (rows (mapcar (lambda (l) (list :time start :time2 end :y (cdr l) :span0 start :span1 end
                                          :label (format "%s %.2f" (car l) (cdr l))))
                        levels)))
     (list (financial-chart-annotation--rule ctx name rows colour (financial-chart-series-get a :dash)
@@ -234,10 +234,10 @@ close."
          (band (lambda (e) (let ((g (plist-get e :geometry)))
                              (* 0.5 (or (financial-chart-series-get a :tolerance) 0.01) (abs (plist-get g :y))))))
          (kind (lambda (e) (if (< (plist-get (plist-get e :geometry) :y) last-close) 'support 'resistance)))
-         (row (lambda (e) (let ((y (plist-get (plist-get e :geometry) :y)))
-                            (list :time (financial-chart-markup--bar-x
-                                         ctx (gethash (plist-get (plist-get e :geometry) :from) table))
-                                  :time2 end :y y :id (plist-get e :id)
+         (row (lambda (e) (let* ((y (plist-get (plist-get e :geometry) :y))
+                                 (x0 (financial-chart-markup--bar-x
+                                      ctx (gethash (plist-get (plist-get e :geometry) :from) table))))
+                            (list :time x0 :time2 end :y y :id (plist-get e :id) :span0 x0 :span1 end
                                   :label (format "%s %.2f x%d" (if (eq (funcall kind e) 'support) "S" "R") y
                                                  (gethash e touches-now)))))))
     (cl-loop for k in '(support resistance)

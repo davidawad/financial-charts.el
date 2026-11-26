@@ -45,6 +45,8 @@
 (require 'financial-chart-eas-styles)
 (require 'financial-chart-eas-shift)
 (require 'financial-chart-eas-trading-time)
+(require 'financial-chart-detector-api)
+(require 'financial-chart-detectors-swings)
 
 (defvar financial-chart-annotation-types
   '("buy" "sell" "level" "trendline" "event" "text" "box" "fibonacci")
@@ -64,9 +66,6 @@ and returns the annotation's layers.")
 
 (defconst financial-chart-annotation-color "#607d8b"
   "Default colour of levels, trend lines, events, text and Fibonacci levels.")
-
-(defconst financial-chart-fibonacci-ratios [0 0.236 0.382 0.5 0.618 0.786 1]
-  "Default Fibonacci retracement ratios.")
 
 ;;; Positions
 
@@ -304,16 +303,15 @@ PATH locates AT."
 (defun financial-chart-fibonacci-swing (bars xs &optional window)
   "The swing of BARS at XS over the last WINDOW bars: ((X1 . Y1) (X2 . Y2)).
 It runs from whichever of the highest high and lowest low comes first
-to the other."
-  (let* ((n (length bars))
-         (start (if window (max 0 (- n window)) 0))
-         (hi start) (lo start))
-    (cl-loop for i from start below n for b = (nth i bars)
-             do (when (> (plist-get b :high) (plist-get (nth hi bars) :high)) (setq hi i))
-             do (when (< (plist-get b :low) (plist-get (nth lo bars) :low)) (setq lo i)))
-    (let ((high (cons (aref xs hi) (plist-get (nth hi bars) :high)))
-          (low (cons (aref xs lo) (plist-get (nth lo bars) :low))))
-      (if (<= lo hi) (list low high) (list high low)))))
+to the other: the newest fib.retracement event (a view of the
+detector, `financial-chart-detect')."
+  (let* ((v (vconcat bars))
+         (e (car (last (financial-chart-detect "fib.retracement" v (when window (list :window window))))))
+         (g (plist-get e :geometry))
+         (index (lambda (p) (cl-loop for i from 0 below (length v)
+                                     when (equal (financial-chart-detector--time v i) (aref p 0)) return i))))
+    (list (cons (aref xs (funcall index (plist-get g :from))) (aref (plist-get g :from) 1))
+          (cons (aref xs (funcall index (plist-get g :to))) (aref (plist-get g :to) 1)))))
 
 (defun financial-chart-fibonacci-levels (from to ratios)
   "Retracement prices of RATIOS for a move FROM a price TO a price.

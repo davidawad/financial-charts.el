@@ -507,35 +507,36 @@
 <text x="639.18" y="189.34" font-size="11" fill="#26a69a" text-anchor="end">S 104.89 x1</text>
 <text x="639.18" y="84.59" font-size="11" fill="#26a69a" text-anchor="end">S 128.72 x1</text>
 <text x="639.18" y="163.93" font-size="11" fill="#26a69a" text-anchor="end">S 110.67 x1</text>
+<path d="M323.9,123.1L320.74,128.57L327.07,128.57Z" fill="#26a69a">
+</path>
+<path d="M340.8,132.33L337.63,137.8L343.96,137.8Z" fill="#26a69a">
+</path>
 <path d="M352.06,140.5L348.89,145.98L355.22,145.98Z" fill="#26a69a">
 </path>
 <path d="M352.06,146.98L348.89,152.46L355.22,152.46Z" fill="#26a69a">
 </path>
+<path d="M368.94,146.26L365.78,151.74L372.11,151.74Z" fill="#26a69a">
+</path>
 <path d="M419.62,181.47L416.45,186.95L422.78,186.95Z" fill="#26a69a">
+</path>
+<path d="M436.5,181.78L433.34,187.26L439.67,187.26Z" fill="#26a69a">
 </path>
 <path d="M453.39,187.23L450.23,192.71L456.56,192.71Z" fill="#26a69a">
 </path>
+<path d="M453.39,193.71L450.23,199.19L456.56,199.19Z" fill="#26a69a">
+</path>
 <path d="M487.18,191.93L484.01,197.41L490.34,197.41Z" fill="#26a69a">
 </path>
-<path d="M543.47,151.36L540.31,156.84L546.64,156.84Z" fill="#26a69a">
-</path>
-<path d="M549.11,144.68L545.94,150.16L552.27,150.16Z" fill="#26a69a">
-</path>
+<text x="323.9" y="141.83" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
+<text x="340.8" y="151.07" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="352.06" y="159.24" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="352.06" y="165.72" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
+<text x="368.94" y="165" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="419.62" y="200.21" font-size="11" fill="#26a69a" text-anchor="middle">H</text>
+<text x="436.5" y="200.52" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="453.39" y="205.97" font-size="11" fill="#26a69a" text-anchor="middle">BuE</text>
+<text x="453.39" y="212.45" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
 <text x="487.18" y="210.67" font-size="11" fill="#26a69a" text-anchor="middle">BuE</text>
-<text x="543.47" y="170.1" font-size="11" fill="#26a69a" text-anchor="middle">3WS</text>
-<text x="549.11" y="163.42" font-size="11" fill="#26a69a" text-anchor="middle">3WS</text>
-<path d="M121.22,184.5L118.06,179.02L124.39,179.02Z" fill="#ef5350">
-</path>
-<path d="M121.22,178.02L118.06,172.55L124.39,172.55Z" fill="#ef5350">
-</path>
-<path d="M143.75,165.47L140.58,159.99L146.91,159.99Z" fill="#ef5350">
-</path>
-<path d="M149.38,165.11L146.21,159.64L152.54,159.64Z" fill="#ef5350">
-</path>
 <path d="M155,165.99L151.84,160.52L158.17,160.52Z" fill="#ef5350">
 </path>
 <path d="M222.56,110.34L219.4,104.86L225.73,104.86Z" fill="#ef5350">
@@ -544,25 +545,27 @@
 </path>
 <path d="M290.12,96.1L286.96,90.62L293.29,90.62Z" fill="#ef5350">
 </path>
-<path d="M492.81,169.69L489.64,164.21L495.97,164.21Z" fill="#ef5350">
+<path d="M301.38,96.98L298.22,91.5L304.55,91.5Z" fill="#ef5350">
 </path>
 <path d="M498.44,169.03L495.27,163.55L501.6,163.55Z" fill="#ef5350">
 </path>
-<path d="M520.95,160.32L517.79,154.85L524.12,154.85Z" fill="#ef5350">
+<path d="M515.33,162.26L512.16,156.78L518.49,156.78Z" fill="#ef5350">
+</path>
+<path d="M594.14,86.69L590.98,81.22L597.31,81.22Z" fill="#ef5350">
+</path>
+<path d="M594.14,80.21L590.98,74.74L597.31,74.74Z" fill="#ef5350">
 </path>
 <path d="M616.66,70.6L613.5,65.13L619.83,65.13Z" fill="#ef5350">
 </path>
-<text x="121.22" y="172.76" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
-<text x="121.22" y="166.28" font-size="11" fill="#ef5350" text-anchor="middle">TT</text>
-<text x="143.75" y="153.73" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
-<text x="149.38" y="153.38" font-size="11" fill="#ef5350" text-anchor="middle">SS</text>
-<text x="155" y="154.25" font-size="11" fill="#ef5350" text-anchor="middle">SS</text>
+<text x="155" y="154.25" font-size="11" fill="#ef5350" text-anchor="middle">GD</text>
 <text x="222.56" y="98.6" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
 <text x="267.61" y="74.43" font-size="11" fill="#ef5350" text-anchor="middle">BeE</text>
 <text x="290.12" y="84.36" font-size="11" fill="#ef5350" text-anchor="middle">GD</text>
-<text x="492.81" y="157.95" font-size="11" fill="#ef5350" text-anchor="middle">HM</text>
+<text x="301.38" y="85.24" font-size="11" fill="#ef5350" text-anchor="middle">BeE</text>
 <text x="498.44" y="157.29" font-size="11" fill="#ef5350" text-anchor="middle">BeE</text>
-<text x="520.95" y="148.58" font-size="11" fill="#ef5350" text-anchor="middle">SS</text>
+<text x="515.33" y="150.52" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
+<text x="594.14" y="74.95" font-size="11" fill="#ef5350" text-anchor="middle">GD</text>
+<text x="594.14" y="68.48" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
 <text x="616.66" y="58.86" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
 </g>
 <circle cx="665.5" cy="44.5" r="4.47" fill="transparent" stroke="#2962ff" stroke-width="1.5">

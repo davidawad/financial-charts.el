@@ -54,7 +54,7 @@ fetch_tools() {
 render_frames() {
   "$EMACS" -Q --batch -L "$EAS/src" \
     -L "$ROOT/src" -L "$ROOT/src/core" -L "$ROOT/src/indicators" -L "$ROOT/src/charts" \
-    -L "$ROOT/src/integrations" -L "$ROOT/src/examples" \
+    -L "$ROOT/src/integrations" -L "$ROOT/src/detectors" -L "$ROOT/src/examples" \
     -l financial-chart-video -f financial-chart-video-main "$WORK" "$@"
 }
 

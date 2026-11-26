@@ -52,6 +52,19 @@ for live views.
    `:results file :file x.svg|x.vl.json|x.png` for documents.
    eas.el's `examples/eas.org` shows each.
 
+### Markups: detectors, events, presets
+
+`(financial-chart-detectors-describe)` lists every detector (params,
+lag, definition with its citation, TA-Lib oracle); `(financial-chart-detect
+NAME BARS PARAMS)` returns event/v1 data and `(financial-chart-chart-events
+CHART)` every event a chart's annotations show; `(financial-chart-expand
+CHART)` merges its presets with each entry's `origin`. A new detector is
+one `financial-chart-register-detector` call: the registry harness
+(src/detectors/financial-chart-detectors-harness-test.el) lints and tests
+it for look-ahead, invariance and determinism with no extra code; an
+`:oracle` adds the TA-Lib comparison (regenerate goldens with
+`test/oracles/talib-goldens`). Design: docs/design/markups.md.
+
 ### financial-chart kinds
 
 1. Discover: `(financial-chart-describe)` — kinds (with their eas

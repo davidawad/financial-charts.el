@@ -52,7 +52,8 @@
 ;; the 3D commands (`financial-chart-3d-open', M-x
 ;; `financial-chart-3d-gallery') say how to install it; docs/3d.md.
 ;; Modules: core/ (config, errors, shapes, validation), indicators/,
-;; charts/ (the kind registry and each kind), integrations/ (eas
+;; charts/ (the kind registry and each kind), detectors/ (event/v1
+;; detectors: candlestick patterns, swings, levels), integrations/ (eas
 ;; adapters, transforms, templates and parity checks).
 
 ;;; Code:
@@ -60,7 +61,7 @@
 ;; Keep the package split into functional subdirectories while allowing
 ;; package-vc and a plain load-path entry to load the public entry point.
 (let ((source-directory (file-name-directory (or load-file-name buffer-file-name))))
-  (dolist (directory '("." "core" "indicators" "charts" "integrations"))
+  (dolist (directory '("." "core" "indicators" "detectors" "charts" "integrations"))
     (let ((dir (expand-file-name directory source-directory)))
       (when (file-directory-p dir)
         (add-to-list 'load-path (directory-file-name dir))))))

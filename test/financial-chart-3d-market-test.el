@@ -68,7 +68,7 @@
   ;; The fallbacks draw with eas alone: graphics.el not on the load path.
   (let* ((eas (file-name-directory (locate-library "eas")))
          (dirs (mapcar (lambda (d) (expand-file-name d financial-chart-test-root))
-                       '("src" "src/core" "src/indicators" "src/charts" "src/integrations")))
+                       '("src" "src/core" "src/indicators" "src/detectors" "src/charts" "src/integrations")))
          (form `(progn
                   (require 'financial-chart-3d)
                   (when (financial-chart-3d-available-p) (error "graphics.el was found"))

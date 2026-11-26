@@ -239,7 +239,7 @@ BINDINGS default to its example."
 (ert-deftest financial-chart-3d-positioning-draw-in-2d-without-graphics ()
   (let* ((eas (file-name-directory (locate-library "eas")))
          (dirs (mapcar (lambda (d) (expand-file-name d financial-chart-test-root))
-                       '("src" "src/core" "src/indicators" "src/charts" "src/integrations")))
+                       '("src" "src/core" "src/indicators" "src/detectors" "src/charts" "src/integrations")))
          (form `(progn
                   (require 'financial-chart-3d)
                   (when (featurep 'graphics-eas) (error "graphics.el was found"))

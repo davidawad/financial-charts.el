@@ -13,7 +13,7 @@
 ;; never change by accident).  Run from the repository root:
 ;;
 ;;   emacs -Q --batch -L ../eas.el/src -L src -L src/core -L src/indicators \
-;;     -L src/renderers -L src/charts -L src/integrations \
+;;     -L src/renderers -L src/charts -L src/integrations -L src/detectors \
 ;;     -l src/examples/render-indicator-catalog.el
 
 ;;; Code:

@@ -495,7 +495,7 @@ callExpDateMap and putExpDateMap (the 11-day 768 strike has none)."
   (let* ((eas (file-name-directory (locate-library "eas")))
          (root financial-chart-test-root)
          (dirs (mapcar (lambda (d) (expand-file-name d root))
-                       '("src" "src/core" "src/indicators" "src/charts" "src/integrations")))
+                       '("src" "src/core" "src/indicators" "src/detectors" "src/charts" "src/integrations")))
          (form `(progn
                   (require 'financial-chart-3d)
                   (when (or (featurep 'graphics-eas) (financial-chart-3d-available-p))

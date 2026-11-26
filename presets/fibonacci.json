@@ -1,10 +1,17 @@
 {
+  "preset/v1": "fibonacci",
   "doc": "Fibonacci toolkit: retracement of the main swing, extension of the last three zigzag pivots and time zones from the first pivot.",
   "price": {
     "annotations": [
-      {"type": "fibonacci"},
-      {"type": "fib-extension"},
-      {"type": "fib-timezones"}
+      {
+        "type": "fibonacci"
+      },
+      {
+        "type": "fib-extension"
+      },
+      {
+        "type": "fib-timezones"
+      }
     ]
   }
 }

@@ -1,4 +1,5 @@
 {
+  "preset/v1": "swing-trader",
   "doc": "SMA 7/20/50, Fibonacci retracement of the main swing, automatic support and resistance, candlestick patterns (all but plain doji and marubozu); volume and RSI panes.",
   "price": {
     "style": "candles",

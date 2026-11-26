@@ -1,0 +1,95 @@
+#!/usr/bin/env -S uv run --script --no-project
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["ta-lib>=0.6", "numpy"]
+# ///
+"""Write the TA-Lib oracle goldens the detector tests read (fc-gty.6).
+
+Run from the repository root:  test/oracles/talib-goldens
+
+1. test/fixtures/detectors/oracle-bars.json: 4000 seeded synthetic bars
+   (a random walk with dojis, long shadows, gaps and trending stretches,
+   prices rounded to cents so elisp and C read the same doubles).
+2. test/fixtures/detectors/talib.json: for each TA-Lib CDL* function a
+   detector names as its :oracle, its lookback and every non-zero output
+   as [index, value].
+
+Generation is a dev step; the tests read the committed files, so the
+suite never needs TA-Lib.  Rerun after changing the bars or adding an
+oracle and commit both files.
+"""
+import json
+import math
+import random
+from pathlib import Path
+
+import numpy as np
+import talib
+from talib import abstract
+
+FUNCTIONS = [
+    "CDLHAMMER", "CDLINVERTEDHAMMER", "CDLHANGINGMAN", "CDLSHOOTINGSTAR",
+    "CDLDOJI", "CDLDRAGONFLYDOJI", "CDLGRAVESTONEDOJI", "CDLENGULFING",
+    "CDLHARAMI", "CDLPIERCING", "CDLDARKCLOUDCOVER", "CDLMORNINGSTAR",
+    "CDLEVENINGSTAR", "CDL3WHITESOLDIERS", "CDL3BLACKCROWS",
+    "CDLRISEFALL3METHODS", "CDLMARUBOZU",
+]
+
+
+def bars(n=4000, seed=20261126):
+    rng = random.Random(seed)
+    close = 100.0
+    out = []
+    for i in range(n):
+        drift = 0.9 * math.sin(i / 23.0) + 0.4 * math.sin(i / 7.0)
+        gap = rng.gauss(0, 0.6) if rng.random() < 0.15 else rng.gauss(0, 0.08)
+        o = close + gap
+        r = rng.random()
+        if r < 0.12:
+            body = rng.gauss(0, 0.05)              # doji
+        elif r < 0.25:
+            body = rng.gauss(drift * 2.5, 0.8)     # long body
+        else:
+            body = rng.gauss(drift, 1.0)
+        c = o + body
+        up = rng.expovariate(1 / 0.5)
+        dn = rng.expovariate(1 / 0.5)
+        s = rng.random()
+        if s < 0.08:
+            dn *= 5                                # long lower shadow
+        elif s < 0.16:
+            up *= 5                                # long upper shadow
+        elif s < 0.24:
+            up, dn = up * 0.05, dn * 0.05          # shaven
+        h = max(o, c) + up
+        lo = min(o, c) - dn
+        o, h, lo, c = (round(x, 2) for x in (o, h, lo, c))
+        h = max(h, o, c)
+        lo = min(lo, o, c)
+        out.append({"open": o, "high": h, "low": lo, "close": c,
+                    "volume": int(500000 + rng.random() * 1000000)})
+        close = c
+    return out
+
+
+def main():
+    root = Path(__file__).resolve().parents[2]
+    fixtures = root / "test" / "fixtures" / "detectors"
+    fixtures.mkdir(parents=True, exist_ok=True)
+    b = bars()
+    (fixtures / "oracle-bars.json").write_text(json.dumps(b, indent=0) + "\n")
+    arr = {k: np.array([x[k] for x in b], dtype=float) for k in ("open", "high", "low", "close")}
+    goldens = {"talib": talib.__version__, "bars": "oracle-bars.json", "functions": {}}
+    for name in FUNCTIONS:
+        out = getattr(talib, name)(arr["open"], arr["high"], arr["low"], arr["close"])
+        goldens["functions"][name] = {
+            "lookback": abstract.Function(name).lookback,
+            "hits": [[i, int(v)] for i, v in enumerate(out) if v != 0],
+        }
+    (fixtures / "talib.json").write_text(json.dumps(goldens, indent=1) + "\n")
+    for name, g in goldens["functions"].items():
+        print(f"{name:22} lookback {g['lookback']:3} hits {len(g['hits'])}")
+
+
+if __name__ == "__main__":
+    main()

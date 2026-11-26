@@ -44,7 +44,7 @@ CHART adds top-level keys."
     (should (seq-contains-p (plist-get (plist-get (financial-chart-compose-describe) :annotations) :types)
                             type)))
   (should (= (length (plist-get (financial-chart-compose-describe) :candle-patterns))
-             (length financial-chart-candle-pattern-names))))
+             (length (financial-chart-candle-pattern-list)))))
 
 (ert-deftest financial-chart-markups-support-resistance-draws-ranked-levels ()
   (let* ((layers (financial-chart-markups-test--layers [(:type "support-resistance" :max 3 :bands t)]))
@@ -63,7 +63,9 @@ CHART adds top-level keys."
     (financial-chart-markups-test--fails "INVALID_ANNOTATION" "/price/annotations/0/max"
       (financial-chart-markups-test--layers [(:type "support-resistance" :max 0)]))
     (financial-chart-markups-test--fails "INVALID_ANNOTATION" "/price/annotations/0/atr"
-      (financial-chart-markups-test--layers [(:type "support-resistance" :atr 1 :tolerance 0.01)]))))
+      (financial-chart-markups-test--layers [(:type "support-resistance" :atr -1)]))
+    ;; Each drawn level is the newest event of a level.auto-sr cluster.
+    (should (string-prefix-p "level.auto-sr@" (plist-get (car rows) :id)))))
 
 (ert-deftest financial-chart-markups-patterns-mark-bars-by-direction ()
   (let* ((layers (financial-chart-markups-test--layers [(:type "patterns")]))
@@ -75,7 +77,8 @@ CHART adds top-level keys."
     ;; Bullish marks sit under their bar's low.
     (dolist (row (financial-chart-markups-test--rows bull))
       (should (< (plist-get row :y) (plist-get (aref bars (plist-get row :time)) :low)))
-      (should (assoc (plist-get row :name) financial-chart-candle-pattern-names)))
+      (should (member (plist-get row :name) (financial-chart-candle-pattern-list)))
+      (should (string-prefix-p "pattern." (plist-get row :id))))
     (let ((only (financial-chart-markups-test--layers [(:type "patterns" :only ["doji"] :labels "name")])))
       (should (seq-every-p (lambda (r) (equal (plist-get r :label) "doji"))
                            (financial-chart-markups-test--rows
@@ -95,7 +98,8 @@ CHART adds top-level keys."
          (zig (financial-chart-markups-test--rows (financial-chart-markups-test--named layers "price-annotation-0")))
          (support (car (financial-chart-markups-test--rows
                         (financial-chart-markups-test--named layers "price-annotation-1-support")))))
-    (should (> (length zig) 2))
+    (should (>= (length zig) 2))
+    (should (financial-chart-markups-test--named layers "price-annotation-0-running"))
     ;; Legs join end to start.
     (cl-loop for (a b) on zig while b do (should (equal (plist-get a :time2) (plist-get b :time))))
     (should (seq-every-p (lambda (r) (member (plist-get r :label) '("HH" "HL" "LH" "LL")))
@@ -190,9 +194,73 @@ CHART adds top-level keys."
     (financial-chart-compose (list :bars (financial-chart-markups-test--bars) :preset "../trend")))
   (financial-chart-markups-test--fails "INVALID_PRESET" "/preset"
     (financial-chart-compose (list :bars (financial-chart-markups-test--bars) :preset 3)))
-  (financial-chart-markups-test--fails "INVALID_PRESET" "/preset/preset"
+  (financial-chart-markups-test--fails "PRESET_CYCLE" "/preset/preset"
     (financial-chart-compose (list :bars (financial-chart-markups-test--bars) :preset "a"
                                    :presets '(:a (:preset "a"))))))
+
+(ert-deftest financial-chart-presets-merge-laws-and-provenance ()
+  (let* ((chart (list :bars (financial-chart-markups-test--bars) :preset ["swing-trader" "fibonacci"]
+                      :colors '(:up "#00ff00")
+                      :price '(:series [(:indicator "sma" :params [20] :color "#000000")]
+                               :annotations [(:type "fibonacci")])))
+         (x (financial-chart-expand chart))
+         (price (plist-get x :price)))
+    ;; A repeated id replaces the earlier entry in its place.
+    (should (equal (mapcar (lambda (s) (list (aref (plist-get s :params) 0) (plist-get s :origin)))
+                           (plist-get price :series))
+                   '((7 "preset:swing-trader") (20 "chart") (50 "preset:swing-trader"))))
+    (should (equal (plist-get (nth 1 (append (plist-get price :series) nil)) :color) "#000000"))
+    ;; Two presets' fibonacci and the chart's are one entry, the chart's.
+    (should (equal (seq-count (lambda (a) (equal (plist-get a :type) "fibonacci")) (plist-get price :annotations)) 1))
+    (should (equal (plist-get (seq-find (lambda (a) (equal (plist-get a :type) "fibonacci")) (plist-get price :annotations))
+                              :origin)
+                   "chart"))
+    (should (seq-every-p (lambda (p) (equal (plist-get p :origin) "preset:swing-trader")) (plist-get x :panes)))
+    (should (equal (plist-get (plist-get x :colors) :up) "#00ff00"))
+    ;; The expansion composes like the chart.
+    (should (equal (financial-chart-compose-render x) (financial-chart-compose-render chart)))
+    (should (eq (plist-get (financial-chart-expand-verb chart) :ok) t))
+    (should (equal (plist-get (financial-chart-expand-verb (list :bars [] :preset "nope")) :reason) "UNKNOWN_PRESET"))))
+
+(ert-deftest financial-chart-presets-owner-directories-and-lint ()
+  (should (equal (financial-chart-presets-lint) nil))
+  (let* ((dir (make-temp-file "fc-presets" t))
+         (financial-chart-preset-directories (list dir)))
+    (unwind-protect
+        (progn
+          (with-temp-file (expand-file-name "trend.json" dir)
+            (insert "{\"preset/v1\": \"trend\", \"doc\": \"mine\", \"price\": {\"studies\": [\"psar\"]}}"))
+          (with-temp-file (expand-file-name "bad.json" dir)
+            (insert "{\"price\": {}}"))
+          ;; The owner's file shadows the package's.
+          (should (equal (plist-get (financial-chart-preset-get "trend") :doc) "mine"))
+          (should (equal (plist-get (financial-chart-presets-apply (list :preset "trend")) :price)
+                         '(:studies ["psar"])))
+          (should (assoc "bad" (financial-chart-presets-lint))))
+      (delete-directory dir t))))
+
+(ert-deftest financial-chart-markups-chart-events-are-data ()
+  (let ((events (financial-chart-chart-events (expand-file-name "examples/indicators/annotations.json"
+                                                                financial-chart-root))))
+    (should (equal (mapcar (lambda (e) (plist-get e :detector)) events)
+                   '("constant.level" "constant.level" "constant.trendline" "constant.event"
+                     "constant.box" "constant.text" "constant.event")))
+    (should (equal (plist-get (car events) :geometry) '(:y 127.3 :from "2026-03-09" :to "2026-04-17"))))
+  (let* ((events (financial-chart-chart-events
+                  (list :bars (financial-chart-markups-test--bars) :preset "swing-trader")))
+         (detectors (delete-dups (mapcar (lambda (e) (plist-get e :detector)) events))))
+    (should (member "level.auto-sr" detectors))
+    (should (member "fib.retracement" detectors))
+    (should (seq-some (lambda (d) (string-prefix-p "pattern." d)) detectors))
+    ;; The drawn S/R ids are among them.
+    (let* ((layers (financial-chart-markups-test--layers [(:type "support-resistance")]))
+           (ids (mapcar (lambda (r) (plist-get r :id))
+                        (append (financial-chart-markups-test--rows
+                                 (financial-chart-markups-test--named layers "price-annotation-0-support"))
+                                (financial-chart-markups-test--rows
+                                 (financial-chart-markups-test--named layers "price-annotation-0-resistance"))))))
+      (should ids)
+      (dolist (id ids) (should (member id (mapcar (lambda (e) (plist-get e :id)) events)))))))
 
 (provide 'financial-chart-eas-markups-test)
 ;;; financial-chart-eas-markups-test.el ends here

@@ -276,7 +276,7 @@ offending entry. From the shell, compile and hand the spec to eas:
 ```sh
 fc-compose() {
   emacs -Q --batch -L "$EAS/src" -L "$FC/src" -L "$FC/src/core" -L "$FC/src/indicators" \
-    -L "$FC/src/renderers" -L "$FC/src/charts" -L "$FC/src/integrations" \
+    -L "$FC/src/renderers" -L "$FC/src/charts" -L "$FC/src/integrations" -L "$FC/src/detectors" \
     -l financial-chart -f financial-chart-compose-main -- "$@"
 }
 fc-compose examples/compose/candles.json > candles.vl.json   # plain eas spec
@@ -477,14 +477,79 @@ Failures carry `:code` and the JSON `:path`: `UNKNOWN_STUDY`,
 `INVALID_STUDY`, `INDICATOR_FAILED` (bad `params`), `INVALID_ZONE`,
 `INVALID_SHIFT`, `UNKNOWN_ANNOTATION`, `INVALID_ANNOTATION`,
 `NO_SUCH_BAR` (a marker's `at` names no bar), `INVALID_TIME`,
-`NO_VOLUME` (an anchored VWAP without volume), `UNKNOWN_PRESET` and
-`INVALID_PRESET`.
+`NO_VOLUME` (an anchored VWAP without volume), `UNKNOWN_PRESET`,
+`PRESET_CYCLE` and `INVALID_PRESET`.
+
+## Detectors: candlestick patterns, swings, levels (event/v1)
+
+Automatic markups are found by detectors, pure functions of the bars
+that return events, and drawn as views of those events
+(`docs/design/markups.md`). An agent reads the same events as data:
+
+```elisp
+(financial-chart-detect "pattern.hammer" BARS)              ; event/v1 plists
+(financial-chart-detect "level.auto-sr" BARS '(:atr 0.5) :since 50 :limit 4)
+(financial-chart-detect-verb "swing.zigzag" BARS '(:deviation 4))   ; chart/v1 envelope
+(financial-chart-chart-events "chart.json")   ; every event a chart's annotations show
+(financial-chart-detectors-describe)          ; params, lag, definition, oracle, invariance
+```
+
+```sh
+emacs -Q --batch -L "$EAS/src" -L "$FC/src" -l financial-chart -f financial-chart-detect-main -- \
+  --detector pattern.bullish-engulfing --bars chart.json --since 20
+```
+
+```json
+{"id": "pattern.hammer@2026-04-27", "detector": "pattern.hammer", "params": {"trend": 10},
+ "index": 60, "time": "2026-04-27", "confirmed_index": 60, "confirmed_time": "2026-04-27",
+ "direction": "bullish", "strength": 0.30, "geometry": {"at": "2026-04-27", "y": 108.44},
+ "evidence": {"body_short": 0.16, "lower_shadow_long": 0.34, "upper_shadow_very_short": 0.07,
+              "near_prior_low": 0.49, "prior_slope": -0.40, "prior_window": 10}}
+```
+
+- `confirmed_index` is the first bar on which the event is knowable;
+  the event depends on no later bar (a swing high with 3 right-hand
+  bars is confirmed 3 bars after it).
+- `strength` is in [0, 1]; `evidence` holds the dimensionless values
+  of the tests that made it fire (for a candle, each threshold test's
+  margin in 10-bar average ranges).
+- `geometry` is `{at, y}`, a level `{y, from, to}`, `{points}` or
+  Fibonacci `{levels, from, to[, anchor]}`.
+- Each detector's `:definition` cites its source (Nison 1991 for the
+  candles, TradingView Pine `ta.pivothigh`/`ta.pivotlow`, Lo, Mamaysky
+  and Wang 2000, Osler 2000, Edwards and Magee 1948, ...).
+
+| detector | finds |
+|---|---|
+| `pattern.*` (23) | hammer, inverted-hammer, hanging-man, shooting-star, doji, dragonfly-doji, gravestone-doji, bullish/bearish-engulfing, bullish/bearish-harami, piercing-line, dark-cloud-cover, morning-star, evening-star, three-white-soldiers, three-black-crows, rising/falling-three-methods, tweezer-bottom/top, bullish/bearish-marubozu |
+| `swing.pivot` | swing highs and lows (`left`, `right`) |
+| `swing.zigzag` | alternating pivots at a `deviation` % (or `atr`) reversal |
+| `swing.abc` | each three-pivot leg A-B-C of the zigzag |
+| `fib.retracement` | the high-low swing of a `window` and its levels, each time it changes |
+| `fib.extension` | extension levels of each A-B-C |
+| `level.auto-sr` | pivots clustered into levels (`atr` band, or `tolerance` of price), one event per touch |
+| `trend.auto-lines` | lines through consecutive swing lows and highs |
+
+Candle shapes are measured as TA-Lib measures them (body and shadow
+against the 10-bar averages), and with `"trend": 0` every candle
+detector equals its TA-Lib `CDL*` function bar for bar on 4000 oracle
+bars (`test/oracles/talib-goldens` writes the goldens; the tests read
+the committed files). By default each reversal pattern also needs
+Nison's prior trend (`trend` bars), so it fires on a subset of TA-Lib's
+bars; tweezers follow Nison with TA-Lib's "equal" tolerance.
+
+Every registered detector gets the same tests
+(`src/detectors/financial-chart-detectors-harness-test.el`): a lint
+(citation, lag, typed params, invariance, example), event/v1 schema,
+no look-ahead (detecting on bars 0..k gives exactly the full run's
+events confirmed by k), price invariance (scaling prices, and shifting
+them unless the definition is a percent, changes no event), determinism
+and the TA-Lib oracle. `financial-chart-register-detector` adds one.
 
 ## Automatic levels, candlestick patterns and drawing tools
 
-More annotation `type`s, the markups of a charting site, each found from
-the bars you supply (`src/integrations/financial-chart-eas-markups.el`;
-the detectors are pure functions in `src/indicators/financial-chart-patterns.el`):
+The annotation `type`s that draw them, plus drawing tools computed as
+of the last bar (`src/integrations/financial-chart-eas-markups.el`):
 
 ```json
 {"bars": [...],
@@ -499,32 +564,23 @@ the detectors are pure functions in `src/indicators/financial-chart-patterns.el`
 
 | type | draws | keys |
 |---|---|---|
-| `support-resistance` | swing highs and lows (a high above the `left` bars before it and not below the `right` after it, default 3) within `tolerance` (fraction of price, default 0.01) or `atr` times the 14-bar ATR join one level; the `max` (4) with the most touches (at least `touches`, 1), most recent first, are drawn from their first touch, labelled `S 106.20 x3` / `R ...` in the up/down colour | `left right tolerance atr max touches window bands` |
-| `patterns` | candlestick patterns, bullish under the bar (up colour), bearish over it (down colour), neutral as a diamond; `labels` `short` (`H`, `BuE`, `MS`, ...), `name` or `none`; hover gives the name | `only labels color` |
-| `zigzag` | pivots alternating high/low at a `deviation` % reversal (5); `labels` adds HH/HL/LH/LL | `deviation labels` |
-| `auto-trendlines` | lines through the last two swing lows (support) and highs (resistance), extended right | `left right kind extend` |
-| `fib-extension` | `levels` (0, 0.618, 1, 1.272, 1.618, 2, 2.618) of the move `from`→`to` projected from `then`, or of the last three confirmed zigzag pivots | `from to then points deviation levels` |
+| `support-resistance` | `level.auto-sr`: each level's newest event, the `max` (4) with the most touches (at least `touches`), most recent first, touched within the last `window` bars; `S`/`R` by the last close, labelled with the touch count | `left right atr tolerance max touches window bands` |
+| `patterns` | `pattern.*`: bullish under the bar (up colour), bearish over it, neutral as a diamond; `labels` `short` (`H`, `BuE`, `MS`, ...), `name` or `none`; hover gives the name, strength and id; a plain doji under a dragonfly or gravestone is left out | `only trend since labels color` |
+| `zigzag` | `swing.zigzag`: the confirmed pivots joined, the running leg dashed; `labels` adds HH/HL/LH/LL | `deviation atr labels` |
+| `auto-trendlines` | `trend.auto-lines`: the newest support and resistance line, extended right | `left right kind extend` |
+| `fibonacci` | `fib.retracement` as of the last bar, or `from`→`to` | `from to window levels` |
+| `fib-extension` | `levels` of the move `from`→`to` projected from `then`, else the last zigzag A-B-C | `from to then points deviation atr levels` |
 | `fib-timezones` | vertical lines 0, 1, 2, 3, 5, 8, 13, ... bars (times `scale`) from `at`, or from the first zigzag pivot | `at scale deviation` |
-| `channel` | a parallel channel on `from`/`to` through `through` ([AT, Y]) or `offset` (price), else the least-squares channel of the last `window` closes wide enough for every high and low; a dashed middle line | `from to through offset window extend` |
-| `pitchfork` | Andrews' pitchfork: the median line from the first of `points` through the middle of the other two, and its parallels through them | `points deviation` |
-| `anchored-vwap` | VWAP from the bar `at`, or `anchor` `low` (lowest low, default), `high` or `first` of the last `window` bars; needs volume | `at anchor window` |
+| `pitchfork` | Andrews' pitchfork on `points`, else the last `swing.abc` leg | `points deviation atr` |
+| `measured-move` | the leg `from` → `to` repeated from `then`, else from the last `swing.abc` leg | `from to then points deviation` |
+| `channel` | a parallel channel on `from`/`to` through `through` or `offset`, else the least-squares channel of the last `window` closes | `from to through offset window extend` |
+| `anchored-vwap` | VWAP from the bar `at`, or `anchor` `low` (default), `high` or `first` of the last `window` bars; needs volume | `at anchor window` |
 | `measure` | a box `from` → `to` labelled with the change, percent and bar count | `from to` |
-| `measured-move` | the leg `from` → `to` repeated from `then` (or the last three confirmed zigzag pivots) to a target level | `from to then points deviation` |
 
-Candlestick patterns (`(financial-chart-candle-patterns BARS [NAMES])`
-returns `(INDEX NAME DIRECTION)`): `hammer`, `inverted-hammer`,
-`hanging-man`, `shooting-star`, `doji`, `dragonfly-doji`,
-`gravestone-doji`, `bullish-engulfing`, `bearish-engulfing`,
-`bullish-harami`, `bearish-harami`, `piercing-line`,
-`dark-cloud-cover`, `morning-star`, `evening-star`,
-`three-white-soldiers`, `three-black-crows`, `rising-three-methods`,
-`falling-three-methods`, `tweezer-bottom`, `tweezer-top`,
-`bullish-marubozu`, `bearish-marubozu`. A reversal pattern only counts
-after the trend it reverses (the close before it against the close
-`financial-chart-candle-trend-bars`, 5, earlier). The other detectors:
+The plain-list helpers `financial-chart-candle-patterns`,
 `financial-chart-swing-points`, `financial-chart-zigzag`,
-`financial-chart-support-resistance` and `financial-chart-anchored-vwap`.
-`examples/indicators/` has one chart per type.
+`financial-chart-support-resistance` and `financial-chart-anchored-vwap`
+read the same detectors. `examples/indicators/` has one chart per type.
 
 ## Markup presets
 
@@ -533,18 +589,27 @@ panes without writing them out:
 
 ```json
 {"bars": [...], "preset": ["swing-trader", "anchored-vwap"],
- "price": {"series": [{"indicator": "ema", "params": [9]}]}}
+ "price": {"series": [{"indicator": "sma", "params": [20], "color": "#000000"}]}}
 ```
 
-A preset is a chart fragment, `NAME.json` in
-`financial-chart-presets-directory` (default `presets/` of this
-package; point it at your own directory) or inline in the chart's
-`"presets": {"NAME": {...}}`, which wins over a file of the same name.
-Presets merge in order and the chart last: in `price` and in each pane,
-`studies`, `series`, `annotations`, `fills`, `rules` and `zones` append,
-`panes` append, and any other key takes the later value, so the chart's
-own keys win. A fragment may name its own `preset`; `doc` describes it.
-Shipped:
+A preset is preset/v1: a chart fragment with `"preset/v1": NAME` and a
+`doc`, found in the chart's own `"presets": {"NAME": {...}}`, else
+`NAME.json` in `financial-chart-preset-directories` (your own, searched
+first), else this package's `presets/`. The merge laws: presets merge
+in order and the chart last; lists (`series`, `studies`, `annotations`,
+`fills`, `rules`, `zones`, `panes`) append, and an entry whose id
+already appears replaces the earlier one in its place (its `id`, else a
+series' indicator and params, a study's or pane's study and params,
+else the entry itself), so the chart above recolours the preset's SMA
+20 instead of drawing it twice; other keys take the later value, the
+chart's own last; objects (`price`, `colors`) merge by the same laws. A
+fragment may name its own `preset`.
+
+`(financial-chart-expand CHART)` (or `financial-chart-expand-verb`)
+returns the merged description with every list entry's provenance in
+`origin` (`"preset:swing-trader"` or `"chart"`), and composes like the
+chart: the first thing to look at when a chart is not what you
+expected. Shipped:
 
 | preset | what it adds |
 |---|---|
@@ -554,11 +619,12 @@ Shipped:
 | `fibonacci` | retracement, extension and time zones |
 | `anchored-vwap` | VWAP anchored at the lowest low and at the highest high |
 
-`(financial-chart-presets-list)` and `(financial-chart-compose-describe)`
-(`:presets`) list them. `UNKNOWN_PRESET` names a missing one,
-`INVALID_PRESET` a bad name, fragment or cycle, with its JSON path
-(`/preset/1`). `examples/indicators/preset-swing-trader.json` is the
-swing-trader preset on the example bars:
+`(financial-chart-presets-list)`, `(financial-chart-presets-describe)`
+and `(financial-chart-presets-lint)` list and check them.
+`UNKNOWN_PRESET` names a missing one, `PRESET_CYCLE` one that includes
+itself and `INVALID_PRESET` a bad name or fragment, each with its JSON
+path (`/preset/1`). `examples/indicators/preset-swing-trader.json` is
+the swing-trader preset on the example bars:
 
 ```sh
 fc-compose examples/indicators/preset-swing-trader.json --backend text --cols 100 --rows 40
@@ -842,6 +908,7 @@ Source is grouped by responsibility under src/:
 - src/core/ — configuration, errors, data shapes and validation.
 - src/indicators/ — normalized indicator API, registry, built-in families and cohorts.
 - src/charts/ — the kind registry, `financial-chart-plot` and each chart kind.
+- src/detectors/ — event/v1 detectors (candlestick patterns, swings, levels, Fibonacci) and their registry.
 - src/integrations/ — eas adapters, transforms, templates, hover-readout components and parity checks.
 - src/examples/ — Elisp scripts that regenerate chart examples.
 - src/financial-chart-3d.el — the 3D variants and their graphics.el marks (optional dependency).

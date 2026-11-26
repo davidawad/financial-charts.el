@@ -472,9 +472,10 @@ STYLE may also be \"calendar\": the candles example on calendar time."
                            :keys "type at y from to then through offset points label labels color dash width extend window levels opacity left right tolerance atr max touches bands only deviation kind anchor scale"
                            :at "a bar's time (ISO date or epoch ms; on trading time a date with no bar takes the nearest), or its index when bars have no time")
         :presets (financial-chart-presets-describe)
+        :detectors (vconcat (financial-chart-detector-names))
         :candle-patterns (vconcat (mapcar (lambda (p) (list :name (car p) :label (nth 1 p)
                                                             :direction (symbol-name (nth 2 p))))
-                                          financial-chart-candle-pattern-names))
+                                          (financial-chart-candle-pattern-names)))
         :palette (list :series (vconcat financial-chart-palette) :up financial-chart-palette-up
                        :down financial-chart-palette-down)
         :indicators (vconcat (mapcar (lambda (e) (symbol-name (car e)))

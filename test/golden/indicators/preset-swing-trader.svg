@@ -532,20 +532,18 @@
 <text x="323.9" y="141.83" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="340.8" y="151.07" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="352.06" y="171.11" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
-<text x="352.06" y="189.46" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
+<text x="352.06" y="177.59" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
 <text x="368.94" y="165" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="419.62" y="200.21" font-size="11" fill="#26a69a" text-anchor="middle">H</text>
 <text x="436.5" y="200.52" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="453.39" y="217.84" font-size="11" fill="#26a69a" text-anchor="middle">BuE</text>
-<text x="453.39" y="188.71" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
+<text x="453.39" y="212.45" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
 <text x="487.18" y="210.67" font-size="11" fill="#26a69a" text-anchor="middle">BuE</text>
 <line x1="352.06" y1="143.24" x2="352.06" y2="155.11" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
 </line>
-<line x1="352.06" y1="149.72" x2="352.06" y2="173.46" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
+<line x1="352.06" y1="149.72" x2="352.06" y2="161.59" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
 </line>
 <line x1="453.39" y1="189.97" x2="453.39" y2="201.84" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
-</line>
-<line x1="453.39" y1="196.45" x2="453.39" y2="172.71" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
 </line>
 <path d="M155,165.99L151.84,160.52L158.17,160.52Z" fill="#ef5350">
 </path>

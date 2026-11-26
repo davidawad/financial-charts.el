@@ -156,5 +156,21 @@
     (should-not (financial-chart-labels--overlap-p
                  box (car (plist-get (financial-chart-labels-layer-obstacles scale (list marker)) :markers))))))
 
+(ert-deftest financial-chart-labels-halo-and-leaders-that-cross-no-label ()
+  ;; Pinned labels carry a halo in the pane's colour.
+  (let ((pinned (financial-chart-labels-pin (financial-chart-labels-test--layer "l" '((:time 1 :y 1.0 :label "x"))))))
+    (should (equal (plist-get (plist-get pinned :mark) :stroke) financial-chart-label-halo-color))
+    (should (= (plist-get (plist-get pinned :mark) :strokeWidth) 3)))
+  ;; A label must move (another sits on its place).  Moving up would run its
+  ;; leader through a third label just above; it moves down instead.
+  (let* ((scale '(:x0 0 :x1 100 :y0 0.0 :y1 100.0 :width 800 :height 200))
+         (fixed (financial-chart-labels-test--layer
+                 "fixed" '((:time 50 :y 50.0 :label "AAAA") (:time 50 :y 56.0 :label "BBBB"))))
+         (fixed (plist-put fixed :label-pin t))
+         (mover (financial-chart-labels-test--layer "m" '((:time 50 :y 50.0 :label "CC"))))
+         (out (financial-chart-labels-declutter (list fixed mover) scale))
+         (y (car (financial-chart-labels-test--ys (list (cadr out))))))
+    (should (< y 50.0))))
+
 (provide 'financial-chart-eas-labels-test)
 ;;; financial-chart-eas-labels-test.el ends here

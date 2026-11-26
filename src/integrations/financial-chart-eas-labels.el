@@ -164,6 +164,27 @@ distance K it moved."
      ;; A step costs less than a candle body, more than one line.
      (* 4 (/ (abs k) (float financial-chart-label-height)))))
 
+(defun financial-chart-labels--leader-cost (scale row k box placed leader-segs price-per-px)
+  "What leaders cost a label of ROW moved K pixels down to BOX: 100 for
+each label in PLACED its leader would cross, and for each leader in
+LEADER-SEGS the box sits on.  SCALE and PRICE-PER-PX map prices to
+pixels.  Return (COST . SEGMENT), SEGMENT the leader or nil."
+  (let* ((seg (unless (zerop k)
+                (let ((p (financial-chart-labels--px scale (plist-get row :time) (plist-get row :y)))
+                      (q (financial-chart-labels--px scale (plist-get row :time)
+                                                     (- (plist-get row :y) (* k price-per-px)))))
+                  (list (car p) (cdr p) (car q) (cdr q)))))
+         ;; The label it moved off sits on its anchor: no leader avoids that one.
+         (crossed (if seg (cl-count-if (lambda (b) (and (financial-chart-labels--segment-hits-box-p
+                                                          (nth 0 seg) (nth 1 seg) (nth 2 seg) (nth 3 seg) b)
+                                                         (not (and (<= (nth 0 b) (nth 0 seg) (nth 2 b))
+                                                                   (<= (nth 1 b) (nth 1 seg) (nth 3 b))))))
+                                       placed)
+                    0))
+         (sat-on (cl-count-if (lambda (s) (financial-chart-labels--segment-hits-box-p (nth 0 s) (nth 1 s) (nth 2 s) (nth 3 s) box))
+                              leader-segs)))
+    (cons (* 100 (+ crossed sat-on)) seg)))
+
 (defun financial-chart-labels--leaders (layer rows)
   "A thin rule layer joining each moved label of LAYER to where it was.
 ROWS are (:time :y ANCHOR :y2 NEW); nil without any."
@@ -175,6 +196,9 @@ ROWS are (:time :y ANCHOR :y2 NEW); nil without any."
                         :strokeWidth 0.6 :opacity 0.6)
             :encoding (list :x (plist-get enc :x) :y (plist-get enc :y) :y2 '(:field "y2"))))))
 
+(defvar financial-chart-label-halo-color "#fcfcfb"
+  "The halo drawn under pinned labels: the pane's background colour.")
+
 (defun financial-chart-labels-pin (layer)
   "LAYER, a text layer, with its labels pinned to their line: the
 placement pass keeps each on its y (a level's or a Fibonacci ratio's
@@ -183,8 +207,12 @@ label widths, off another label (fc-gty.24, .25); when no slide clears
 the labels already placed, it stacks a label height or two off the line
 with a leader line back.  The others are placed
 around them.  A layer whose :label-pin is t (a hand-placed annotation's
-label) never moves at all."
-  (plist-put (copy-sequence layer) :label-pin 'slide))
+label) never moves at all.  It is drawn with a halo in
+`financial-chart-label-halo-color', so it reads over candles."
+  (plist-put (plist-put (copy-sequence layer) :label-pin 'slide) :mark
+             ;; A halo in the pane's colour keeps it readable over candles (fc-gty.28).
+             (append (plist-get layer :mark)
+                     (list :stroke financial-chart-label-halo-color :strokeWidth 3))))
 
 (defvar financial-chart-label-max-slides 4
   "Label widths a pinned label may slide along its line, each way.")
@@ -207,7 +235,7 @@ label tries its place and up to `financial-chart-label-max-steps' label
 heights up or down inside the pane, and takes the least bad (another
 label worst, then a candle body, then a line, then distance); a label
 that moved gets a leader line back to its place."
-  (let ((placed nil)
+  (let ((placed nil) (leader-segs nil)
         (h financial-chart-label-height)
         (price-per-px (/ (- (plist-get scale :y1) (plist-get scale :y0)) (float (plist-get scale :height)))))
     (cl-loop
@@ -264,10 +292,20 @@ that moved gets a leader line back to its place."
                                                                    when (and (>= (nth 1 m) 0)
                                                                              (<= (nth 3 m) (plist-get scale :height))
                                                                              (not (cl-some (lambda (p) (financial-chart-labels--overlap-p m p))
-                                                                                           (append placed (plist-get obstacles :markers)))))
+                                                                                           (append placed (plist-get obstacles :markers))))
+                                                                             ;; Its leader crosses no label.
+                                                                             (zerop (car (financial-chart-labels--leader-cost
+                                                                                          scale (plist-put (copy-sequence row) :time
+                                                                                                           (+ (plist-get row :time) (* d x-per-px)))
+                                                                                          k m placed leader-segs price-per-px))))
                                                                    return k))
                                          0))))
                            (push (financial-chart-labels--shift (financial-chart-labels--shift-x box d) k) placed)
+                           (unless (zerop k)
+                             (push (cdr (financial-chart-labels--leader-cost
+                                         scale (plist-put (copy-sequence row) :time (+ (plist-get row :time) (* d x-per-px)))
+                                         k box nil nil price-per-px))
+                                   leader-segs))
                            (let ((row (if (zerop d) row
                                         (plist-put (copy-sequence row) :time (+ (plist-get row :time) (* d x-per-px))))))
                              (if (zerop k) row
@@ -291,14 +329,18 @@ that moved gets a leader line back to its place."
                                                                   (and (>= (nth 1 m) 0)
                                                                        (<= (nth 3 m) (plist-get scale :height)))))
                                                     ks))
+                                (total (lambda (k) (let ((m (financial-chart-labels--shift box k)))
+                                                     (+ (financial-chart-labels--cost m placed obstacles k)
+                                                        ;; A leader may not cross a label, nor a label a leader.
+                                                        (car (financial-chart-labels--leader-cost
+                                                              scale row k m placed leader-segs price-per-px))))))
                                 (k (or (car (sort (copy-sequence (or inside '(0)))
-                                                  (lambda (a b)
-                                                    (< (financial-chart-labels--cost
-                                                        (financial-chart-labels--shift box a) placed obstacles a)
-                                                       (financial-chart-labels--cost
-                                                        (financial-chart-labels--shift box b) placed obstacles b)))))
+                                                  (lambda (a b) (< (funcall total a) (funcall total b)))))
                                        0)))
                            (push (financial-chart-labels--shift box k) placed)
+                           (unless (zerop k)
+                             (push (cdr (financial-chart-labels--leader-cost scale row k box nil nil price-per-px))
+                                   leader-segs))
                            (if (zerop k) row
                              (let ((y (- (plist-get row :y) (* k price-per-px))))
                                (push (list :time (plist-get row :time) :y (plist-get row :y) :y2 y) leaders)

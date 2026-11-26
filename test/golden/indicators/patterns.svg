@@ -499,20 +499,16 @@
 <text x="338.71" y="222.69" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="358.69" y="240.51" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="372.01" y="279.22" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
-<text x="372.01" y="314.65" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
+<text x="372.01" y="268.81" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
 <text x="391.99" y="267.42" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="451.93" y="335.42" font-size="11" fill="#26a69a" text-anchor="middle">H</text>
 <text x="471.91" y="336.01" font-size="11" fill="#26a69a" text-anchor="middle">BuH</text>
 <text x="491.89" y="369.46" font-size="11" fill="#26a69a" text-anchor="middle">BuE</text>
-<text x="491.89" y="313.21" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
+<text x="491.89" y="359.05" font-size="11" fill="#26a69a" text-anchor="middle">TB</text>
 <text x="531.85" y="355.62" font-size="11" fill="#26a69a" text-anchor="middle">BuE</text>
 <line x1="372.01" y1="240.3" x2="372.01" y2="263.22" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
 </line>
-<line x1="372.01" y1="252.81" x2="372.01" y2="298.65" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
-</line>
 <line x1="491.89" y1="330.54" x2="491.89" y2="353.46" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
-</line>
-<line x1="491.89" y1="343.05" x2="491.89" y2="297.21" stroke="#26a69a" stroke-width="0.6" stroke-opacity="0.6">
 </line>
 <path d="M138.91,281.69L135.75,276.21L142.07,276.21Z" fill="#ef5350">
 </path>
@@ -545,15 +541,13 @@
 <text x="545.17" y="275.81" font-size="11" fill="#ef5350" text-anchor="middle">BeE</text>
 <text x="565.15" y="262.73" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
 <text x="658.39" y="93.89" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
-<text x="658.39" y="150.14" font-size="11" fill="#ef5350" text-anchor="middle">GD</text>
+<text x="658.39" y="104.3" font-size="11" fill="#ef5350" text-anchor="middle">GD</text>
 <text x="685.03" y="131.58" font-size="11" fill="#ef5350" text-anchor="middle">BeH</text>
 <line x1="218.83" y1="171.48" x2="218.83" y2="148.56" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
 </line>
 <line x1="312.07" y1="145.67" x2="312.07" y2="99.83" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
 </line>
 <line x1="658.39" y1="125.81" x2="658.39" y2="102.89" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
-</line>
-<line x1="658.39" y1="113.3" x2="658.39" y2="159.14" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
 </line>
 <line x1="685.03" y1="94.74" x2="685.03" y2="140.58" stroke="#ef5350" stroke-width="0.6" stroke-opacity="0.6">
 </line>
@@ -583,8 +577,8 @@
 </path>
 <text x="125.59" y="268.93" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
 <text x="178.87" y="232.09" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
-<text x="218.83" y="104.13" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
-<text x="278.77" y="80.9" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
+<text x="218.83" y="149.97" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
+<text x="278.77" y="172.58" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
 <text x="358.69" y="175.13" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
 <text x="391.99" y="209.42" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
 <text x="398.65" y="209.08" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
@@ -593,9 +587,7 @@
 <text x="525.19" y="285.15" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
 <text x="611.77" y="194.74" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
 <text x="685.03" y="73.23" font-size="11" fill="#607d8b" text-anchor="middle">D</text>
-<line x1="218.83" y1="158.97" x2="218.83" y2="113.13" stroke="#607d8b" stroke-width="0.6" stroke-opacity="0.6">
-</line>
-<line x1="278.77" y1="135.74" x2="278.77" y2="89.9" stroke="#607d8b" stroke-width="0.6" stroke-opacity="0.6">
+<line x1="278.77" y1="135.74" x2="278.77" y2="181.58" stroke="#607d8b" stroke-width="0.6" stroke-opacity="0.6">
 </line>
 </g>
 <text x="5" y="18" font-size="16" fill="#0b0b0b" font-weight="600" text-anchor="start">Candlestick patterns: bullish under the bar, bearish over it</text>

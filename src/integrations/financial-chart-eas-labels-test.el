@@ -99,5 +99,34 @@
     (should (< (plist-get (cadr rows) :time) 100))
     (should-not (plist-member (car out) :label-pin))))
 
+(ert-deftest financial-chart-labels-pinned-labels-stack-when-sliding-cannot-help ()
+  ;; Three S/R labels on near levels in a pane so narrow no slide fits:
+  ;; they stack instead, never overlapping, each with a leader line.
+  (let* ((scale '(:x0 0 :x1 10 :y0 0.0 :y1 100.0 :width 90 :height 200))
+         (a (financial-chart-labels-pin
+             (financial-chart-labels-test--layer
+              "sr" '((:time 0 :y 50.0 :label "R 185.16 x12") (:time 0 :y 51.0 :label "R 189.07 x11")
+                     (:time 0 :y 52.0 :label "R 193.84 x14"))
+              :align "left" :baseline "bottom" :dx 2)))
+         (out (financial-chart-labels-declutter (list a) scale))
+         (rows (append (plist-get (plist-get (car out) :data) :values) nil))
+         (boxes (mapcar (lambda (r) (financial-chart-labels--box r (plist-get (car out) :mark) scale)) rows)))
+    (should (cl-loop for (b . rest) on boxes always (cl-notany (lambda (c) (financial-chart-labels--overlap-p b c)) rest)))
+    (should (equal (plist-get (cadr out) :name) "sr-leaders"))
+    (should (= (length (plist-get (plist-get (cadr out) :data) :values)) 2))))
+
+(ert-deftest financial-chart-labels-sr-labels-never-overlap-on-the-example ()
+  (let* ((bars (plist-get (financial-chart-catalog-example "fibonacci") :bars))
+         (spec (financial-chart-compose (list :bars bars :price '(:annotations [(:type "support-resistance" :max 6)]))))
+         (layers (append (plist-get (aref (plist-get spec :vconcat) 0) :layer) nil))
+         (scale (financial-chart-labels-scale layers (number-sequence 0 99) "container" 200 (cons 98.63 135.47)))
+         (boxes (cl-loop for l in layers
+                         when (and (financial-chart-labels--text-layer-p l)
+                                   (string-match-p "support-labels\\|resistance-labels" (plist-get l :name)))
+                         append (mapcar (lambda (r) (financial-chart-labels--box r (plist-get l :mark) scale))
+                                        (plist-get (plist-get l :data) :values)))))
+    (should (> (length boxes) 1))
+    (should (cl-loop for (b . rest) on boxes always (cl-notany (lambda (c) (financial-chart-labels--overlap-p b c)) rest)))))
+
 (provide 'financial-chart-eas-labels-test)
 ;;; financial-chart-eas-labels-test.el ends here

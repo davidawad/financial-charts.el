@@ -35,6 +35,7 @@
 (require 'financial-chart-eas-palette)
 (require 'financial-chart-eas-readout)
 (require 'financial-chart-eas-presets)
+(require 'financial-chart-evaluate)
 
 (declare-function eas-agent-register-verb "eas-agent-core")
 (declare-function eas-agent-ok "eas-agent-core")
@@ -63,7 +64,8 @@ left out.  :marker is true for events a view marks on one bar."
                             :label (or (plist-get mark :label)
                                        (car (last (split-string d "\\."))))
                             :direction (plist-get e :direction)
-                            :strength (/ (fround (* 100 (plist-get e :strength))) 100.0))))))
+                            :strength (/ (fround (* 100 (plist-get e :strength))) 100.0)
+                            :verdict (or (plist-get (financial-chart-evidence-verdict d) :status) "untested"))))))
 
 (defun financial-chart-live-markups-p (chart)
   "Non-nil when CHART has an annotation drawn from a detector."
@@ -100,7 +102,10 @@ short label and strength, coloured UP for bullish and DOWN for bearish."
               (seq-map-indexed
                (lambda (e i)
                  (financial-chart-readout--atom
-                  (plist-get e :label) (format "%.2f" (plist-get e :strength))
+                  (plist-get e :label)
+                  (concat (format "%.2f" (plist-get e :strength))
+                          (if (member (plist-get e :verdict) '(nil "untested")) ""
+                            (concat " " (plist-get e :verdict))))
                   (pcase (plist-get e :direction)
                     ("bullish" (list :color up)) ("bearish" (list :color down)) (_ nil))
                   :priority (- (plist-get props :priority) (* i 0.01))))
@@ -214,13 +219,19 @@ keeps them here.")
            :detail (if presets (mapconcat (lambda (p) (format "%s: %s" (car p) (cdr p))) presets "; ")
                      (format "%d presets expand without cycles" (length (financial-chart-presets-list))))
            :remediation (and presets "(financial-chart-presets-lint)"))
-     (list :name "markups:evidence"
-           :status (cond ((null evidence) 'skip) ((file-directory-p evidence) 'pass) (t 'fail))
-           :detail (cond ((null evidence) "no evidence directory set: every detector is untested")
-                         ((file-directory-p evidence) (format "evidence in %s" evidence))
-                         (t (format "%s is not a directory" evidence)))
-           :remediation (and (not (and evidence (file-directory-p evidence)))
-                             "set financial-chart-evidence-directory")))))
+     (let* ((verdicts (and evidence (file-directory-p evidence)
+                           (cl-loop for name in (financial-chart-detector-names)
+                                    for v = (financial-chart-evidence-verdict name)
+                                    when v collect (cons name v))))
+            (stale (cl-loop for (name . v) in verdicts when (eq (plist-get v :stale) t) collect name)))
+       (list :name "markups:evidence"
+             :status (cond ((null evidence) 'skip) ((not (file-directory-p evidence)) 'fail) (stale 'fail) (t 'pass))
+             :detail (cond ((null evidence) "no evidence directory set: every detector is untested")
+                           ((not (file-directory-p evidence)) (format "%s is not a directory" evidence))
+                           (stale (format "stale evidence (code changed or > 90 days): %s" (string-join stale ", ")))
+                           (t (format "%d detectors with evidence in %s, none stale" (length verdicts) evidence)))
+             :remediation (cond ((not (and evidence (file-directory-p evidence))) "set financial-chart-evidence-directory")
+                                (stale "(financial-chart-evaluate DETECTORS UNIVERSE)")))))))
 
 (provide 'financial-chart-eas-live)
 ;;; financial-chart-eas-live.el ends here

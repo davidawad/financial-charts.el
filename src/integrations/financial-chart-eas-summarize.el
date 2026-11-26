@@ -28,8 +28,8 @@
 ;; `financial-chart-series-state-functions' (by indicator) or the
 ;; defaults: a bounded oscillator against its reference levels, anything
 ;; else by its slope over the last 5 bars.  Evidence comes from
-;; `financial-chart-evidence-verdict-function' when set (fc-gty.9),
-;; else "untested".
+;; `financial-chart-evidence-verdict-function' (the newest evidence/v1
+;; record, fc-gty.9), else "untested".
 
 ;;; Code:
 
@@ -42,6 +42,7 @@
 (require 'financial-chart-eas-catalog)
 (require 'financial-chart-eas-presets)
 (require 'financial-chart-eas-markups)
+(require 'financial-chart-evaluate)
 
 (declare-function financial-chart-compose-read "financial-chart-eas-compose" (chart))
 (declare-function financial-chart-compose--bars "financial-chart-eas-compose" (chart))
@@ -59,9 +60,9 @@
 An indicator not listed uses `financial-chart-series-reference-levels'
 or its slope.")
 
-(defvar financial-chart-evidence-verdict-function nil
-  "Function of a detector name returning its evidence plist, or nil.
-Set by the evaluate layer (fc-gty.9); nil means every detector is untested.")
+(defvar financial-chart-evidence-verdict-function #'financial-chart-evidence-verdict
+  "Function of a detector name returning its evidence plist, or nil (untested).
+Default: the newest record in `financial-chart-evidence-directory'.")
 
 (defun financial-chart-summarize--adx-state (values _bars)
   "Trending when the last of VALUES is 25 or more, else ranging."

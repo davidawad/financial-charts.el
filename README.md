@@ -573,6 +573,33 @@ Nearest Fibonacci level 0% at 135.47. rsi 97.64 overbought. sma-7 up,
 sma-20 up, sma-50 up. Last event: pattern.bearish-harami 4 bars ago (untested).
 ```
 
+## Is a markup worth drawing: evidence
+
+```elisp
+(financial-chart-evaluate '("pattern.hammer" "pattern.bullish-engulfing")
+                          '(("TSM" . BARS) ("NVDA" . BARS))
+                          :horizons '(1 5 20) :costs-bps 5 :draws 1000 :in-sample-end 0.7)
+(financial-chart-evidence-verdict "pattern.hammer")   ; newest record: status, p, n, stale
+```
+
+`financial-chart-evaluate` writes one evidence/v1 record per detector
+(content-addressed files in `financial-chart-evidence-directory`, your
+own data; nothing is written without one). Each event is entered at the
+open after its `confirmed_index` and exited at the open H bars later,
+long when bullish and short when bearish, net of `costs-bps` each way;
+the baseline is as many random entries in the same bars with the same
+directions (`draws` times), and `p` the share of draws doing as well.
+The out-of-sample split is fixed before the run, and detectors run
+together are corrected for data snooping with the max statistic over
+the family (after White 2000's Reality Check, with a random-entry
+null): `reality_check_p`. `verdict` is `edge` (out-of-sample excess,
+`reality_check_p` < 0.05, 30 or more trades), `noise` or `untested`.
+The verdict shows in `financial-chart-detectors-describe`, in
+`summarize`, in the readout (`H 0.30 noise`), and a `patterns`
+annotation draws a detector whose verdict is `noise` faded unless it
+says `"show_noise": true`. Prices are used as the bars give them:
+adjust for corporate actions upstream (market-data.el).
+
 ## Markups in a live view
 
 A composed chart whose annotations come from detectors carries its

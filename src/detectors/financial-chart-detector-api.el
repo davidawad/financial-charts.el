@@ -392,9 +392,18 @@ Return (:contract \"chart/v1\" :ok t :data (:events [...]) :next [...]
                                        (if (and (listp v) (keywordp (car v))) v (vconcat (mapcar (lambda (x) (format "%s" x)) v))))
                                       (_ (if (and v (symbolp v) (not (keywordp v))) (symbol-name v) v))))))))
 
+(declare-function financial-chart-evidence-verdict "financial-chart-evaluate" (name &optional directory))
+
+(defun financial-chart-detector-describe-with-verdict (name)
+  "`financial-chart-detector-describe' of NAME with its evidence :verdict."
+  (append (financial-chart-detector-describe name)
+          (list :verdict (or (and (fboundp 'financial-chart-evidence-verdict)
+                                  (financial-chart-evidence-verdict (format "%s" name)))
+                             '(:status "untested")))))
+
 (defun financial-chart-detectors-describe ()
   "Every detector as JSON-ready data, by name."
-  (vconcat (mapcar #'financial-chart-detector-describe (financial-chart-detector-names))))
+  (vconcat (mapcar #'financial-chart-detector-describe-with-verdict (financial-chart-detector-names))))
 
 (defun financial-chart-detector-lint (&optional root)
   "Problems with the registry as (NAME . MESSAGE), empty when clean.

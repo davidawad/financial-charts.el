@@ -649,6 +649,11 @@ of the last bar (`src/integrations/financial-chart-eas-markups.el`):
 | `anchored-vwap` | VWAP from the bar `at`, or `anchor` `low` (default), `high` or `first` of the last `window` bars; needs volume | `at anchor window` |
 | `measure` | a box `from` → `to` labelled with the change, percent and bar count | `from to` |
 
+Labels of every annotation in a pane go through one placement pass
+(`financial-chart-eas-labels.el`): in drawing order, a label whose
+estimated box meets one already placed moves up or down by a label
+height or two, inside the pane, to the first free place.
+
 The plain-list helpers `financial-chart-candle-patterns`,
 `financial-chart-swing-points`, `financial-chart-zigzag`,
 `financial-chart-support-resistance` and `financial-chart-anchored-vwap`

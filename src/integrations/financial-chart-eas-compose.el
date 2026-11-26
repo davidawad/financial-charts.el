@@ -53,6 +53,7 @@
 (require 'financial-chart-eas-markups)
 (require 'financial-chart-eas-presets)
 (require 'financial-chart-eas-trading-time)
+(require 'financial-chart-eas-labels)
 
 (defvar financial-chart-compose-pane-height 70
   "Default height of a pane under the price pane.")
@@ -211,6 +212,14 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
                          (mapcar (lambda (s) (financial-chart-compose--series-layer ctx s legend))
                                  series)
                          (financial-chart-annotation-layers ctx pane (plist-get spec :name) (plist-get spec :path))))
+         (layers (if (seq-some #'financial-chart-labels--text-layer-p layers)
+                     (financial-chart-labels-declutter
+                      layers (financial-chart-labels-scale
+                              layers (financial-chart-shift-xs ctx) (plist-get ctx :width) (plist-get spec :height)
+                              (let ((d (plist-get spec :domain)))
+                                (cond (d (cons (elt d 0) (elt d 1)))
+                                      ((equal (plist-get spec :path) "/price") (financial-chart-annotation--range ctx))))))
+                   layers))
          (layers (financial-chart-compose--y-domain layers (plist-get spec :domain))))
     (when-let* ((title (plist-get spec :title)))
       (setq layers (cons (let ((first (car layers)))

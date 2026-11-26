@@ -567,6 +567,24 @@ Nearest Fibonacci level 0% at 135.47. rsi 97.64 overbought. sma-7 up,
 sma-20 up, sma-50 up. Last event: pattern.bearish-harami 4 bars ago (untested).
 ```
 
+## Markups in a live view
+
+A composed chart whose annotations come from detectors carries its
+events in `x-eas.markups`, and its hover readout gains `markup-events`:
+the pattern, pivot and VWAP-cross events on the hovered bar
+(`H 0.30`), coloured by direction. Marker and level rows carry the
+event `id`, so eas `inspect` (the hovered row) and `selection` name
+them. Two more verbs on the eas agent door:
+
+```sh
+emacsclient --eval '(eas-agent-json "markups" "fc:tsm")' | jq -r .   # events, and those on the hovered bar
+emacsclient --eval '(eas-agent-json "focus" "fc:tsm" "pattern.hammer@2026-04-27")' | jq -r .   # zoom to it
+```
+
+`(financial-chart-doctor)` adds `markups:registry` (the detector
+lint), `markups:oracle` (TA-Lib goldens, in a checkout),
+`markups:presets` and `markups:evidence`.
+
 ## Automatic levels, candlestick patterns and drawing tools
 
 The annotation `type`s that draw them, plus drawing tools computed as

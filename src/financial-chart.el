@@ -149,13 +149,17 @@ entry points.  Lists are vectors, so the result round-trips `json-encode'."
                                financial-chart-entry-points))))
 
 ;;;###autoload
+(declare-function financial-chart-markups-doctor-checks "financial-chart-eas-live" ())
+
 (defun financial-chart-doctor-checks ()
   "Every package health row: (:name :status :detail :remediation), :status
-pass, fail or skip.  Covers chart kinds, template parity and cohorts.
+pass, fail or skip.  Covers chart kinds, template parity, cohorts and the
+markups tower (detector registry, TA-Lib oracle, presets, evidence).
 No network."
   (append (financial-chart-plot-doctor-checks)
           (financial-chart-eas-parity-doctor-checks)
-          (financial-chart-cohort-doctor-checks)))
+          (financial-chart-cohort-doctor-checks)
+          (financial-chart-markups-doctor-checks)))
 
 ;;;###autoload
 (defun financial-chart-doctor ()

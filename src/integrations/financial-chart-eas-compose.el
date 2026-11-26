@@ -380,11 +380,14 @@ eas alone (`eas-compile', `bin/eas render SPEC.json').  Signal
                   (not (financial-chart-series-get chart :crosshair)))
        (list :params (financial-chart-compose--params hits)))
      (list :vconcat (vconcat entries))
-     (list :x-eas (list :readout (or (financial-chart-series-get chart :readout)
-                                     (financial-chart-compose--readout
-                                      ctx price panes entries all-series)))))))
+     (let* ((markups (and (financial-chart-live-markups-p chart)
+                          (financial-chart-live-markups chart (plist-get ctx :xs))))
+            (readout (or (financial-chart-series-get chart :readout)
+                         (financial-chart-compose--readout ctx price panes entries all-series markups))))
+       (list :x-eas (append (list :readout readout)
+                            (when markups (list :markups markups))))))))
 
-(defun financial-chart-compose--readout (ctx price panes entries series)
+(defun financial-chart-compose--readout (ctx price panes entries series &optional markups)
   "The hover readout of a composed chart: its x-eas.readout (fc-gy6).
 The bar's prices (`ohlc-readout', the fields PRICE's style draws, in
 CTX's up and down colours), then every SERIES in its colour, bold in
@@ -392,7 +395,7 @@ the pane under the cursor (ENTRIES, one per pane of PRICE and PANES)."
   (let ((pane-name (lambda (p) (plist-get (nth (1+ p) entries) :name))))
     (list :max_lines 1 :component "row"
           :children
-          (vector '(:component "text" :props (:text (:expr "at") :priority 10 :style (:dim t)))
+          (vconcat (delq nil (list '(:component "text" :props (:text (:expr "at") :priority 10 :style (:dim t)))
                   (list :component "ohlc-readout"
                         :props (list :style (or (financial-chart-series-get price :style) "candles")
                                      :up (plist-get ctx :up) :down (plist-get ctx :down)
@@ -409,7 +412,10 @@ the pane under the cursor (ENTRIES, one per pane of PRICE and PANES)."
                                                 (list :field (plist-get s :column) :label (plist-get s :label)
                                                       :color (plist-get s :color)
                                                       :pane (funcall pane-name (plist-get s :pane))))
-                                              series))))))))
+                                              series))))
+                  (when (> (length markups) 0)
+                    (list :component "markup-events"
+                          :props (list :events markups :up (plist-get ctx :up) :down (plist-get ctx :down))))))))))
 
 (defun financial-chart-compose--params (hits)
   "The shared crosshair and zoom params over the HITS layers."
@@ -514,6 +520,7 @@ Prints the eas spec as JSON, or with --backend text|svg the drawing
     (terpri)))
 
 (require 'financial-chart-eas-summarize)
+(require 'financial-chart-eas-live)
 
 (provide 'financial-chart-eas-compose)
 ;;; financial-chart-eas-compose.el ends here

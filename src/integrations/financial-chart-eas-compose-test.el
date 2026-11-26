@@ -393,5 +393,53 @@
     ;; Every failure is a financial-chart-error.
     (should-error (financial-chart-compose '(:bars [])) :type 'financial-chart-error)))
 
+(defun financial-chart-compose-test--wave (n)
+  "N synthetic daily bars, a deterministic wave with volume."
+  (cl-loop for i from 0 below n
+           for c = (+ 100 (* 8 (sin (/ i 9.0))) (* 3 (sin (/ i 2.3))))
+           for o = (+ c (* 1.5 (sin (* i 1.7))))
+           collect (list :time (format-time-string "%F" (+ 1767225600 (* i 86400)) t)
+                         :open o :high (+ (max o c) 1.2) :low (- (min o c) 1.1) :close c
+                         :volume (+ 1000 (* 300 (abs (sin (/ i 4.0))))))))
+
+;;; Every bar in text (fc-gty.33)
+
+(ert-deftest financial-chart-aggregate-rows-partition-the-bars ()
+  (let* ((bars (financial-chart-compose-test--wave 7))
+         (ctx (list :bars bars :xs (vconcat (number-sequence 0 6))))
+         (rows (append (financial-chart-styles-aggregate-rows ctx 1.75) nil)))
+    ;; 7 bars at 1.75 per run: 4 runs, of bars 0-1, 2-3, 4-5 and 6.
+    (should (= (length rows) 4))
+    (should (equal (mapcar (lambda (r) (plist-get r :open)) rows)
+                   (mapcar (lambda (i) (plist-get (nth i bars) :open)) '(0 2 4 6))))
+    (should (equal (mapcar (lambda (r) (plist-get r :close)) rows)
+                   (mapcar (lambda (i) (plist-get (nth i bars) :close)) '(1 3 5 6))))
+    (should (= (plist-get (car rows) :high) (max (plist-get (nth 0 bars) :high) (plist-get (nth 1 bars) :high))))
+    (should (= (plist-get (car rows) :low) (min (plist-get (nth 0 bars) :low) (plist-get (nth 1 bars) :low))))
+    ;; Evenly spaced, 1.75 bars apart.
+    (should (equal (mapcar (lambda (r) (plist-get r :time)) rows) '(0.375 2.125 3.875 5.625)))))
+
+(ert-deftest financial-chart-text-draws-every-bar ()
+  "300 bars at 80 columns: one aggregated candle per price column."
+  (let* ((chart (list :bars (vconcat (financial-chart-compose-test--wave 300)) :price '(:style "candles")
+                      :panes [(:volume t)]))
+         (scene (eas-compile (financial-chart-compose chart) :target 'text :size '(:cols 80 :rows 24)))
+         (k (financial-chart-compose--text-group scene chart))
+         (cols (/ 300 k)))
+    (should (> k 1))
+    (let* ((financial-chart-styles-aggregate k)
+           (scene (eas-compile (financial-chart-compose chart) :target 'text :size '(:cols 80 :rows 24)))
+           (price (seq-find (lambda (v) (equal (plist-get v :id) "price")) (plist-get scene :views)))
+           (bodies (seq-find (lambda (m) (string-suffix-p "bodies" (or (plist-get m :name) (plist-get m :id) "")))
+                             (plist-get price :marks)))
+           (cw (aref (plist-get (plist-get scene :size) :cell) 0))
+           (xs (mapcar (lambda (it) (floor (+ (plist-get it :x) (/ (plist-get it :w) 2.0)) cw))
+                       (append (plist-get bodies :items) nil))))
+      (should (= (length xs) (round cols)))
+      ;; Each candle in a column of its own.
+      (should (= (length (delete-dups (copy-sequence xs))) (length xs))))
+    ;; The rendered text keeps one body or wick glyph per price column.
+    (should (string-match-p "[█▒│]" (financial-chart-compose-render chart :width 80 :height 24)))))
+
 (provide 'financial-chart-eas-compose-test)
 ;;; financial-chart-eas-compose-test.el ends here

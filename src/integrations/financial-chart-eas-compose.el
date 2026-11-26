@@ -252,11 +252,12 @@ SPEC is (:name :height :base BASE-LAYERS :series SERIES :fills FILLS
                                 (financial-chart-compose--crosshair-rule ctx))))))
 
 (defun financial-chart-compose--volume-layer (ctx)
-  "The volume bars of CTX, coloured like their candle."
-  (list :name "volume" :mark (list :type "bar" :opacity 0.6)
-        :encoding (list :x (financial-chart-styles-x ctx)
-                        :y (list :field "volume" :type "quantitative" :axis '(:tickCount 2))
-                        :color (financial-chart-styles-up-down ctx "open" "close"))))
+  "The volume bars of CTX, coloured like their candle (aggregated with them)."
+  (car (financial-chart-styles--aggregated
+        ctx (list (list :name "volume" :mark (list :type "bar" :opacity 0.6)
+                        :encoding (list :x (financial-chart-styles-x ctx)
+                                        :y (list :field "volume" :type "quantitative" :axis '(:tickCount 2))
+                                        :color (financial-chart-styles-up-down ctx "open" "close")))))))
 
 (defun financial-chart-compose--pane-domain (pane series)
   "PANE's y domain: its \"domain\", else the bounds all its SERIES share."
@@ -488,12 +489,36 @@ the pane under the cursor (ENTRIES, one per pane of PRICE and PANES)."
 BACKEND is `text' (WIDTH columns, HEIGHT rows; default 80x24) or `svg'
 \(WIDTH by HEIGHT pixels, else eas's size).  Return a string; text keeps
 eas's help-echo and datum properties."
-  (let* ((spec (financial-chart-compose chart))
-         (scene (eas-compile spec :target backend
-                             :size (if (eq backend 'text)
-                                       (list :cols (or width 80) :rows (or height 24))
-                                     (and width height (cons width height))))))
+  (let* ((size (if (eq backend 'text) (list :cols (or width 80) :rows (or height 24))
+                 (and width height (cons width height))))
+         (chart (financial-chart-compose-read chart))
+         (spec (financial-chart-compose chart))
+         (scene (eas-compile spec :target backend :size size))
+         ;; Text: more bars than price columns draws each column as one
+         ;; aggregated candle, so no bar is dropped (fc-gty.33).
+         (k (and (eq backend 'text) (financial-chart-compose--text-group scene chart))))
+    (when (and k (> k 1))
+      (let ((financial-chart-styles-aggregate k))
+        (setq scene (eas-compile (financial-chart-compose chart) :target backend :size size))))
     (if (eq backend 'text) (eas-text-render scene) (eas-svg-render scene))))
+
+(defun financial-chart-compose--text-group (scene chart)
+  "Bars per candle (a ratio) so CHART's bars fill the columns of SCENE
+they span.  The span is the price pane's crosshair targets, one per
+bar, from the first bar's column to the last's: a price-tag margin
+after the last bar is not theirs."
+  (let* ((cw (aref (plist-get (plist-get scene :size) :cell) 0))
+         (n (length (financial-chart-series-get chart :bars)))
+         (hit (cl-loop for view across (vconcat (plist-get scene :views))
+                       thereis (seq-find (lambda (m) (and (string-suffix-p "-hit" (or (plist-get m :id) ""))
+                                                         (= (length (plist-get m :items)) n)))
+                                         (plist-get view :marks))))
+         (xs (and hit (cl-loop for item across (vconcat (plist-get hit :items))
+                               for x = (or (plist-get item :x1) (plist-get item :x))
+                               when (numberp x) collect x)))
+         (cols (and xs (1+ (- (floor (apply #'max xs) cw) (floor (apply #'min xs) cw))))))
+    (if (and cols (> cols 0) (> n cols)) (/ n (float cols)) 1)))
+
 
 (defun financial-chart-compose-example (&optional style)
   "The example description for price STYLE (default candles), parsed.

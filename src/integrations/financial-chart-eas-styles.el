@@ -100,7 +100,52 @@ and ha_low extend the high and low to the Heikin-Ashi body."
 
 ;;; Candles and bars
 
+(defvar financial-chart-styles-aggregate 1
+  "Bars per drawn candle, a number: above 1 when the bars outnumber the
+columns of a text render, so every bar shows in an aggregated candle
+\(fc-gty.33; set by `financial-chart-compose-render').")
+
+(defun financial-chart-styles-aggregate-rows (ctx k)
+  "CTX's bars in runs of K (a number) consecutive bars, one OHLC row each.
+Bar I joins run floor(I / K), so N bars make ceiling(N / K) runs of
+one or more whole bars, evenly spaced K bars apart: one per text
+column when K is bars per column.  A row has the first open, the
+highest high, the lowest low, the last close and the mean volume (runs
+of one and of two bars stay comparable)."
+  (let* ((bars (vconcat (plist-get ctx :bars))) (xs (plist-get ctx :xs)) (n (length bars))
+         (runs (ceiling (/ n (float k))))
+         (at (lambda (p)
+               ;; x at fractional bar index P, between its neighbours.
+               (let* ((p (max 0.0 (min (float (1- n)) p))) (i (floor p)) (j (min (1- n) (1+ i))))
+                 (+ (aref xs i) (* (- p i) (- (aref xs j) (aref xs i))))))))
+    (vconcat
+     (cl-loop for g from 0 below runs
+              for start = (ceiling (* g k)) for end = (min n (ceiling (* (1+ g) k)))
+              when (< start end)
+              collect (let ((vols (cl-loop for i from start below end
+                                           for v = (plist-get (aref bars i) :volume)
+                                           when (numberp v) collect v)))
+                        (append
+                         (list :time (funcall at (- (* (+ g 0.5) k) 0.5))
+                               :open (plist-get (aref bars start) :open)
+                               :high (cl-loop for i from start below end maximize (plist-get (aref bars i) :high))
+                               :low (cl-loop for i from start below end minimize (plist-get (aref bars i) :low))
+                               :close (plist-get (aref bars (1- end)) :close))
+                         (when vols (list :volume (/ (apply #'+ vols) (float (length vols)))))))))))
+
+(defun financial-chart-styles--aggregated (ctx layers)
+  "LAYERS drawing CTX's aggregated bars, while
+`financial-chart-styles-aggregate' is above 1."
+  (if (<= financial-chart-styles-aggregate 1) layers
+    (let ((rows (financial-chart-styles-aggregate-rows ctx financial-chart-styles-aggregate)))
+      (mapcar (lambda (l) (append (list :data (list :values rows)) l)) layers))))
+
 (defun financial-chart-styles--candles (ctx o h l c &optional hollow)
+  "Candle layers of CTX over fields O H L C; HOLLOW outlines rising bodies.
+With `financial-chart-styles-aggregate' above 1 they draw aggregated bars."
+  (financial-chart-styles--aggregated ctx (financial-chart-styles--candles-1 ctx o h l c hollow)))
+
+(defun financial-chart-styles--candles-1 (ctx o h l c &optional hollow)
   "Candle layers of CTX over fields O H L C; HOLLOW outlines rising bodies."
   (let ((x (financial-chart-styles-x ctx))
         (colour (financial-chart-styles-up-down ctx o c))

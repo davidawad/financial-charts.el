@@ -259,6 +259,9 @@ what you declare.
   next colour no other series uses. `colors.up`/`colors.down` (or
   `financial-chart-palette-up`/`-down`) colour candles, volume and
   baseline fills.
+- **Text**: more bars than the price pane has columns are drawn one
+  aggregated candle per column (first open, high, low, last close, mean
+  volume), so no bar is dropped.
 
 ```elisp
 (financial-chart-compose CHART)                     ; the eas spec (plist)

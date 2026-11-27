@@ -168,6 +168,42 @@
                                          :color (financial-chart-studies--mix from to (if (> n 1) (/ i (float (1- n))) 0))
                                          :width 1.2)))))
 
+(defun financial-chart-studies-range-52w (ctx)
+  "The 52-week high (up colour) and low (down colour) of CTX as dashed lines."
+  (list :series (list (financial-chart-studies--line ctx "range-high" "high" :color (plist-get ctx :up)
+                                                     :width 1 :dash [6 3])
+                      (financial-chart-studies--line ctx "range-low" "low" :color (plist-get ctx :down)
+                                                     :width 1 :dash [6 3]))))
+
+(defconst financial-chart-studies-squeeze-colors
+  '(("squeeze-mom-pos-rising" . "#00bcd4") ("squeeze-mom-pos-falling" . "#2962ff")
+    ("squeeze-mom-neg-falling" . "#ef5350") ("squeeze-mom-neg-rising" . "#fdd835"))
+  "Carter's four momentum colours: cyan, blue, red, yellow.")
+
+(defun financial-chart-studies-squeeze (ctx)
+  "TTM Squeeze in CTX: the momentum histogram in Carter's four colours, and
+a dot on the zero line, down-coloured while the squeeze is on, up-coloured off."
+  (list :series (append
+                 (cl-loop for (output . colour) in financial-chart-studies-squeeze-colors
+                          collect (financial-chart-studies--line ctx output (substring output 8)
+                                                                 :style "histogram" :color colour))
+                 (list (financial-chart-studies--line ctx "squeeze-on" "on" :style "dots"
+                                                      :color (plist-get ctx :down))
+                       (financial-chart-studies--line ctx "squeeze-off" "off" :style "dots"
+                                                      :color (plist-get ctx :up))))
+        :rules (list (list :y 0 :color financial-chart-studies-rule-color :dash [1 3]))))
+
+(defun financial-chart-studies-elder-impulse (ctx)
+  "Elder's impulse in CTX as a strip of dots.
+Bull is up-coloured, bear down-coloured and neutral blue."
+  (list :series (list (financial-chart-studies--line ctx "impulse-bull" "bull" :style "dots"
+                                                     :color (plist-get ctx :up))
+                      (financial-chart-studies--line ctx "impulse-neutral" "neutral" :style "dots"
+                                                     :color "#2962ff")
+                      (financial-chart-studies--line ctx "impulse-bear" "bear" :style "dots"
+                                                     :color (plist-get ctx :down)))
+        :domain [-1 1]))
+
 ;;; Oscillators
 
 (defun financial-chart-studies--bands (ctx line hi lo mid colour)
@@ -294,6 +330,16 @@
     ("momentum" pane momentum ,(financial-chart-studies--zero-line nil) "Momentum around zero")
     ("cmf" pane chaikin-money-flow ,(financial-chart-studies--zero-line nil t)
      "Chaikin money flow, shaded up above zero and down below")
+    ("range-52w" price range-52w financial-chart-studies-range-52w
+     "52-week high and low (the last 252 bars; the bars so far until then) as dashed lines")
+    ("wilder-rsi" pane wilder-rsi ,(financial-chart-studies--oscillator nil 70 30 50)
+     "RSI with Wilder's smoothing, 70/30 rules, zone and excursions (params: [period], levels: [hi, lo])")
+    ("force-index" pane force-index ,(financial-chart-studies--zero-line nil t)
+     "Elder's force index (13) around zero, shaded up above and down below (params: [period])")
+    ("squeeze" pane ttm-squeeze financial-chart-studies-squeeze
+     "TTM Squeeze momentum histogram and squeeze-on dots (params: [period, bb, kc])")
+    ("elder-impulse" pane elder-impulse financial-chart-studies-elder-impulse
+     "Elder impulse strip: bull, neutral or bear by the EMA and MACD-histogram slopes")
     ("volume" pane nil ,(lambda (_ctx) (list :volume t)) "Volume bars coloured like their candle"))
   "The study catalog: (NAME PLACE INDICATOR FUNCTION DOC).
 PLACE is `price' (an overlay in the price pane's \"studies\") or

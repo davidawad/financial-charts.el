@@ -51,6 +51,7 @@
 (require 'financial-chart-eas-catalog)
 (require 'financial-chart-eas-annotations)
 (require 'financial-chart-eas-markups)
+(require 'financial-chart-eas-setups)
 (require 'financial-chart-eas-presets)
 (require 'financial-chart-eas-trading-time)
 (require 'financial-chart-eas-labels)

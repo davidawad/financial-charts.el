@@ -1,0 +1,36 @@
+{
+  "preset/v1": "connors-rsi2",
+  "doc": "RSI(2) pullback (Larry Connors and Cesar Alvarez, Short Term Trading Strategies That Work, TradingMarkets Publishing 2009). Trade with the long-term trend and buy short-term weakness: with the close above the 200-day SMA, buy when the 2-period RSI closes below 10 (the book tests 5 and 10 and deeper); exit when the close is above the 5-day SMA. The mirror short needs the close under the 200-day SMA and RSI(2) above 90. RSI uses Wilder's smoothing. The pane has the 10 and 90 levels; the 5-day SMA is the exit line and the 200-day the trend filter.",
+  "price": {
+    "style": "candles",
+    "series": [
+      {
+        "indicator": "sma",
+        "params": [
+          200
+        ],
+        "width": 2
+      },
+      {
+        "indicator": "sma",
+        "params": [
+          5
+        ]
+      }
+    ]
+  },
+  "panes": [
+    {
+      "study": "wilder-rsi",
+      "params": [
+        2
+      ],
+      "levels": [
+        90,
+        10
+      ],
+      "height": 80,
+      "title": "RSI (2)"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "preset/v1": "volume-auction",
+  "doc": "Auction market read (J. Peter Steidlmayer and Kevin Koy, Markets and Market Logic, Porcupine Press 1986; James Dalton, Eric Jones and Robert Dalton, Mind Over Markets, Probus 1990). The volume profile spreads each bar's volume over the prices it traded: the point of control (POC) is the busiest price, the value area (VAH to VAL) holds 70% of the volume. Price above the value area is accepted higher, below it lower, and a return into it tends to rotate to the POC. The profile covers all bars on the chart, as a histogram from the right edge. Anchored VWAPs (Brian Shannon, Maximum Trading Gains with Anchored VWAP, 2023) from the lowest low and the highest high show the average price paid since each swing, and automatic support and resistance mark the levels the market has already respected; volume is in the pane.",
+  "price": {
+    "style": "candles",
+    "annotations": [
+      {
+        "type": "volume-profile"
+      },
+      {
+        "type": "anchored-vwap",
+        "anchor": "low",
+        "label": "AVWAP low"
+      },
+      {
+        "type": "anchored-vwap",
+        "anchor": "high",
+        "label": "AVWAP high"
+      },
+      {
+        "type": "support-resistance",
+        "max": 3
+      }
+    ]
+  },
+  "panes": [
+    {
+      "study": "volume",
+      "height": 50
+    }
+  ]
+}

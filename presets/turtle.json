@@ -1,0 +1,71 @@
+{
+  "preset/v1": "turtle",
+  "doc": "Turtle breakout system (Curtis Faith, Way of the Turtle, McGraw-Hill 2007; Richard Dennis's rules). Entry on a price breakout of the highest high or lowest low of the previous N days: System 1 uses 20 days (exit at the 10-day opposite extreme) and System 2 uses 55 days (exit at 20). The Donchian channels of 20 (thin) and 55 (thick) days are drawn one bar late, so each line is the extreme of the previous N bars, the level today's price must break. The pane is N, the Turtles' volatility unit: a 20-day average true range with Wilder's smoothing, N = (19 x previous N + true range) / 20; position size is 1% of equity divided by N in dollars, and the stop is 2N from entry. Pyramiding every 1/2 N is not drawn.",
+  "price": {
+    "style": "candles",
+    "series": [
+      {
+        "indicator": "donchian-channels",
+        "params": [
+          55
+        ],
+        "output": "donchian-upper",
+        "id": "donchian-55.upper",
+        "shift": 1,
+        "width": 2,
+        "color": "#ff6d00"
+      },
+      {
+        "indicator": "donchian-channels",
+        "params": [
+          55
+        ],
+        "output": "donchian-lower",
+        "id": "donchian-55.lower",
+        "shift": 1,
+        "width": 2,
+        "color": "#ff6d00"
+      },
+      {
+        "indicator": "donchian-channels",
+        "params": [
+          20
+        ],
+        "output": "donchian-upper",
+        "id": "donchian-20.upper",
+        "shift": 1,
+        "width": 1.2,
+        "dash": [
+          4,
+          2
+        ],
+        "color": "#2962ff"
+      },
+      {
+        "indicator": "donchian-channels",
+        "params": [
+          20
+        ],
+        "output": "donchian-lower",
+        "id": "donchian-20.lower",
+        "shift": 1,
+        "width": 1.2,
+        "dash": [
+          4,
+          2
+        ],
+        "color": "#2962ff"
+      }
+    ]
+  },
+  "panes": [
+    {
+      "study": "atr",
+      "params": [
+        20
+      ],
+      "height": 70,
+      "title": "N = ATR 20"
+    }
+  ]
+}

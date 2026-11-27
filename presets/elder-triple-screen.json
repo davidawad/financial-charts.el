@@ -1,0 +1,44 @@
+{
+  "preset/v1": "elder-triple-screen",
+  "doc": "Triple Screen (Alexander Elder, Trading for a Living, Wiley 1993). Screen one finds the tide on the longer time frame (weekly) by the slope of a 13-period EMA and of the MACD (12, 26, 9) histogram: trade only with it. Screen two, the wave, uses an oscillator against the tide on the shorter frame (daily): the 2-period EMA of force index (price change times volume) below zero in an uptide is a buy zone. Screen three is a trailing buy-stop above the prior bar's high (not drawn). This preset is the shorter frame: EMA 13 and 26, MACD histogram and force index(2) panes, and Elder's impulse system as a strip of dots (Come Into My Trading Room, Wiley 2002): green when both the EMA 13 and the MACD histogram rise, red when both fall, blue otherwise; green bars forbid selling, red forbid buying. Screen one needs weekly bars: supply them to compose the same preset on the longer frame.",
+  "price": {
+    "style": "candles",
+    "series": [
+      {
+        "indicator": "ema",
+        "params": [
+          13
+        ]
+      },
+      {
+        "indicator": "ema",
+        "params": [
+          26
+        ],
+        "dash": [
+          4,
+          2
+        ]
+      }
+    ]
+  },
+  "panes": [
+    {
+      "study": "macd",
+      "height": 80
+    },
+    {
+      "study": "force-index",
+      "params": [
+        2
+      ],
+      "height": 70,
+      "title": "Force index (2)"
+    },
+    {
+      "study": "elder-impulse",
+      "height": 26,
+      "title": "Impulse"
+    }
+  ]
+}

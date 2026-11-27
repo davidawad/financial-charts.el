@@ -1,0 +1,30 @@
+{
+  "preset/v1": "golden-cross",
+  "doc": "Golden cross and death cross (John Murphy, Technical Analysis of the Financial Markets, New York Institute of Finance 1999): the 50-day SMA crossing above the 200-day SMA is the golden cross, a long-term bullish signal, and crossing below it the death cross. Both averages are drawn, with a triangle under the bar of each golden cross and over the bar of each death cross. A cross is a lagging signal: both averages are slow, so the move is often under way when it fires. It needs 200 bars before the first value.",
+  "price": {
+    "style": "candles",
+    "series": [
+      {
+        "indicator": "sma",
+        "params": [
+          50
+        ]
+      },
+      {
+        "indicator": "sma",
+        "params": [
+          200
+        ],
+        "width": 2
+      }
+    ],
+    "annotations": [
+      {
+        "type": "ma-cross",
+        "fast": 50,
+        "slow": 200
+      }
+    ]
+  },
+  "panes": []
+}

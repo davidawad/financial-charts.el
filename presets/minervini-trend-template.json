@@ -1,0 +1,37 @@
+{
+  "preset/v1": "minervini-trend-template",
+  "doc": "Trend Template (Mark Minervini, Trade Like a Stock Market Wizard, McGraw-Hill 2013). A stage-2 uptrend candidate meets all of: price above the 150-day and 200-day SMAs; 150-day above 200-day; 200-day rising for at least a month; 50-day above 150-day and 200-day; price above the 50-day; price at least 30% above its 52-week low; price within 25% of its 52-week high; relative strength rating of 70 or more. This preset draws the SMAs 50, 150 and 200 and the 52-week high and low (the highest high and lowest low of the last 252 bars; on fewer bars, the bars so far) with a volume pane, so the moving-average and 52-week conditions can be read off. The 30% and 25% distances and the relative strength rating (a rank against other stocks) are not drawn.",
+  "price": {
+    "style": "candles",
+    "series": [
+      {
+        "indicator": "sma",
+        "params": [
+          50
+        ]
+      },
+      {
+        "indicator": "sma",
+        "params": [
+          150
+        ]
+      },
+      {
+        "indicator": "sma",
+        "params": [
+          200
+        ],
+        "width": 2
+      }
+    ],
+    "studies": [
+      "range-52w"
+    ]
+  },
+  "panes": [
+    {
+      "study": "volume",
+      "height": 50
+    }
+  ]
+}

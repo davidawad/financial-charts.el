@@ -430,8 +430,9 @@ not write by hand, and the result is one plain eas spec.
   1 and 2 deviation bands), `pivots` (`classic`, `fibonacci`, `woodie`
   or `camarilla` from the previous `day`, `week`, `month`, `year` or N
   bars), `supertrend` (the trailing stop in the trend's colour), `psar`
-  (dots up-coloured under price, down-coloured over it) and `ma-ribbon`
-  (`["ema", 10, 20, ...]`, a colour ramp).
+  (dots up-coloured under price, down-coloured over it), `ma-ribbon`
+  (`["ema", 10, 20, ...]`, a colour ramp) and `range-52w` (the highest
+  high and lowest low of the last 252 bars; the bars so far until then).
 - **Oscillator panes** (`{"study": NAME}` is a pane; `studies` puts
   several in one): `rsi` (70/30), `stochastic` (80/20), `cci` (±100),
   `williams-r` (-20/-80), `mfi` (80/20), `ultimate-oscillator` (70/30)
@@ -439,7 +440,11 @@ not write by hand, and the result is one plain eas spec.
   overbought/oversold excursions filled; `macd` (line, signal and an
   up/down histogram on a zero rule), `adx` (ADX, +DI up-coloured, -DI
   down-coloured, a 25 rule), `aroon`, `obv`, `atr`, `roc`, `momentum`,
-  `cmf` and `volume`.
+  `cmf` and `volume`; `wilder-rsi` (RSI with Wilder's smoothing; the
+  `rsi` study is the simple-average variant), `force-index` (Elder, 13),
+  `squeeze` (Carter's TTM Squeeze momentum in four colours with
+  squeeze-on dots) and `elder-impulse` (a strip of bull, neutral and
+  bear dots).
 - A study takes `params` (the indicator's), `id` (its series are
   `ID.PART`: `bollinger.upper`, `ichimoku.senkou-a`; the default id is
   the name and params), `levels` (`[upper, lower]`) and `values`
@@ -671,6 +676,8 @@ of the last bar (`src/integrations/financial-chart-eas-markups.el`):
 | `channel` | a parallel channel on `from`/`to` through `through` or `offset`, else `channel.regression` as of the last bar; its lines are cut to the bars' price range (so they never rescale the chart) unless `"clip": false` | `from to through offset window extend clip` |
 | `anchored-vwap` | VWAP from the bar `at`, or `anchor` `low` (default), `high` or `first` of the last `window` bars; needs volume | `at anchor window` |
 | `measure` | a box `from` → `to` labelled with the change, percent and bar count | `from to` |
+| `ma-cross` | `cross.ma`: a triangle under the bar where the `fast` (50) average crosses above the `slow` (200) one (golden cross) and over the bar where it crosses below (death cross); `average` `sma` or `ema` | `fast slow average since labels color` |
+| `volume-profile` | `profile.volume` as of the last bar: the value area shaded, the point of control and the value area's high and low as levels, and the volume by price as a histogram from the `side` edge (`right` default); needs volume | `window bins value_area side width histogram color` |
 
 Level, Fibonacci and S/R labels stay on their line and slide along it,
 by label widths but never past the line's own ends, off each other,
@@ -723,6 +730,24 @@ expected. Shipped:
 | `reversal` | Bollinger Bands, support/resistance zones, reversal patterns; RSI and stochastic panes |
 | `fibonacci` | retracement, extension and time zones |
 | `anchored-vwap` | VWAP anchored at the lowest low and at the highest high |
+
+Named technical-analysis setups, each a published method whose `doc`
+cites its source (book, author, year) and gives the canonical
+parameters, and says what the preset cannot draw:
+
+| preset | setup | source |
+|---|---|---|
+| `ichimoku` | Ichimoku Kinko Hyo 9/26/52, displacement 26, cloud and chikou | Hosoda 1969; Elliott 2007 |
+| `ichimoku-rsi-vwap` | Ichimoku, a Wilder RSI(14) pane, and anchored VWAPs from the swing low and high (a session VWAP is meaningless on daily bars) | Hosoda 1969; Wilder 1978; Shannon 2023 |
+| `squeeze` | TTM Squeeze: Bollinger (20, 2) inside Keltner (20, 1.5), momentum histogram | Carter 2005 |
+| `turtle` | Donchian 20 and 55 (the previous N bars' extreme), ATR(20) as N | Faith 2007 |
+| `elder-triple-screen` | EMA 13/26, MACD histogram, force index(2), impulse strip | Elder 1993, 2002 |
+| `minervini-trend-template` | SMA 50/150/200, 52-week high and low, volume | Minervini 2013 |
+| `weinstein-stage` | 150-day (30-week) SMA and volume; no benchmark relative strength | Weinstein 1988 |
+| `connors-rsi2` | RSI(2) with 10/90 levels, SMA 200 and SMA 5 | Connors and Alvarez 2009 |
+| `golden-cross` | SMA 50/200 with golden and death crosses marked | Murphy 1999 |
+| `supertrend-adx` | SuperTrend (10, 3) with ADX and the DI lines (14) | Wilder 1978 |
+| `volume-auction` | volume profile (POC, value area), anchored VWAPs, support and resistance | Steidlmayer and Koy 1986; Dalton, Jones and Dalton 1990 |
 
 `(financial-chart-presets-list)`, `(financial-chart-presets-describe)`
 and `(financial-chart-presets-lint)` list and check them.

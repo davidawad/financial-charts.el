@@ -1,0 +1,56 @@
+{
+  "preset/v1": "squeeze",
+  "doc": "TTM Squeeze (John Carter, Mastering the Trade, McGraw-Hill 2005, the squeeze setup). The squeeze is on while the Bollinger Bands (20, 2 standard deviations) sit inside the Keltner Channels (20, 1.5 average true ranges): volatility is compressed and a move is coiling. Price pane: Bollinger Bands solid and Keltner Channels dashed; pane: the momentum histogram (the least-squares line through close minus the mean of the 20-bar midrange and the 20-bar SMA, in Carter's four colours: cyan up and rising, blue up and falling, red down and falling, yellow down and rising) with a dot on the zero line, red while the squeeze is on and green when it is off. Trade the first bar after the dots turn green in the direction of the momentum. Carter's momentum formula is not published in full; this is the widely used regression form, and the Keltner midline is a 20-bar SMA with a Wilder ATR(20), not an EMA.",
+  "price": {
+    "style": "candles",
+    "series": [
+      {
+        "indicator": "ttm-squeeze",
+        "output": "squeeze-bb-upper",
+        "id": "bb.upper",
+        "width": 1,
+        "color": "#2962ff"
+      },
+      {
+        "indicator": "ttm-squeeze",
+        "output": "squeeze-bb-lower",
+        "id": "bb.lower",
+        "width": 1,
+        "color": "#2962ff"
+      },
+      {
+        "indicator": "ttm-squeeze",
+        "output": "squeeze-kc-upper",
+        "id": "kc.upper",
+        "width": 1,
+        "color": "#ff9800",
+        "dash": [
+          4,
+          2
+        ]
+      },
+      {
+        "indicator": "ttm-squeeze",
+        "output": "squeeze-kc-lower",
+        "id": "kc.lower",
+        "width": 1,
+        "color": "#ff9800",
+        "dash": [
+          4,
+          2
+        ]
+      }
+    ]
+  },
+  "panes": [
+    {
+      "study": "squeeze",
+      "params": [
+        20,
+        2,
+        1.5
+      ],
+      "height": 90
+    }
+  ]
+}

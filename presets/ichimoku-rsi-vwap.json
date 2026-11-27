@@ -1,0 +1,31 @@
+{
+  "preset/v1": "ichimoku-rsi-vwap",
+  "doc": "Ichimoku with RSI(14) and VWAP. Ichimoku Kinko Hyo 9/26/52, displacement 26 (Goichi Hosoda 1969; Nicole Elliott, Ichimoku Charts, 2007); RSI(14) in a pane with Wilder's smoothing and 70/30 levels (J. Welles Wilder, New Concepts in Technical Trading Systems, Trend Research 1978). A session VWAP resets every day, so on daily bars it is one point per bar and says nothing: the VWAP here is therefore anchored (Brian Shannon, Maximum Trading Gains with Anchored VWAP, 2023), once at the lowest low of the bars and once at the highest high (the main swing low and high), each volume-weighted from its anchor to the last bar. Anchored at the low it is the average price paid by everyone who bought since the low; price above it favours buyers. On intraday bars use a session VWAP (the vwap indicator) instead.",
+  "price": {
+    "style": "candles",
+    "studies": [
+      "ichimoku"
+    ],
+    "annotations": [
+      {
+        "type": "anchored-vwap",
+        "anchor": "low",
+        "label": "AVWAP swing low"
+      },
+      {
+        "type": "anchored-vwap",
+        "anchor": "high",
+        "label": "AVWAP swing high"
+      }
+    ]
+  },
+  "panes": [
+    {
+      "study": "wilder-rsi",
+      "params": [
+        14
+      ],
+      "height": 80
+    }
+  ]
+}

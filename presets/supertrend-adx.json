@@ -1,0 +1,19 @@
+{
+  "preset/v1": "supertrend-adx",
+  "doc": "SuperTrend with ADX. SuperTrend (period 10, multiplier 3): an average-true-range trailing stop that flips when the close crosses it, the indicator widely attributed to Olivier Seban (the 10, 3 default is TradingView's); the line under price is the long stop, over price the short stop. ADX with +DI and -DI (14) from J. Welles Wilder, New Concepts in Technical Trading Systems, Trend Research 1978: ADX above 25 means a trend worth following and +DI over -DI an up-trend; take SuperTrend flips only while ADX is above 25 and rising, and treat them as noise in a range (ADX below 20).",
+  "price": {
+    "style": "candles",
+    "studies": [
+      "supertrend"
+    ]
+  },
+  "panes": [
+    {
+      "study": "adx",
+      "params": [
+        14
+      ],
+      "height": 90
+    }
+  ]
+}

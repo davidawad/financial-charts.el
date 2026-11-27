@@ -1,0 +1,22 @@
+{
+  "preset/v1": "weinstein-stage",
+  "doc": "Stage analysis (Stan Weinstein, Secrets for Profiting in Bull and Bear Markets, Dow Jones-Irwin 1988). On the weekly chart the 30-week moving average and volume classify four stages: stage 1, a base, price flat around a flat average; stage 2, the advance, price breaks above the average on expanding volume and the average turns up (the buy stage); stage 3, the top, price chops around a flattening average; stage 4, the decline, price below a falling average (avoid or sell). This preset draws the 150-day SMA (30 weeks of five days) on daily bars and a volume pane. Weinstein's Mansfield relative strength, the stock against a benchmark index (a zero line, positive when the stock leads), is not drawn: a chart takes one set of bars and has no benchmark series.",
+  "price": {
+    "style": "candles",
+    "series": [
+      {
+        "indicator": "sma",
+        "params": [
+          150
+        ],
+        "width": 2
+      }
+    ]
+  },
+  "panes": [
+    {
+      "study": "volume",
+      "height": 60
+    }
+  ]
+}

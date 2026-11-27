@@ -1,0 +1,16 @@
+{
+  "preset/v1": "ichimoku",
+  "doc": "Ichimoku Kinko Hyo (Goichi Hosoda, Ichimoku Kinko Hyo, 1969; in English Nicole Elliott, Ichimoku Charts, Harriman House 2007). Canonical parameters 9/26/52 with displacement 26: Tenkan-sen is the midpoint of the 9-bar high and low, Kijun-sen of the 26-bar; Senkou Span A is their mean and Span B the 52-bar midpoint, both drawn 26 bars ahead, the cloud (kumo) between them coloured by which span leads; Chikou Span is the close drawn 26 bars back. Read: price above the cloud is bullish, below bearish, inside neutral; Tenkan over Kijun is the signal line; the Chikou clear of the price of 26 bars ago confirms. The 9/26/52 bar counts are Hosoda's, set for a six-day trading week; this preset keeps them on daily bars.",
+  "price": {
+    "style": "candles",
+    "studies": [
+      "ichimoku"
+    ]
+  },
+  "panes": [
+    {
+      "study": "volume",
+      "height": 50
+    }
+  ]
+}

@@ -1,5 +1,11 @@
 ;;; render-tsmc-chart.el --- Regenerate README TSMC chart -*- lexical-binding: t; -*-
 
+;; A batch script: it writes the README images when loaded, so a load
+;; in an interactive session (say, reloading every file) refuses.
+(unless noninteractive
+  (user-error "%s regenerates README images; run it with emacs --batch -l"
+              (file-name-nondirectory (or load-file-name buffer-file-name ""))))
+
 (let* ((here (file-name-directory (or load-file-name buffer-file-name)))
        (root (expand-file-name "../.." here)))
   (add-to-list 'load-path (expand-file-name "src" root))

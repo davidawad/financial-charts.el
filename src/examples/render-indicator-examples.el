@@ -1,5 +1,11 @@
 ;;; render-indicator-examples.el --- Regenerate indicator showcase PNGs -*- lexical-binding: t; -*-
 
+;; A batch script: it writes the README images when loaded, so a load
+;; in an interactive session (say, reloading every file) refuses.
+(unless noninteractive
+  (user-error "%s regenerates README images; run it with emacs --batch -l"
+              (file-name-nondirectory (or load-file-name buffer-file-name ""))))
+
 (require 'cl-lib)
 (require 'subr-x)
 

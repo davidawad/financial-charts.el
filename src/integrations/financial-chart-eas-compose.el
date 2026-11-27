@@ -149,8 +149,11 @@ DATES, the bars' epoch ms on a trading-time axis, add a date field."
     (append
      (list :name (format "series-%s" (plist-get s :id)))
      (financial-chart-shift-layer-data ctx s)
-     (list :transform (vector (list :filter (format "isValid(datum.%s)" field)))
-           :mark (cl-loop for (k v) on mark by #'cddr unless (null v) append (list k v))
+     ;; A line keeps its null rows so eas breaks the path there: a series
+     ;; with gaps (SuperTrend's legs) never draws a segment across one.
+     (unless (equal (plist-get mark :type) "line")
+       (list :transform (vector (list :filter (format "isValid(datum.%s)" field)))))
+     (list :mark (cl-loop for (k v) on mark by #'cddr unless (null v) append (list k v))
            :encoding (list :x (financial-chart-styles-x ctx)
                            :y (financial-chart-styles-y field)
                            :color colour)))))

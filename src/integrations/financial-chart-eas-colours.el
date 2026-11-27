@@ -46,11 +46,22 @@
            financial-chart-colours-min-distance)
       (equal a b))))
 
+(defun financial-chart-colours--distance (a b)
+  "RGB distance of hex colours A and B, or nil when either is not hex."
+  (let ((x (financial-chart-colours--rgb a)) (y (financial-chart-colours--rgb b)))
+    (and x y (sqrt (apply #'+ (cl-mapcar (lambda (p q) (expt (- p q) 2)) x y))))))
+
 (defun financial-chart-colours-pick (used)
-  "The first palette colour not close to any of USED (else not equal to one)."
+  "The first palette colour not close to any of USED.
+When every palette colour is close to one (a small palette, a busy
+pane), the unused one farthest from its nearest USED colour."
   (or (cl-find-if (lambda (c) (not (cl-some (lambda (u) (financial-chart-colours-near-p c u)) used)))
                   financial-chart-palette)
-      (cl-find-if (lambda (c) (not (member c used))) financial-chart-palette)
+      (let ((free (cl-remove-if (lambda (c) (member c used)) financial-chart-palette)))
+        (cl-flet ((gap (c) (or (cl-loop for u in used for d = (financial-chart-colours--distance c u)
+                                        when d minimize d)
+                               0)))
+          (car (sort (copy-sequence free) (lambda (a b) (> (gap a) (gap b)))))))
       (car financial-chart-palette)))
 
 (defun financial-chart-colours--group (s)

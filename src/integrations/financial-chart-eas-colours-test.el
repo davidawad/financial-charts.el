@@ -29,6 +29,18 @@
   (should (equal (financial-chart-colours-pick '("#2962ff")) "#ff9800"))
   (should (equal (financial-chart-colours-pick nil) (car financial-chart-palette))))
 
+(ert-deftest financial-chart-colours-pick-farthest-when-palette-is-spent ()
+  "fc-2u6: gruvbox's twelve colours are all close to one of Ichimoku's
+five, so an anchored VWAP took the first unused one, an orange beside
+Chikou's.  It takes the colour farthest from every colour in use."
+  (let ((financial-chart-palette '("#83a598" "#fe8019" "#d3869b" "#8ec07c" "#fabd2f" "#bdae93"
+                                   "#458588" "#d65d0e" "#b16286" "#689d6a" "#d79921" "#a89984"))
+        (used '("#83a598" "#d3869b" "#d65d0e" "#b8bb26" "#fb4934")))
+    (let ((c (financial-chart-colours-pick used)))
+      (should-not (member c used))
+      (should-not (equal c "#fe8019"))
+      (should (equal c "#458588")))))
+
 (ert-deftest financial-chart-colours-overlays-are-distinct ()
   (let* ((bars (plist-get (financial-chart-catalog-example "fibonacci") :bars))
          (spec (financial-chart-compose

@@ -497,6 +497,7 @@ error."
 (require 'financial-chart-volatility)
 (require 'financial-chart-trend-strength)
 (require 'financial-chart-volume-indicators)
+(require 'financial-chart-setups)
 
 (provide 'financial-chart-indicators)
 ;;; financial-chart-indicators.el ends here
